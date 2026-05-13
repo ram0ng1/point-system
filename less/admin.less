@@ -1,0 +1,399 @@
+@import 'common/decorations.less';
+
+.PointSystemAdmin {
+  // ── Form controls inside any PointSystemAdmin panel ──────────────────────
+  // Give inputs a clear edge regardless of what background sits behind them,
+  // so they never blend into a card that uses the same control-bg variable.
+  .FormControl {
+    background: var(--body-bg, #fff);
+    border: 1px solid var(--control-bg, #d0d0d0);
+    border-radius: 6px;
+    padding: 8px 12px;
+    width: 100%;
+    transition: border-color 0.15s, box-shadow 0.15s;
+
+    &:focus {
+      border-color: var(--primary-color, #6cc04a);
+      box-shadow: 0 0 0 3px fade(#6cc04a, 18%);
+      outline: none;
+    }
+  }
+
+  textarea.FormControl {
+    min-height: 100px;
+    line-height: 1.5;
+  }
+
+  select.FormControl {
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, #888 50%),
+      linear-gradient(135deg, #888 50%, transparent 50%);
+    background-position: calc(100% - 18px) 50%, calc(100% - 12px) 50%;
+    background-size: 6px 6px;
+    background-repeat: no-repeat;
+    padding-right: 32px;
+    cursor: pointer;
+  }
+
+  input[type='file'] {
+    display: inline-block;
+    padding: 8px 10px;
+    background: var(--body-bg, #fff);
+    border: 1px dashed var(--control-bg, #c8c8c8);
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    max-width: 560px;
+    width: 100%;
+
+    &::file-selector-button {
+      margin-right: 12px;
+      padding: 6px 12px;
+      background: var(--control-bg, #eee);
+      border: 1px solid var(--control-bg, #ccc);
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+
+      &:hover {
+        background: darken(#eee, 5%);
+      }
+    }
+  }
+
+  &-body {
+    padding-top: 24px;
+  }
+
+  &-section {
+    background: var(--body-bg, #fff);
+    border: 1px solid var(--control-bg, #e8e8e8);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  &-section-header {
+    margin-bottom: 16px;
+
+    h2 {
+      margin: 0 0 6px;
+      font-size: 18px;
+    }
+  }
+
+  &-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  &-field label {
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  &-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  &-uploader {
+    background: var(--body-bg, #fff);
+    border: 1px solid var(--control-bg, #e0e0e0);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+
+    h3 {
+      margin-top: 0;
+      margin-bottom: 14px;
+      font-size: 15px;
+      color: var(--text-color, #222);
+    }
+
+    .Form-group {
+      margin-bottom: 14px;
+      max-width: 560px;
+
+      label {
+        display: block;
+        font-weight: 600;
+        font-size: 13px;
+        margin-bottom: 6px;
+        color: var(--text-color, #333);
+      }
+
+      .helpText {
+        margin-top: 4px;
+        font-size: 12px;
+        color: var(--muted-color, #888);
+      }
+    }
+  }
+
+  &-empty {
+    color: var(--muted-color, #999);
+    padding: 16px;
+    text-align: center;
+    background: var(--body-bg, #fff);
+    border: 1px dashed var(--control-bg, #d8d8d8);
+    border-radius: 8px;
+  }
+
+  &-decoGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+  }
+
+  &-decoCard {
+    background: var(--body-bg, #fff);
+    border: 1px solid var(--control-bg, #e0e0e0);
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    &.is-disabled {
+      opacity: 0.55;
+    }
+
+    &-meta strong {
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    &-preview {
+      aspect-ratio: 1 / 1;
+      background: var(--control-bg, #f5f5f5);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+
+      img {
+        max-width: 100%;
+        max-height: 100%;
+      }
+    }
+
+    &-meta {
+      font-size: 12px;
+      color: var(--muted-color, #888);
+    }
+
+    &-priceRow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      label {
+        flex: 0 0 auto;
+        margin: 0;
+        font-size: 12px;
+      }
+
+      input {
+        flex: 1 1 auto;
+      }
+    }
+
+    &-actions {
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+    }
+  }
+
+  &-css {
+    font-family: monospace;
+    font-size: 13px;
+  }
+
+  &-preview {
+    margin: 8px 0 16px;
+    padding: 12px 14px;
+    background: var(--body-bg, #fff);
+    border: 1px solid var(--control-bg, #e0e0e0);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+
+    > span:first-child {
+      color: var(--muted-color, #888);
+      font-weight: 500;
+    }
+  }
+
+  &-table {
+    width: 100%;
+    border-collapse: collapse;
+
+    th,
+    td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--control-bg, #eee);
+    }
+
+    th {
+      font-weight: 600;
+      color: var(--muted-color, #555);
+    }
+  }
+
+  &-result {
+    margin-top: 16px;
+    padding: 12px;
+    background: var(--success-bg, #d4edda);
+    border-radius: 8px;
+  }
+}
+
+// ── Edit form lives OUTSIDE the auto-fill grid (own block, full width)
+// so its layout never collapses into a single grid cell.
+.PointSystemAdmin-decoCard--editing {
+  display: block;
+  width: 100%;
+  margin: 0 0 20px;
+  padding: 18px 20px;
+  background: var(--body-bg, #fff);
+  border: 1px solid var(--primary-color, #6cc04a) !important;
+  border-radius: 10px;
+  box-shadow: 0 0 0 3px rgba(108, 192, 74, 0.12);
+
+  .PointSystemAdmin-decoCard-preview {
+    max-width: 220px;
+    margin-bottom: 14px;
+  }
+
+  .Form-group {
+    margin-bottom: 14px;
+    max-width: 640px;
+
+    label {
+      display: block;
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+  }
+
+  .PointSystemAdmin-decoCard-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+}
+
+// ── Admin sub-navigation (pill links, same pattern as marketplace) ─────────
+.PointSystemAdminNav {
+  display: flex;
+  gap: 4px;
+  padding: 16px 28px;
+  border-bottom: 1px solid var(--control-bg, #e5e5e5);
+  background: var(--header-bg, #f7f7f7);
+  flex-wrap: wrap;
+
+  &-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    border-radius: 999px;
+    color: var(--muted-color, #666);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 14px;
+    transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
+
+    i {
+      opacity: 0.7;
+      font-size: 13px;
+    }
+
+    &:hover {
+      background: var(--control-bg, #ececec);
+      color: var(--text-color, #222);
+      text-decoration: none;
+    }
+
+    &.active {
+      background: var(--primary-color, #6cc04a);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(108, 192, 74, 0.3);
+
+      i {
+        opacity: 1;
+      }
+    }
+  }
+}
+
+// ── Users panel ─────────────────────────────────────────────────────────────
+.PointSystemAdmin-usersToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  align-items: center;
+
+  .PointSystemAdmin-usersSearch {
+    flex: 1 1 240px;
+    min-width: 200px;
+  }
+
+  .PointSystemAdmin-usersFilter {
+    flex: 0 0 auto;
+    width: auto;
+  }
+}
+
+.PointSystemAdmin-usersRowUser {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .Avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+    background-color: var(--avatar-bg, #888);
+  }
+
+  strong { display: block; }
+  small { color: var(--muted-color, #888); }
+}
+
+.PointSystemAdmin-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+
+  .PointSystemAdmin-pageInfo {
+    color: var(--muted-color, #777);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.GroupBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 12px;
+}

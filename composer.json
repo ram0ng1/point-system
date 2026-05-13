@@ -1,0 +1,67 @@
+{
+    "name": "ramon/point-system",
+    "version": "2.0.0",
+    "description": "Sistema avançado de pontos para Flarum 2.0 com auto-group por tiers, loja, decorações de avatar (estilo Discord) e decorações CSS de nome de usuário.",
+    "keywords": [
+        "flarum",
+        "points",
+        "shop",
+        "gamification",
+        "decoration",
+        "avatar",
+        "auto-group"
+    ],
+    "type": "flarum-extension",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Ramon Guilherme",
+            "email": "ramon@ramonguilherme.com.br",
+            "homepage": "https://ramonguilherme.com.br",
+            "role": "Developer"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/ram0ng1/point-system/issues",
+        "source": "https://github.com/ram0ng1/point-system"
+    },
+    "require": {
+        "flarum/core": "^2.0.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Ramon\\PointSystem\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Ramon\\PointSystem\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.0.x-dev"
+        },
+        "flarum-extension": {
+            "title": "Point System",
+            "category": "feature",
+            "icon": {
+                "image": "icon.svg"
+            }
+        },
+        "flarum-cli": {
+            "modules": {
+                "admin": true,
+                "forum": true,
+                "js": true,
+                "jsCommon": false,
+                "css": true,
+                "gitConf": true,
+                "prettier": true,
+                "typescript": true,
+                "backendTesting": false,
+                "editorConfig": true
+            }
+        }
+    }
+}

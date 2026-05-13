@@ -1,0 +1,577 @@
+@import 'common/decorations.less';
+
+// ─── Rewards page tiers section ───────────────────────────────────────────────
+.PointSystemShop-tiers {
+  margin: 48px auto 32px;
+
+  h2 {
+    text-align: center;
+    margin: 0 0 6px;
+  }
+
+  &Grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+}
+
+.PointSystemShop-tier {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--body-bg, #fff);
+  border: 1px solid var(--control-bg, #e0e0e0);
+  border-radius: 12px;
+  position: relative;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &.is-reached {
+    border-color: var(--primary-color, #6cc04a);
+    box-shadow: 0 0 0 2px rgba(108, 192, 74, 0.12);
+  }
+
+  &-badge {
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--control-bg, #cccccc);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  &-body { flex: 1 1 auto; min-width: 0; }
+  &-name { font-weight: 600; }
+  &-points { font-size: 12px; color: var(--muted-color, #888); }
+
+  &-progressBar {
+    height: 4px;
+    background: var(--control-bg, #eee);
+    border-radius: 999px;
+    margin-top: 6px;
+    overflow: hidden;
+
+    > span {
+      display: block;
+      height: 100%;
+      background: var(--primary-color, #6cc04a);
+      transition: width 0.4s ease;
+    }
+  }
+
+  &-check {
+    color: var(--primary-color, #6cc04a);
+    font-size: 20px;
+  }
+}
+
+.PointSystemShop-notFound {
+  text-align: center;
+  padding: 80px 20px;
+
+  h1 {
+    font-size: 72px;
+    margin: 0 0 10px;
+    color: var(--muted-color, #999);
+  }
+}
+
+// ─── My Decorations preview header ────────────────────────────────────────────
+.PointSystemDecorations-preview {
+  background: var(--control-bg, #f7f7f7);
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+
+  h2 { margin: 0 0 12px; font-size: 16px; }
+}
+
+.PointSystemDecorations-previewBody {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 24px;
+  font-weight: 700;
+
+  .Avatar { width: 64px; height: 64px; font-size: 28px; }
+}
+
+// ─── Manage-points modal (User profile Controls dropdown action) ─────────────
+.AwardPointsModal-current {
+  display: flex;
+  gap: 16px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  background: var(--avocado-surface-2, var(--control-bg, #f5f5f5));
+  border: 1px solid var(--avocado-border-subtle, transparent);
+  border-radius: 8px;
+  font-size: 13px;
+
+  > span {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+.AwardPointsModal-actions {
+  display: flex;
+  gap: 8px;
+
+  > .Button { flex: 1 1 0; }
+}
+
+// ─── Points badge inside PostUser ─────────────────────────────────────────────
+.PointSystemPostBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 1px 8px;
+  background: rgba(108, 192, 74, 0.12);
+  color: var(--avocado-online, var(--primary-color, #6cc04a));
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+
+  i {
+    font-size: 10px;
+  }
+}
+
+// Points pill injected into Avocado's user profile hero stats row. Matches
+// the look of the native `.AvocadoUserPage-hero-statPill` (background, border
+// radius, padding) so it slots in cleanly next to "Joined Mar 25" etc.
+.PointSystemProfilePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+
+  i {
+    color: #e6a800;
+    font-size: 12px;
+  }
+}
+
+// ─── Avatar decoration overlay ────────────────────────────────────────────────
+// Our applyAvatarDecoration() mutates the Avatar vnode into a wrapping <span>
+// that carries BOTH `.Avatar` (so it inherits sizing/rounding from core) and
+// `.ps-avatar-deco-wrap`. The original <img>/<span> moves inside as the first
+// child. Flarum core's `.Avatar img { width:100%; height:100% }` rule already
+// makes the inner img fill the wrap perfectly, so we only have to:
+//   - allow the frame to overflow the rounded clip
+//   - stack the inner element below the frame
+.ps-avatar-deco-wrap {
+  position: relative !important;  // anchor the absolutely-positioned frame
+  overflow: visible !important;
+}
+
+.ps-avatar-deco-wrap > img,
+.ps-avatar-deco-wrap > span:not(.ps-avatar-deco) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+// Avocado's small reply card wraps the avatar in `.AvocadoHome-replyCard-avatar`
+// with `overflow: hidden` and a blanket `img, span { width:100%; height:100%;
+// border-radius:50%; object-fit:cover; display:flex }` rule that catches our
+// `.ps-avatar-deco` span and breaks its 132% sizing. Two targeted overrides:
+//   1. let the parent show the frame overflow
+//   2. force the deco span back to its intended geometry
+.AvocadoHome-replyCard-avatar:has(.ps-avatar-deco-wrap) {
+  overflow: visible !important;
+}
+.AvocadoHome-replyCard-avatar .ps-avatar-deco {
+  width: 132% !important;
+  height: 132% !important;
+  top: -16% !important;
+  left: -16% !important;
+  border-radius: 0 !important;
+  object-fit: initial !important;
+  display: block !important;
+}
+
+// Hide Flarum's badges (mod/admin/group icons) ONLY on users whose avatar
+// is decorated with a frame, when admin enabled the corresponding setting.
+//
+// Two strategies combined:
+//   1. SIBLING — when the badge is in the same parent as our wrap (covers
+//      Flarum PostUser, avocado's `.Post-side-inner`, and most cases where
+//      avatar and badges live side-by-side in the DOM).
+//   2. `:has()` enumeration — when the badge lives in a different branch
+//      from the avatar (covers UserCard, avocado's profile hero where the
+//      avatar is in `.hero-avatarWrap` and badges in `.hero-info`).
+body.ps-hide-badges-with-deco {
+  // Strategy 1 — badges as siblings of the wrap, OR descendants of a sibling.
+  .ps-avatar-deco-wrap ~ .Badge,
+  .ps-avatar-deco-wrap ~ .badges,
+  .ps-avatar-deco-wrap ~ * .Badge,
+  .ps-avatar-deco-wrap ~ * .badges,
+
+  // Strategy 2 — known wrappers where badges live in a separate subtree.
+  // `.Post-side-inner` is the avocado-specific wrapper (avocado extends
+  // CommentPost.sideItems to group avatar + badges into this div); listing
+  // it explicitly because the badges UL there sits as a direct child and is
+  // re-rendered by Mithril every redraw, so inline style="display:none"
+  // doesn't survive — CSS wins.
+  .Post-side-inner:has(.ps-avatar-deco-wrap) .Badge,
+  .Post-side-inner:has(.ps-avatar-deco-wrap) .badges,
+  .Post-side-inner:has(.ps-avatar-deco-wrap) .badges--packed,
+  .PostUser:has(.ps-avatar-deco-wrap) .Badge,
+  .PostUser:has(.ps-avatar-deco-wrap) .badges,
+  .UserCard:has(.ps-avatar-deco-wrap) .Badge,
+  .UserCard:has(.ps-avatar-deco-wrap) .badges,
+  .DiscussionListItem:has(.ps-avatar-deco-wrap) .Badge,
+  .AvocadoUserPage-hero:has(.ps-avatar-deco-wrap) .Badge,
+  .AvocadoUserPage-hero:has(.ps-avatar-deco-wrap) .badges,
+  .AvocadoHome-threadHead:has(.ps-avatar-deco-wrap) .Badge,
+  .AvocadoHome-threadHead:has(.ps-avatar-deco-wrap) .badges {
+    display: none !important;
+  }
+}
+
+.ps-avatar-deco {
+  position: absolute;
+  // Slightly oversize the frame so it visually wraps the round avatar (Discord style)
+  top: -16%;
+  left: -16%;
+  width: 132%;
+  height: 132%;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  // Intentionally no z-index — let DOM order rule. Flarum's `.Badge` is a
+  // later sibling of our wrap, so it naturally renders above the frame.
+}
+
+// ─── Shop page ────────────────────────────────────────────────────────────────
+.PointSystemShop {
+  padding: 24px 0 64px;
+
+  &-header {
+    text-align: center;
+    margin-bottom: 24px;
+
+    h1 {
+      margin: 0 0 8px;
+    }
+  }
+
+  &-subtitle {
+    color: var(--muted-color, #777);
+    margin: 0 0 16px;
+  }
+
+  &-balance {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    padding: 10px 18px;
+    background: var(--avocado-surface-2, var(--control-bg, #f5f5f5));
+    border: 1px solid var(--avocado-border-subtle, transparent);
+    border-radius: 999px;
+    font-size: 14px;
+    color: var(--avocado-text-dark, inherit);
+
+    &-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+
+      i { color: #e6a800; }
+
+      &--lifetime i { color: var(--avocado-online, #6cc04a); }
+    }
+  }
+
+  &-tabs {
+    display: flex;
+    gap: 8px;
+    border-bottom: 1px solid var(--control-bg, #e0e0e0);
+    margin-bottom: 24px;
+  }
+
+  &-tab {
+    background: none;
+    border: 0;
+    padding: 10px 16px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    font-weight: 500;
+    color: var(--muted-color, #666);
+    transition: color 0.15s ease, border-color 0.15s ease;
+
+    &:hover {
+      color: var(--text-color, #333);
+    }
+
+    &.is-active {
+      color: var(--primary-color, #6cc04a);
+      border-color: var(--primary-color, #6cc04a);
+    }
+
+    i {
+      margin-right: 6px;
+    }
+  }
+
+  &-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+  }
+
+  &-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted-color, #999);
+    background: var(--control-bg, #f7f7f7);
+    border-radius: 12px;
+    font-size: 15px;
+  }
+
+  &-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--body-bg, #fff);
+    border: 1px solid var(--avocado-border-subtle, var(--control-bg, #e8e8e8));
+    border-radius: 14px;
+    overflow: hidden;
+    position: relative;
+    transition: transform var(--avocado-t-normal, 0.16s ease),
+                box-shadow var(--avocado-t-normal, 0.16s ease),
+                border-color var(--avocado-t-normal, 0.16s ease);
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+    }
+
+    &.is-equipped {
+      border-color: var(--avocado-online, var(--primary-color, #6cc04a));
+      box-shadow: 0 0 0 2px rgba(108, 192, 74, 0.18);
+    }
+
+    &-equippedRibbon {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 3;
+      background: var(--primary-color, #6cc04a);
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+
+      i { margin-right: 2px; }
+    }
+
+    &-preview {
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #fafafa, #f0f0f0);
+    }
+
+    &-body {
+      padding: 12px 14px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    &-title {
+      margin: 0;
+      font-size: 15px;
+    }
+
+    &-desc {
+      margin: 0;
+      font-size: 12px;
+      color: var(--muted-color, #777);
+    }
+
+    &-price {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: #e6a800;
+      font-weight: 600;
+      margin: 6px 0 8px;
+    }
+  }
+
+  &-avatarPreview {
+    position: relative;
+    width: 96px;
+    height: 96px;
+
+    &-img,
+    &-placeholder {
+      position: absolute;
+      inset: 8%;
+      width: 84%;
+      height: 84%;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #ddd;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #aaa;
+      font-size: 36px;
+    }
+
+    &-frame {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      object-fit: contain;
+    }
+  }
+
+  &-namePreview {
+    font-size: 20px;
+    font-weight: 600;
+    padding: 24px 8px;
+    text-align: center;
+  }
+
+  // ── Mobile layout — keep the rewards/decoration pages comfortable on
+  // narrow viewports. Drops tab labels under icons, lets the balance pill
+  // wrap, and shrinks card sizes so two columns still fit on a phone.
+  @media (max-width: 767px) {
+    padding: 16px 0 48px;
+
+    &-header h1 { font-size: 22px; }
+    &-subtitle { font-size: 13px; }
+
+    &-balance {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+      border-radius: 12px;
+      font-size: 13px;
+      text-align: center;
+
+      &-item { justify-content: center; }
+    }
+
+    &-tabs {
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none; // Firefox
+
+      &::-webkit-scrollbar { display: none; }
+    }
+
+    &-tab {
+      flex: 0 0 auto;
+      white-space: nowrap;
+      font-size: 13px;
+      padding: 8px 12px;
+    }
+
+    &-grid {
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+    }
+
+    &-card {
+      border-radius: 12px;
+    }
+
+    &-card-equippedRibbon {
+      top: 8px;
+      right: 8px;
+      padding: 2px 8px;
+      font-size: 10px;
+    }
+
+    // Tier cards should stack vertically on phones — the badge + body + check
+    // ribbon look cramped at narrow widths.
+    &-tier {
+      flex-direction: row;
+      align-items: flex-start;
+    }
+    &-tiersGrid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  // Equipped state for the action button (no spinner, no hover, just signals).
+  &-equippedBtn {
+    cursor: default !important;
+    opacity: 1 !important;
+    background: var(--primary-color, #6cc04a) !important;
+    color: #fff !important;
+  }
+}
+
+// ─── My decorations page ─────────────────────────────────────────────────────
+.PointSystemDecorations {
+  padding: 24px 0;
+
+  section {
+    margin-bottom: 32px;
+  }
+
+  h2 {
+    margin: 0 0 12px;
+    font-size: 18px;
+  }
+
+  &-empty {
+    color: var(--muted-color, #999);
+    padding: 12px 0;
+  }
+
+  &-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+  }
+
+  &-item {
+    background: var(--body-bg, #fff);
+    border: 1px solid var(--control-bg, #e8e8e8);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+
+    &.is-equipped {
+      border-color: var(--primary-color, #6cc04a);
+      box-shadow: 0 0 0 2px var(--primary-color, #6cc04a) inset;
+    }
+
+    img {
+      max-width: 100%;
+      max-height: 96px;
+      display: block;
+      margin: 0 auto 8px;
+    }
+
+    &-name {
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@ramon/point-system",
+  "version": "1.0.0",
+  "private": true,
+  "prettier": "@flarum/prettier-config",
+  "devDependencies": {
+    "@flarum/prettier-config": "^1.0.0",
+    "flarum-tsconfig": "^2.0.0",
+    "flarum-webpack-config": "^3.0.3",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.1"
+  },
+  "scripts": {
+    "dev": "webpack --mode development --watch",
+    "build": "webpack --mode production",
+    "format": "prettier --write src",
+    "format-check": "prettier --check src",
+    "check-typings": "tsc --noEmit --emitDeclarationOnly false"
+  }
+}

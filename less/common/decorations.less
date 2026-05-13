@@ -1,0 +1,411 @@
+// ──────────────────────────────────────────────────────────────────────────────
+// Name decoration presets — shipped CSS for every built-in preset.
+//
+// Decorations target ONLY the username text element. Two valid shapes:
+//   - `.ps-name-preview.ps-name-{slug}` — standalone preview (shop, admin)
+//   - `.ps-name-{slug} .username`       — Flarum username helper inside the
+//                                         wrapper (CommentPost, UserCard,
+//                                         DiscussionListItem, etc.)
+//
+// The decoration must NOT bleed onto the avatar, badges, or surrounding
+// content — every selector here ends at `.username` (or the preview pill).
+// ──────────────────────────────────────────────────────────────────────────────
+
+// Selectors stay simple — `!important` (added by a Python sweep over the
+// preset blocks below) is what makes our rules win the cascade against
+// theme overrides (avocado's `.Page.DiscussionPage .PostUser-name .username`,
+// etc.). Specificity-bumping tricks were brittle across less.php paths.
+.ps-deco(@class, @rules) {
+  .ps-name-preview.@{class},
+  // Wrapper containing the username (CommentPost root, UserCard, etc.) —
+  // descendant selector hits `.username` inside.
+  .@{class} .username,
+  // Direct hit when `setupUsernameSpanTagger` tagged the span itself.
+  .username.@{class},
+  a.@{class},
+  // Inserted by `setupAvocadoProfilePoints` around just the name text in the
+  // avocado profile hero h1 — keeps the verified-popover sibling unaffected.
+  .ps-name-text.@{class} {
+    @rules();
+  }
+}
+
+// Pseudo-element helper. Pass `before` or `after` as @pseudo.
+.ps-deco-pseudo(@class, @pseudo, @rules) {
+  @sel: ~":@{pseudo}";
+  .ps-name-preview.@{class}@{sel},
+  .@{class} .username@{sel},
+  .username.@{class}@{sel},
+  a.@{class}@{sel},
+  .ps-name-text.@{class}@{sel} {
+    @rules();
+  }
+}
+
+// Shop/admin preview shell.
+.ps-name-preview {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 1.2em;
+  padding: 4px 8px;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Built-in presets (1–24)
+// ──────────────────────────────────────────────────────────────────────────────
+
+// 1 — Gold static
+.ps-deco(ps-name-gold, {
+  color: #FFD700 !important;
+  text-shadow: 0 0 6px #FFD700, 0 0 12px rgba(255, 215, 0, 0.5) !important;
+});
+
+// 2 — Gold pulse
+.ps-deco(ps-name-gold-pulse, {
+  color: #FFD700 !important;
+  animation: ps-anim-gold-pulse 2s ease-in-out infinite !important;
+});
+@keyframes ps-anim-gold-pulse {
+  0%, 100% { text-shadow: 0 0 4px #FFD700, 0 0 8px rgba(255, 215, 0, 0.3); }
+  50%      { text-shadow: 0 0 12px #FFD700, 0 0 24px rgba(255, 215, 0, 0.8); }
+}
+
+// 3 — Rainbow (animated gradient)
+.ps-deco(ps-name-rainbow, {
+  background: linear-gradient(90deg, #ff0000, #ff8800, #ffee00, #00ff00, #00ddff, #0088ff, #aa00ff, #ff0088, #ff0000) !important;
+  background-size: 200% auto !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  animation: ps-anim-rainbow 3s linear infinite !important;
+});
+@keyframes ps-anim-rainbow { to { background-position: 200% center; } }
+
+// 4 — Neon cyan
+.ps-deco(ps-name-neon, {
+  color: #fff !important;
+  animation: ps-anim-neon 2.5s ease-in-out infinite !important;
+});
+@keyframes ps-anim-neon {
+  0%, 100% { text-shadow: 0 0 4px #fff, 0 0 8px #00f6ff, 0 0 16px #00f6ff, 0 0 24px #0066ff; }
+  50%      { text-shadow: 0 0 2px #fff, 0 0 4px #00f6ff, 0 0 8px #00f6ff, 0 0 12px #0066ff; }
+}
+
+// 5 — Fire
+.ps-deco(ps-name-fire, {
+  background: linear-gradient(180deg, #fff200 0%, #ff8800 50%, #ff0000 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  animation: ps-anim-fire 1.5s ease-in-out infinite !important;
+});
+@keyframes ps-anim-fire {
+  0%, 100% { filter: drop-shadow(0 0 4px #ff6600) drop-shadow(0 0 8px rgba(255, 80, 0, 0.6)); }
+  50%      { filter: drop-shadow(0 0 8px #ff8800) drop-shadow(0 0 16px rgba(255, 80, 0, 0.9)); }
+}
+
+// 6 — Ice
+.ps-deco(ps-name-ice, {
+  color: #e0f7ff !important;
+  animation: ps-anim-ice 3s ease-in-out infinite !important;
+});
+@keyframes ps-anim-ice {
+  0%, 100% { text-shadow: 0 0 4px #80dfff, 0 0 8px #4dc4ff, 0 0 16px #0099ff; }
+  50%      { text-shadow: 0 0 6px #b3ecff, 0 0 14px #4dc4ff, 0 0 28px #0099ff; }
+}
+
+// 7 — Glitch
+.ps-deco(ps-name-glitch, {
+  color: #fff !important;
+  animation: ps-anim-glitch 0.3s infinite !important;
+});
+@keyframes ps-anim-glitch {
+  0%, 100% { text-shadow:  2px 0  #ff00ea, -2px 0  #00f6ff; }
+  25%      { text-shadow: -2px 0  #ff00ea,  2px 0  #00f6ff; }
+  50%      { text-shadow:  2px 2px #ff00ea, -2px -2px #00f6ff; }
+  75%      { text-shadow: -2px 2px #ff00ea,  2px -2px #00f6ff; }
+}
+
+// 8 — Shine
+.ps-deco(ps-name-shine, {
+  background: linear-gradient(90deg, #888 0%, #888 40%, #fff 50%, #888 60%, #888 100%) !important;
+  background-size: 200% auto !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  animation: ps-anim-shine 2.5s linear infinite !important;
+});
+@keyframes ps-anim-shine { to { background-position: -200% center; } }
+
+// 9 — Galaxy
+.ps-deco(ps-name-galaxy, {
+  background: linear-gradient(90deg, #ff00ea, #00f6ff, #aa00ff, #ff00ea) !important;
+  background-size: 200% auto !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  animation: ps-anim-galaxy 4s linear infinite !important;
+  filter: drop-shadow(0 0 6px rgba(170, 0, 255, 0.6)) !important;
+});
+@keyframes ps-anim-galaxy { to { background-position: 200% center; } }
+
+// 10 — Breath pink
+.ps-deco(ps-name-breath, {
+  color: #ff4dd2 !important;
+  display: inline-block !important;
+  animation: ps-anim-breath 2s ease-in-out infinite !important;
+});
+@keyframes ps-anim-breath {
+  0%, 100% { transform: scale(1);    text-shadow: 0 0 6px  #ff4dd2; }
+  50%      { transform: scale(1.08); text-shadow: 0 0 16px #ff4dd2, 0 0 32px rgba(255, 77, 210, 0.6); }
+}
+
+// 11 — Royal gold
+.ps-deco(ps-name-royal, {
+  background: linear-gradient(135deg, #BF953F, #FCF6BA, #B38728, #FBF5B7, #AA771C) !important;
+  background-size: 200% auto !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  animation: ps-anim-royal 4s linear infinite !important;
+  filter: drop-shadow(0 0 4px rgba(252, 246, 186, 0.5)) !important;
+});
+@keyframes ps-anim-royal { to { background-position: 200% center; } }
+
+// 12 — Matrix
+.ps-deco(ps-name-matrix, {
+  color: #00ff41 !important;
+  font-family: 'Courier New', monospace !important;
+  text-shadow: 0 0 5px #00ff41, 0 0 10px #00ff41 !important;
+  animation: ps-anim-matrix 0.15s steps(2) infinite !important;
+});
+@keyframes ps-anim-matrix {
+  0%  { opacity: 1; }
+  50% { opacity: 0.85; text-shadow: 0 0 3px #00ff41; }
+}
+
+// 13 — Typewriter caret
+.ps-deco(ps-name-typer, {
+  color: #fff;
+  border-right: 2px solid #ff3366;
+  padding-right: 4px;
+  animation: ps-anim-typer 0.8s steps(1) infinite;
+});
+@keyframes ps-anim-typer { 50% { border-color: transparent; } }
+
+// 14 — Mercury
+.ps-deco(ps-name-mercury, {
+  background: linear-gradient(135deg, #c0c0c0 0%, #ffffff 25%, #808080 50%, #ffffff 75%, #c0c0c0 100%) !important;
+  background-size: 300% 300% !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  animation: ps-anim-mercury 4s ease-in-out infinite !important;
+});
+@keyframes ps-anim-mercury {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+
+// 15 — Hue cycle
+.ps-deco(ps-name-huecycle, {
+  color: #ff0080;
+  text-shadow: 0 0 8px currentColor;
+  animation: ps-anim-huecycle 3s linear infinite;
+});
+@keyframes ps-anim-huecycle {
+  to { filter: hue-rotate(360deg); }
+}
+
+// 16 — Blur breathe
+.ps-deco(ps-name-blur, {
+  color: #ff4dd2 !important;
+  animation: ps-anim-blur 2.5s ease-in-out infinite !important;
+});
+@keyframes ps-anim-blur {
+  0%, 100% { filter: blur(0); text-shadow: 0 0 8px #ff4dd2; }
+  50%      { filter: blur(1.5px); text-shadow: 0 0 20px #ff4dd2, 0 0 40px #ff4dd2; }
+}
+
+// 17 — Lightning
+.ps-deco(ps-name-lightning, {
+  color: #fffacd !important;
+  animation: ps-anim-lightning 4s linear infinite !important;
+});
+@keyframes ps-anim-lightning {
+  0%, 92%, 100% { text-shadow: 0 0 2px #ffeb3b; opacity: 1; }
+  93%           { text-shadow: 0 0 20px #fff, 0 0 40px #ffeb3b, 0 0 60px #ffc107; }
+  94%           { opacity: 0.3; }
+  95%           { text-shadow: 0 0 30px #fff, 0 0 60px #ffeb3b; opacity: 1; }
+  96%           { opacity: 0.5; }
+  97%           { opacity: 1; }
+}
+
+// 18 — Underline animado (uses ::after)
+.ps-deco(ps-name-underline, {
+  color: #fff !important;
+  position: relative !important;
+  display: inline-block !important;
+  padding-bottom: 4px !important;
+});
+.ps-deco-pseudo(ps-name-underline, after, {
+  content: '' !important;
+  position: absolute !important;
+  left: 0 !important;
+  bottom: 0 !important;
+  height: 2px !important;
+  width: 100% !important;
+  background: linear-gradient(90deg, transparent, #00f6ff, #ff00ea, transparent) !important;
+  background-size: 200% 100% !important;
+  animation: ps-anim-underline 2s linear infinite !important;
+});
+@keyframes ps-anim-underline { to { background-position: -200% 0; } }
+
+// 19 — Toxic
+.ps-deco(ps-name-toxic, {
+  color: #aaff00 !important;
+  font-style: italic !important;
+  animation: ps-anim-toxic 2s ease-in-out infinite !important;
+});
+@keyframes ps-anim-toxic {
+  0%, 100% { text-shadow: 0 2px 4px  #5a8a00, 0 0 8px  #aaff00; }
+  50%      { text-shadow: 0 6px 12px #5a8a00, 0 0 20px #aaff00, 0 0 30px rgba(170, 255, 0, 0.5); }
+}
+
+// 20 — VHS chromatic
+.ps-deco(ps-name-vhs, {
+  color: #fff !important;
+  text-shadow: -2px 0 #ff0000, 2px 0 #00ffff !important;
+  animation: ps-anim-vhs 0.5s steps(4) infinite !important;
+  display: inline-block !important;
+});
+@keyframes ps-anim-vhs {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(1px, 0); }
+  50%  { transform: translate(-1px, 1px); }
+  75%  { transform: translate(0, -1px); }
+  100% { transform: translate(0, 0); }
+}
+
+// 21 — Glass
+.ps-deco(ps-name-glass, {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.05)) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.4),
+    0 -1px 0 rgba(0, 0, 0, 0.3),
+    0 0 12px rgba(255, 255, 255, 0.5);
+  animation: ps-anim-glass 4s ease-in-out infinite !important;
+});
+@keyframes ps-anim-glass {
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.3); }
+}
+
+// 22 — Stamp / Verified
+.ps-deco(ps-name-stamp, {
+  color: #c0392b;
+  font-family: monospace;
+  font-weight: 700;
+  letter-spacing: 2px;
+  transform: rotate(-3deg);
+  display: inline-block;
+  border: 3px solid #c0392b;
+  padding: 2px 8px;
+  border-radius: 2px;
+  text-shadow: 2px 2px 0 #8b0000;
+  animation: ps-anim-stamp 1.8s ease-out infinite;
+});
+@keyframes ps-anim-stamp {
+  0%   { transform: rotate(-3deg) scale(1); }
+  20%  { transform: rotate(-3deg) scale(1.05); }
+  100% { transform: rotate(-3deg) scale(1); }
+}
+
+// 23 — Hearts (rising ♥)
+.ps-deco(ps-name-hearts, {
+  color: #ff4dd2 !important;
+  position: relative !important;
+  display: inline-block !important;
+  text-shadow: 0 0 6px #ff4dd2 !important;
+});
+.ps-deco-pseudo(ps-name-hearts, before, {
+  content: '\2665' !important;
+  position: absolute !important;
+  bottom: 100% !important;
+  left: 15% !important;
+  color: #ff4dd2 !important;
+  font-size: 12px !important;
+  opacity: 0 !important;
+  animation: ps-anim-hearts 3s ease-in infinite !important;
+});
+.ps-deco-pseudo(ps-name-hearts, after, {
+  content: '\2665' !important;
+  position: absolute !important;
+  bottom: 100% !important;
+  right: 15% !important;
+  color: #ff4dd2 !important;
+  font-size: 12px !important;
+  opacity: 0 !important;
+  animation: ps-anim-hearts 3s ease-in 1.5s infinite !important;
+});
+@keyframes ps-anim-hearts {
+  0%   { transform: translateY(0)     scale(0.5); opacity: 0; }
+  30%  { opacity: 1; }
+  100% { transform: translateY(-30px) scale(1.3); opacity: 0; }
+}
+
+// 25 — Wave (per-letter bobbing — JS rewriter wraps each letter in a
+// `<span class="ps-letter" style="--ps-i: N">` so we can stagger the
+// animation via `var(--ps-i)`. Works in any container, regardless of
+// non-letter siblings (verified badge, etc.) and any name length.
+.ps-name-preview.ps-name-wave .ps-letter,
+.ps-name-wave .username .ps-letter,
+.username.ps-name-wave .ps-letter,
+a.ps-name-wave .ps-letter,
+.ps-name-text.ps-name-wave .ps-letter {
+  display: inline-block !important;
+  color: #00ff88 !important;
+  text-shadow: 0 0 6px #00ff88 !important;
+  animation: ps-anim-wave 1.5s ease-in-out infinite !important;
+  animation-delay: calc(var(--ps-i, 0) * 0.05s) !important;
+}
+@keyframes ps-anim-wave {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+// 26 — Sparkle (✦ corners)
+.ps-deco(ps-name-sparkle, {
+  color: gold !important;
+  position: relative !important;
+  display: inline-block !important;
+  text-shadow: 0 0 6px gold !important;
+  padding: 8px !important;
+});
+.ps-deco-pseudo(ps-name-sparkle, before, {
+  content: '\2726' !important;
+  position: absolute !important;
+  top: -2px !important;
+  left: -8px !important;
+  color: #fff !important;
+  font-size: 14px !important;
+  text-shadow: 0 0 6px #fff, 0 0 12px gold !important;
+  animation: ps-anim-sparkle 1.8s ease-in-out infinite !important;
+});
+.ps-deco-pseudo(ps-name-sparkle, after, {
+  content: '\2726' !important;
+  position: absolute !important;
+  bottom: -2px !important;
+  right: -8px !important;
+  color: #fff !important;
+  font-size: 14px !important;
+  text-shadow: 0 0 6px #fff, 0 0 12px gold !important;
+  animation: ps-anim-sparkle 1.8s ease-in-out 0.9s infinite !important;
+});
+@keyframes ps-anim-sparkle {
+  0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); }
+  50%      { opacity: 1; transform: scale(1.2) rotate(180deg); }
+}

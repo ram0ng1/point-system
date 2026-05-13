@@ -1,0 +1,26 @@
+<svg class="w-[48px] h-[48px]" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="48" height="48" fill="white"/>
+  <g transform="translate(1,1)">
+    <!-- Coin outer ring (dark teal edge) -->
+    <circle cx="23" cy="23" r="20" fill="#244C4E"/>
+    <!-- Mid ring (deep green) -->
+    <circle cx="23" cy="23" r="18.5" fill="#337D63"/>
+    <!-- Coin face (light green) -->
+    <circle cx="23" cy="23" r="16" fill="#9EEA6C"/>
+
+    <!-- Inner ridge ring (dashed, classic coin texture) -->
+    <circle cx="23" cy="23" r="13.5" fill="none" stroke="#244C4E" stroke-width="0.8" stroke-dasharray="2 1.6" opacity="0.4"/>
+
+    <!-- Coin symbol "P" (stylized) -->
+    <path d="M17.5 13.5 L17.5 32.5 L20.6 32.5 L20.6 25.6 L24.2 25.6 C28.0 25.6 30.6 23.2 30.6 19.6 C30.6 15.9 28.0 13.5 24.2 13.5 Z M20.6 16.4 L23.6 16.4 C25.8 16.4 27.0 17.6 27.0 19.6 C27.0 21.5 25.8 22.7 23.6 22.7 L20.6 22.7 Z"
+      fill="#244C4E"/>
+
+    <!-- Highlight gleam on the upper-left of the coin -->
+    <ellipse cx="15.5" cy="14" rx="3" ry="1.6" fill="#FFFFFF" opacity="0.55" transform="rotate(-35 15.5 14)"/>
+
+    <!-- Small accent dots — give the icon a bit of sparkle -->
+    <circle cx="40" cy="9"  r="1.6" fill="#89BA4F"/>
+    <circle cx="42" cy="13" r="1"   fill="#9EEA6C"/>
+    <circle cx="7"  cy="37" r="1.2" fill="#337D63"/>
+  </g>
+</svg>

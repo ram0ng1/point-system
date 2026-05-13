@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main, melhoria]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  php-lint:
+    name: PHP syntax & composer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          tools: composer:v2
+
+      - name: Validate composer.json
+        run: composer validate --strict --no-check-publish
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction --no-scripts
+
+      - name: PHP syntax check
+        run: find src migrations -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+
+  js-build:
+    name: JS build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./js
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build
+        run: npm run build
+
+      - name: Type-check
+        run: npm run check-typings || true
