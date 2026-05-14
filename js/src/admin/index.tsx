@@ -11,12 +11,12 @@ import AutoGroupTier from './models/AutoGroupTier';
 app.initializers.add('ramon/point-system', () => {
   // Register custom JSON:API resource types with the store so app.store.find()
   // can deserialize responses. Type keys MUST match each resource's PHP type().
-  app.store.models['point-system-avatar-decorations']         = AvatarDecoration;
-  app.store.models['point-system-name-decorations']           = NameDecoration;
-  app.store.models['point-system-cover-decorations']          = CoverDecoration;
-  app.store.models['point-system-title-decorations']          = TitleDecoration;
+  app.store.models['point-system-avatar-decorations'] = AvatarDecoration;
+  app.store.models['point-system-name-decorations'] = NameDecoration;
+  app.store.models['point-system-cover-decorations'] = CoverDecoration;
+  app.store.models['point-system-title-decorations'] = TitleDecoration;
   app.store.models['point-system-post-highlight-decorations'] = PostHighlightDecoration;
-  app.store.models['point-system-auto-group-tiers']           = AutoGroupTier;
+  app.store.models['point-system-auto-group-tiers'] = AutoGroupTier;
 
   app.registry
     .for('ramon-point-system')

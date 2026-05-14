@@ -30,10 +30,10 @@ app.initializers.add('ramon/point-system', () => {
   // path first so `app.route('pointSystem.shop')` resolves to /rewards
   // (used by external nav links) while users that bookmark a specific tab
   // (e.g. /rewards/name) land on it directly.
-  app.routes['pointSystem.shop']             = { path: '/rewards',        component: ShopPage };
-  app.routes['pointSystem.shop.tab']         = { path: '/rewards/:tab',   component: ShopPage };
-  app.routes['pointSystem.decorations']      = { path: '/decorations',         component: DecorationsPage };
-  app.routes['pointSystem.decorations.tab']  = { path: '/decorations/:tab',    component: DecorationsPage };
+  app.routes['pointSystem.shop'] = { path: '/rewards', component: ShopPage };
+  app.routes['pointSystem.shop.tab'] = { path: '/rewards/:tab', component: ShopPage };
+  app.routes['pointSystem.decorations'] = { path: '/decorations', component: DecorationsPage };
+  app.routes['pointSystem.decorations.tab'] = { path: '/decorations/:tab', component: DecorationsPage };
 
   // ── Notification components ─────────────────────────────────────────────
   app.notificationComponents.pointsManual = PointsManualNotification;
@@ -266,9 +266,7 @@ function injectTitleDecorationStyles(): void {
     if (!css) continue;
 
     const bangify = (s: string) =>
-      s.replace(/([\w\-]+\s*:\s*[^;{}]+?)(\s*;)/g, (m, decl, semi) =>
-        /!\s*important/i.test(decl) ? m : decl + ' !important' + semi
-      );
+      s.replace(/([\w\-]+\s*:\s*[^;{}]+?)(\s*;)/g, (m, decl, semi) => (/!\s*important/i.test(decl) ? m : decl + ' !important' + semi));
 
     if (css.includes('{')) {
       out.push(bangify(css.replace(/&/g, sel)));
@@ -298,16 +296,11 @@ function injectPostHighlightDecorationStyles(): void {
     if (!cls) continue;
     // Highlight applies to the whole post container (CommentPost) and to the
     // shop card preview. We expose both selectors to the user's `&` symbol.
-    const sel =
-      `.CommentPost.ps-posthl-${cls},` +
-      `.Post.ps-posthl-${cls},` +
-      `.ps-posthl-preview.ps-posthl-${cls}`;
+    const sel = `.CommentPost.ps-posthl-${cls},` + `.Post.ps-posthl-${cls},` + `.ps-posthl-preview.ps-posthl-${cls}`;
     const css = String(d.customCss).trim();
 
     const bangify = (s: string) =>
-      s.replace(/([\w\-]+\s*:\s*[^;{}]+?)(\s*;)/g, (m, decl, semi) =>
-        /!\s*important/i.test(decl) ? m : decl + ' !important' + semi
-      );
+      s.replace(/([\w\-]+\s*:\s*[^;{}]+?)(\s*;)/g, (m, decl, semi) => (/!\s*important/i.test(decl) ? m : decl + ' !important' + semi));
 
     if (css.includes('{')) {
       out.push(bangify(css.replace(/&/g, sel)));
@@ -348,19 +341,13 @@ function injectNameDecorationStyles(): void {
     // the wrapper, avatar or badges). User-authored custom CSS for these
     // selectors should win the cascade against theme rules, so we append
     // `!important` to every property of the raw input below.
-    const selectors =
-      `.ps-name-preview.ps-name-${cls},` +
-      `.ps-name-${cls} .username,` +
-      `.username.ps-name-${cls},` +
-      `a.ps-name-${cls}`;
+    const selectors = `.ps-name-preview.ps-name-${cls},` + `.ps-name-${cls} .username,` + `.username.ps-name-${cls},` + `a.ps-name-${cls}`;
     const css = String(d.customCss).trim();
     // Append `!important` to every property declaration so user-authored
     // decorations win the cascade against theme rules (avocado, etc.).
     // Skip declarations that already include `!important`.
     const bangify = (s: string) =>
-      s.replace(/([\w\-]+\s*:\s*[^;{}]+?)(\s*;)/g, (m, decl, semi) =>
-        /!\s*important/i.test(decl) ? m : decl + ' !important' + semi
-      );
+      s.replace(/([\w\-]+\s*:\s*[^;{}]+?)(\s*;)/g, (m, decl, semi) => (/!\s*important/i.test(decl) ? m : decl + ' !important' + semi));
 
     if (css.includes('{')) {
       out.push(bangify(css.replace(/&/g, selectors)));
@@ -446,8 +433,7 @@ function setupPerLetterRewriter(): void {
   //                             username text with sibling badges (avocado h1)
   //   - `a[data-ps-name-deco]`  anchors tagged by setupThemeUsernameTagger
   //                             (avocado thread cards, mentions, etc.)
-  const SELECTOR =
-    '.username, .ps-name-preview, .ps-name-text, a[data-ps-name-deco]';
+  const SELECTOR = '.username, .ps-name-preview, .ps-name-text, a[data-ps-name-deco]';
   const scan = (root: ParentNode) => {
     root.querySelectorAll?.(SELECTOR).forEach(rewrite);
   };
@@ -488,9 +474,7 @@ function setupThemeUsernameTagger(): void {
 
     const username = decodeURIComponent(m[1]).toLowerCase();
     const users = app.store.all('users') as any[];
-    const user = users.find(
-      (u: any) => String(u.username?.() ?? '').toLowerCase() === username
-    );
+    const user = users.find((u: any) => String(u.username?.() ?? '').toLowerCase() === username);
     if (!user) return;
 
     // Only decorate if the anchor's visible text actually IS the user's name.
@@ -498,12 +482,18 @@ function setupThemeUsernameTagger(): void {
     // sentence where the link target happens to be the user's profile but the
     // text is something else entirely. Allows the `@` mention prefix.
     const text = (a.textContent || '').trim().toLowerCase().replace(/^@\s*/, '');
-    const dn = String(user.displayName?.() ?? '').trim().toLowerCase();
-    const un = String(user.username?.() ?? '').trim().toLowerCase();
+    const dn = String(user.displayName?.() ?? '')
+      .trim()
+      .toLowerCase();
+    const un = String(user.username?.() ?? '')
+      .trim()
+      .toLowerCase();
     const isName =
-      text === dn || text === un ||
+      text === dn ||
+      text === un ||
       // Allow trailing icons/badges/etc. that get textContent-concatenated.
-      (dn && text.startsWith(dn)) || (un && text.startsWith(un));
+      (dn && text.startsWith(dn)) ||
+      (un && text.startsWith(un));
     if (!isName) return;
 
     const slug = user.attribute?.('equippedNameDecorationSlug');
@@ -564,9 +554,7 @@ function setupUsernameSpanTagger(): void {
     if (!m) return;
     const username = decodeURIComponent(m[1]).toLowerCase();
     const users = app.store.all('users') as any[];
-    const user = users.find(
-      (u: any) => String(u.username?.() ?? '').toLowerCase() === username
-    );
+    const user = users.find((u: any) => String(u.username?.() ?? '').toLowerCase() === username);
     if (!user) return;
 
     const slug = user.attribute?.('equippedNameDecorationSlug');
@@ -596,11 +584,7 @@ function setupUsernameSpanTagger(): void {
       // Re-apply our class on attribute changes that wiped it.
       if (mu.type === 'attributes' && mu.attributeName === 'class') {
         const target = mu.target as HTMLElement;
-        if (
-          target.dataset?.psNameDeco === '1' &&
-          target.dataset?.psSlug &&
-          !target.classList.contains('ps-name-' + target.dataset.psSlug)
-        ) {
+        if (target.dataset?.psNameDeco === '1' && target.dataset?.psSlug && !target.classList.contains('ps-name-' + target.dataset.psSlug)) {
           target.classList.add('ps-name-' + target.dataset.psSlug);
         }
         continue;
@@ -769,8 +753,6 @@ function cssClass(slug: string): string {
 function resolveAssetUrl(path: string): string {
   if (!path) return '';
   if (/^https?:\/\//i.test(path)) return path;
-  const base =
-    (app.forum.attribute('assetsBaseUrl') as string | undefined) ||
-    (app.forum.attribute('baseUrl') as string) + '/assets';
+  const base = (app.forum.attribute('assetsBaseUrl') as string | undefined) || (app.forum.attribute('baseUrl') as string) + '/assets';
   return base.replace(/\/+$/, '') + '/' + String(path).replace(/^\/+/, '');
 }

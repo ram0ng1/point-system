@@ -41,9 +41,7 @@ export default class PointsRulesPanel extends Component {
           <p className="helpText">{app.translator.trans('ramon-point-system.admin.rules.help')}</p>
         </div>
 
-        <div className="PointSystemAdmin-grid">
-          {SETTINGS.map((s) => this.renderField(s))}
-        </div>
+        <div className="PointSystemAdmin-grid">{SETTINGS.map((s) => this.renderField(s))}</div>
 
         <div className="PointSystemAdmin-actions">
           <Button
@@ -67,11 +65,12 @@ export default class PointsRulesPanel extends Component {
 
     if (s.type === 'bool') {
       // Honor backend default when setting was never persisted (stored === undefined).
-      const checked = this.dirty[s.key] !== undefined
-        ? this.dirty[s.key] === '1' || this.dirty[s.key] === true
-        : stored === undefined
-          ? s.defaultBool === true
-          : stored === true || stored === '1' || stored === 1 || stored === 'true';
+      const checked =
+        this.dirty[s.key] !== undefined
+          ? this.dirty[s.key] === '1' || this.dirty[s.key] === true
+          : stored === undefined
+            ? s.defaultBool === true
+            : stored === true || stored === '1' || stored === 1 || stored === 'true';
       return (
         <div className="Form-group PointSystemAdmin-field">
           <Switch state={checked} onchange={(v: boolean) => (this.dirty[s.key] = v ? '1' : '0')}>

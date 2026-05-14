@@ -47,34 +47,48 @@ export default class TitleDecorationsPanel extends Component {
 
           <div className="Form-group">
             <label>{app.translator.trans('ramon-point-system.admin.title.field_name')}</label>
-            <input className="FormControl" value={this.draft.name}
-              oninput={(e: Event) => (this.draft.name = (e.target as HTMLInputElement).value)} />
+            <input className="FormControl" value={this.draft.name} oninput={(e: Event) => (this.draft.name = (e.target as HTMLInputElement).value)} />
           </div>
 
           <div className="Form-group">
             <label>{app.translator.trans('ramon-point-system.admin.title.field_title_text')}</label>
-            <input className="FormControl" maxlength="60" value={this.draft.titleText}
-              oninput={(e: Event) => (this.draft.titleText = (e.target as HTMLInputElement).value)} />
+            <input
+              className="FormControl"
+              maxlength="60"
+              value={this.draft.titleText}
+              oninput={(e: Event) => (this.draft.titleText = (e.target as HTMLInputElement).value)}
+            />
             <p className="helpText">{app.translator.trans('ramon-point-system.admin.title.field_title_text_help')}</p>
           </div>
 
           <div className="Form-group">
             <label>{app.translator.trans('ramon-point-system.admin.title.field_color')}</label>
-            <input className="FormControl" value={this.draft.color}
-              oninput={(e: Event) => (this.draft.color = (e.target as HTMLInputElement).value)} />
+            <input
+              className="FormControl"
+              value={this.draft.color}
+              oninput={(e: Event) => (this.draft.color = (e.target as HTMLInputElement).value)}
+            />
             <p className="helpText">{app.translator.trans('ramon-point-system.admin.title.field_color_help')}</p>
           </div>
 
           <div className="Form-group">
             <label>{app.translator.trans('ramon-point-system.admin.title.field_price')}</label>
-            <input type="number" min="0" className="FormControl" value={this.draft.price}
-              oninput={(e: Event) => (this.draft.price = Number((e.target as HTMLInputElement).value))} />
+            <input
+              type="number"
+              min="0"
+              className="FormControl"
+              value={this.draft.price}
+              oninput={(e: Event) => (this.draft.price = Number((e.target as HTMLInputElement).value))}
+            />
           </div>
 
           <div className="Form-group">
             <label>{app.translator.trans('ramon-point-system.admin.title.field_description')}</label>
-            <input className="FormControl" value={this.draft.description}
-              oninput={(e: Event) => (this.draft.description = (e.target as HTMLInputElement).value)} />
+            <input
+              className="FormControl"
+              value={this.draft.description}
+              oninput={(e: Event) => (this.draft.description = (e.target as HTMLInputElement).value)}
+            />
           </div>
 
           <div className="Form-group">
@@ -90,10 +104,7 @@ export default class TitleDecorationsPanel extends Component {
           </div>
 
           <div className="PointSystemAdmin-preview">
-            <span
-              className="ps-title-preview"
-              style={this.draft.color ? `--ps-title-color:${this.draft.color}` : null}
-            >
+            <span className="ps-title-preview" style={this.draft.color ? `--ps-title-color:${this.draft.color}` : null}>
               {this.draft.titleText || '—'}
             </span>
           </div>
@@ -120,14 +131,13 @@ export default class TitleDecorationsPanel extends Component {
               const color = it.attribute('color');
               return (
                 <div className="PointSystemAdmin-card" key={it.id()}>
-                  <span
-                    className="ps-title-preview"
-                    style={color ? `--ps-title-color:${color}` : null}
-                  >
+                  <span className="ps-title-preview" style={color ? `--ps-title-color:${color}` : null}>
                     {it.attribute('titleText')}
                   </span>
                   <div className="PointSystemAdmin-card-body">
-                    <div><strong>{it.attribute('name')}</strong></div>
+                    <div>
+                      <strong>{it.attribute('name')}</strong>
+                    </div>
                     <div className="helpText">{(it.attribute('price') || 0) + ' pts'}</div>
                   </div>
                   <div className="PointSystemAdmin-card-actions">

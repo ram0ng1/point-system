@@ -5,9 +5,16 @@ import Button from 'flarum/common/components/Button';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 
 const BUILTIN_PRESETS = [
-  'gold-border', 'silver-border', 'glow-blue', 'glow-purple',
-  'glow-green', 'ribbon-red', 'ribbon-gold', 'dashed-accent',
-  'gradient-edge', 'shadow-soft',
+  'gold-border',
+  'silver-border',
+  'glow-blue',
+  'glow-purple',
+  'glow-green',
+  'ribbon-red',
+  'ribbon-gold',
+  'dashed-accent',
+  'gradient-edge',
+  'shadow-soft',
 ];
 
 /**
@@ -52,14 +59,16 @@ export default class PostHighlightDecorationsPanel extends Component {
 
           <div className="Form-group">
             <label>{app.translator.trans('ramon-point-system.admin.post_hl.field_name')}</label>
-            <input className="FormControl" value={this.draft.name}
-              oninput={(e: Event) => (this.draft.name = (e.target as HTMLInputElement).value)} />
+            <input className="FormControl" value={this.draft.name} oninput={(e: Event) => (this.draft.name = (e.target as HTMLInputElement).value)} />
           </div>
 
           <div className="Form-group">
             <label>{app.translator.trans('ramon-point-system.admin.post_hl.field_preset')}</label>
-            <select className="FormControl" value={this.draft.preset}
-              onchange={(e: Event) => (this.draft.preset = (e.target as HTMLSelectElement).value)}>
+            <select
+              className="FormControl"
+              value={this.draft.preset}
+              onchange={(e: Event) => (this.draft.preset = (e.target as HTMLSelectElement).value)}
+            >
               {BUILTIN_PRESETS.map((p) => (
                 <option value={p}>{app.translator.trans(`ramon-point-system.admin.post_hl.preset_${p}`)}</option>
               ))}
@@ -69,14 +78,22 @@ export default class PostHighlightDecorationsPanel extends Component {
 
           <div className="Form-group">
             <label>{app.translator.trans('ramon-point-system.admin.post_hl.field_price')}</label>
-            <input type="number" min="0" className="FormControl" value={this.draft.price}
-              oninput={(e: Event) => (this.draft.price = Number((e.target as HTMLInputElement).value))} />
+            <input
+              type="number"
+              min="0"
+              className="FormControl"
+              value={this.draft.price}
+              oninput={(e: Event) => (this.draft.price = Number((e.target as HTMLInputElement).value))}
+            />
           </div>
 
           <div className="Form-group">
             <label>{app.translator.trans('ramon-point-system.admin.post_hl.field_description')}</label>
-            <input className="FormControl" value={this.draft.description}
-              oninput={(e: Event) => (this.draft.description = (e.target as HTMLInputElement).value)} />
+            <input
+              className="FormControl"
+              value={this.draft.description}
+              oninput={(e: Event) => (this.draft.description = (e.target as HTMLInputElement).value)}
+            />
           </div>
 
           <div className="Form-group">
@@ -131,7 +148,9 @@ export default class PostHighlightDecorationsPanel extends Component {
                     </div>
                   </div>
                   <div className="PointSystemAdmin-card-body">
-                    <div><strong>{it.attribute('name')}</strong></div>
+                    <div>
+                      <strong>{it.attribute('name')}</strong>
+                    </div>
                     <div className="helpText">{(it.attribute('price') || 0) + ' pts'}</div>
                   </div>
                   <div className="PointSystemAdmin-card-actions">

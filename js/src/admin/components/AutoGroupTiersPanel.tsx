@@ -65,19 +65,13 @@ export default class AutoGroupTiersPanel extends Component {
               oninput={(e: Event) => (this.draft.pointsRequired = Number((e.target as HTMLInputElement).value))}
             />
           </div>
-          <Button
-            className="Button Button--primary"
-            disabled={!this.draft.groupId}
-            onclick={() => this.create()}
-          >
+          <Button className="Button Button--primary" disabled={!this.draft.groupId} onclick={() => this.create()}>
             {app.translator.trans('ramon-point-system.admin.groups.add')}
           </Button>
         </div>
 
         <h3>{app.translator.trans('ramon-point-system.admin.groups.existing')}</h3>
-        {this.items.length === 0 && (
-          <p className="PointSystemAdmin-empty">{app.translator.trans('ramon-point-system.admin.groups.none')}</p>
-        )}
+        {this.items.length === 0 && <p className="PointSystemAdmin-empty">{app.translator.trans('ramon-point-system.admin.groups.none')}</p>}
         <table className="PointSystemAdmin-table">
           <thead>
             <tr>
@@ -104,10 +98,7 @@ export default class AutoGroupTiersPanel extends Component {
     return (
       <tr>
         <td>
-          <span
-            className="GroupBadge"
-            style={{ backgroundColor: group?.color?.() || '#666' }}
-          >
+          <span className="GroupBadge" style={{ backgroundColor: group?.color?.() || '#666' }}>
             <i className={`icon ${group?.icon?.() || 'fas fa-users'}`} />
             {group?.namePlural?.() || `#${tier.attribute('groupId')}`}
           </span>
@@ -118,19 +109,12 @@ export default class AutoGroupTiersPanel extends Component {
             className="FormControl"
             value={tier.attribute('pointsRequired')}
             min="0"
-            onchange={(e: Event) =>
-              tier.save({ pointsRequired: Number((e.target as HTMLInputElement).value) })
-            }
+            onchange={(e: Event) => tier.save({ pointsRequired: Number((e.target as HTMLInputElement).value) })}
           />
         </td>
         <td>
-          <Button
-            className="Button Button--small"
-            onclick={() => tier.save({ isEnabled: !enabled })}
-          >
-            {enabled
-              ? app.translator.trans('ramon-point-system.admin.disable')
-              : app.translator.trans('ramon-point-system.admin.enable')}
+          <Button className="Button Button--small" onclick={() => tier.save({ isEnabled: !enabled })}>
+            {enabled ? app.translator.trans('ramon-point-system.admin.disable') : app.translator.trans('ramon-point-system.admin.enable')}
           </Button>
         </td>
         <td>

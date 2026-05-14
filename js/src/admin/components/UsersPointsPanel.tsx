@@ -89,13 +89,19 @@ export default class UsersPointsPanel extends Component {
             value={this.search}
             oninput={(e: Event) => (this.search = (e.target as HTMLInputElement).value)}
             onkeydown={(e: KeyboardEvent) => {
-              if (e.key === 'Enter') { this.page = 0; this.load(); }
+              if (e.key === 'Enter') {
+                this.page = 0;
+                this.load();
+              }
             }}
           />
           <select
             className="FormControl PointSystemAdmin-usersFilter"
             value={this.filter}
-            onchange={(e: Event) => { this.filter = (e.target as HTMLSelectElement).value as any; this.load(); }}
+            onchange={(e: Event) => {
+              this.filter = (e.target as HTMLSelectElement).value as any;
+              this.load();
+            }}
           >
             <option value="all">{t('filter_all')}</option>
             <option value="positive">{t('filter_positive')}</option>
@@ -104,13 +110,22 @@ export default class UsersPointsPanel extends Component {
           <select
             className="FormControl PointSystemAdmin-usersFilter"
             value={this.sort}
-            onchange={(e: Event) => { this.sort = (e.target as HTMLSelectElement).value as any; this.load(); }}
+            onchange={(e: Event) => {
+              this.sort = (e.target as HTMLSelectElement).value as any;
+              this.load();
+            }}
           >
             <option value="balance">{t('sort_balance')}</option>
             <option value="lifetime">{t('sort_lifetime')}</option>
             <option value="username">{t('sort_username')}</option>
           </select>
-          <Button className="Button" onclick={() => { this.page = 0; this.load(); }}>
+          <Button
+            className="Button"
+            onclick={() => {
+              this.page = 0;
+              this.load();
+            }}
+          >
             <i className="fas fa-search" /> {t('apply')}
           </Button>
         </div>
@@ -129,9 +144,7 @@ export default class UsersPointsPanel extends Component {
                 <th>{t('col_groups')}</th>
               </tr>
             </thead>
-            <tbody>
-              {this.users.map((u: any) => this.renderRow(u))}
-            </tbody>
+            <tbody>{this.users.map((u: any) => this.renderRow(u))}</tbody>
           </table>
         )}
 
@@ -139,17 +152,21 @@ export default class UsersPointsPanel extends Component {
           <Button
             className="Button"
             disabled={this.page === 0 || this.loading}
-            onclick={() => { this.page = Math.max(0, this.page - 1); this.load(); }}
+            onclick={() => {
+              this.page = Math.max(0, this.page - 1);
+              this.load();
+            }}
           >
             <i className="fas fa-chevron-left" /> {t('prev')}
           </Button>
-          <span className="PointSystemAdmin-pageInfo">
-            {t('page_x_of_y', { x: this.page + 1, y: totalPages })}
-          </span>
+          <span className="PointSystemAdmin-pageInfo">{t('page_x_of_y', { x: this.page + 1, y: totalPages })}</span>
           <Button
             className="Button"
             disabled={this.page + 1 >= totalPages || this.loading}
-            onclick={() => { this.page = this.page + 1; this.load(); }}
+            onclick={() => {
+              this.page = this.page + 1;
+              this.load();
+            }}
           >
             {t('next')} <i className="fas fa-chevron-right" />
           </Button>
@@ -163,7 +180,10 @@ export default class UsersPointsPanel extends Component {
     const displayName = user.displayName?.() || username;
     const balance = Number(user.attribute('pointBalance') ?? 0);
     const lifetime = Number(user.attribute('pointLifetime') ?? 0);
-    const groups = (user.groups?.() || []).filter(Boolean).map((g: any) => g.namePlural?.() || g.nameSingular?.() || '').join(', ');
+    const groups = (user.groups?.() || [])
+      .filter(Boolean)
+      .map((g: any) => g.namePlural?.() || g.nameSingular?.() || '')
+      .join(', ');
     const avatarUrl = user.avatarUrl?.();
 
     return (
@@ -177,9 +197,13 @@ export default class UsersPointsPanel extends Component {
             </div>
           </div>
         </td>
-        <td><strong>{balance.toLocaleString()}</strong></td>
+        <td>
+          <strong>{balance.toLocaleString()}</strong>
+        </td>
         <td>{lifetime.toLocaleString()}</td>
-        <td><small>{groups}</small></td>
+        <td>
+          <small>{groups}</small>
+        </td>
       </tr>
     );
   }

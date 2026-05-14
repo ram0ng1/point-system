@@ -56,18 +56,25 @@ export default class CoverDecorationsPanel extends Component {
           <h3>{t('upload_title')}</h3>
           <div className="Form-group">
             <label>{t('field_name')}</label>
-            <input className="FormControl" value={this.newName}
-              oninput={(e: Event) => (this.newName = (e.target as HTMLInputElement).value)} />
+            <input className="FormControl" value={this.newName} oninput={(e: Event) => (this.newName = (e.target as HTMLInputElement).value)} />
           </div>
           <div className="Form-group">
             <label>{t('field_description')}</label>
-            <input className="FormControl" value={this.newDescription}
-              oninput={(e: Event) => (this.newDescription = (e.target as HTMLInputElement).value)} />
+            <input
+              className="FormControl"
+              value={this.newDescription}
+              oninput={(e: Event) => (this.newDescription = (e.target as HTMLInputElement).value)}
+            />
           </div>
           <div className="Form-group">
             <label>{t('field_price')}</label>
-            <input type="number" min="0" className="FormControl" value={this.newPrice}
-              oninput={(e: Event) => (this.newPrice = (e.target as HTMLInputElement).value)} />
+            <input
+              type="number"
+              min="0"
+              className="FormControl"
+              value={this.newPrice}
+              oninput={(e: Event) => (this.newPrice = (e.target as HTMLInputElement).value)}
+            />
           </div>
           <div className="Form-group">
             <label>{t('field_image')}</label>
@@ -89,15 +96,11 @@ export default class CoverDecorationsPanel extends Component {
         </div>
 
         <h3>{t('existing')}</h3>
-        {this.items.length === 0 && (
-          <p className="PointSystemAdmin-empty">{t('none')}</p>
-        )}
+        {this.items.length === 0 && <p className="PointSystemAdmin-empty">{t('none')}</p>}
 
         {this.renderActiveEdit()}
 
-        <div className="PointSystemAdmin-coverGrid">
-          {this.items.map((it) => this.renderItem(it))}
-        </div>
+        <div className="PointSystemAdmin-coverGrid">{this.items.map((it) => this.renderItem(it))}</div>
       </div>
     );
   }
@@ -123,9 +126,7 @@ export default class CoverDecorationsPanel extends Component {
 
     return (
       <div className={`PointSystemAdmin-coverCard ${enabled ? '' : 'is-disabled'}`}>
-        <div className="PointSystemAdmin-coverCard-preview">
-          {url && <img src={url} alt={name} />}
-        </div>
+        <div className="PointSystemAdmin-coverCard-preview">{url && <img src={url} alt={name} />}</div>
         <div className="PointSystemAdmin-coverCard-meta">
           <strong>{name}</strong>
           <small>{price} pts</small>
@@ -153,23 +154,28 @@ export default class CoverDecorationsPanel extends Component {
 
     return (
       <div className="PointSystemAdmin-coverCard PointSystemAdmin-coverCard--editing">
-        <div className="PointSystemAdmin-coverCard-preview">
-          {url && <img src={url} alt={name} />}
-        </div>
+        <div className="PointSystemAdmin-coverCard-preview">{url && <img src={url} alt={name} />}</div>
         <div className="Form-group">
           <label>{tc('field_name')}</label>
-          <input className="FormControl" value={draft.name}
-            oninput={(e: Event) => (draft.name = (e.target as HTMLInputElement).value)} />
+          <input className="FormControl" value={draft.name} oninput={(e: Event) => (draft.name = (e.target as HTMLInputElement).value)} />
         </div>
         <div className="Form-group">
           <label>{tc('field_description')}</label>
-          <input className="FormControl" value={draft.description ?? ''}
-            oninput={(e: Event) => (draft.description = (e.target as HTMLInputElement).value)} />
+          <input
+            className="FormControl"
+            value={draft.description ?? ''}
+            oninput={(e: Event) => (draft.description = (e.target as HTMLInputElement).value)}
+          />
         </div>
         <div className="Form-group">
           <label>{tc('field_price')}</label>
-          <input type="number" min="0" className="FormControl" value={draft.price}
-            oninput={(e: Event) => (draft.price = Number((e.target as HTMLInputElement).value))} />
+          <input
+            type="number"
+            min="0"
+            className="FormControl"
+            value={draft.price}
+            oninput={(e: Event) => (draft.price = Number((e.target as HTMLInputElement).value))}
+          />
         </div>
         <div className="Form-group">
           <label>{tc('replace_image')}</label>
@@ -293,9 +299,7 @@ export default class CoverDecorationsPanel extends Component {
   resolveAsset(path: string): string {
     if (!path) return '';
     if (/^https?:\/\//i.test(path)) return path;
-    const base =
-      (app.forum.attribute('assetsBaseUrl') as string | undefined) ||
-      (app.forum.attribute('baseUrl') as string) + '/assets';
+    const base = (app.forum.attribute('assetsBaseUrl') as string | undefined) || (app.forum.attribute('baseUrl') as string) + '/assets';
     return base.replace(/\/+$/, '') + '/' + String(path).replace(/^\/+/, '');
   }
 }

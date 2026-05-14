@@ -20,11 +20,7 @@ export default class ManualAwardPanel extends Component {
 
         <div className="Form-group">
           <label>{app.translator.trans('ramon-point-system.admin.manual.field_username')}</label>
-          <input
-            className="FormControl"
-            value={this.username}
-            oninput={(e: Event) => (this.username = (e.target as HTMLInputElement).value)}
-          />
+          <input className="FormControl" value={this.username} oninput={(e: Event) => (this.username = (e.target as HTMLInputElement).value)} />
         </div>
 
         <div className="Form-group">
@@ -40,11 +36,7 @@ export default class ManualAwardPanel extends Component {
 
         <div className="Form-group">
           <label>{app.translator.trans('ramon-point-system.admin.manual.field_reason')}</label>
-          <input
-            className="FormControl"
-            value={this.reason}
-            oninput={(e: Event) => (this.reason = (e.target as HTMLInputElement).value)}
-          />
+          <input className="FormControl" value={this.reason} oninput={(e: Event) => (this.reason = (e.target as HTMLInputElement).value)} />
         </div>
 
         <Button
@@ -60,12 +52,10 @@ export default class ManualAwardPanel extends Component {
           <div className="PointSystemAdmin-result">
             <h4>{app.translator.trans('ramon-point-system.admin.manual.result')}</h4>
             <p>
-              <strong>{app.translator.trans('ramon-point-system.admin.manual.balance')}:</strong>{' '}
-              {this.lastResult.balance}
+              <strong>{app.translator.trans('ramon-point-system.admin.manual.balance')}:</strong> {this.lastResult.balance}
             </p>
             <p>
-              <strong>{app.translator.trans('ramon-point-system.admin.manual.lifetime')}:</strong>{' '}
-              {this.lastResult.lifetime}
+              <strong>{app.translator.trans('ramon-point-system.admin.manual.lifetime')}:</strong> {this.lastResult.lifetime}
             </p>
           </div>
         )}

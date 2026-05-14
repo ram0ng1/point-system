@@ -33,21 +33,15 @@ export default class ConfirmPurchaseModal extends Modal {
   }
 
   content() {
-    const t = (k: string, vars?: any) =>
-      app.translator.trans('ramon-point-system.forum.confirm.' + k, vars);
+    const t = (k: string, vars?: any) => app.translator.trans('ramon-point-system.forum.confirm.' + k, vars);
     const price = Number(this.attrs.itemPrice ?? 0);
     const balance = Number(this.attrs.currentBalance ?? 0);
     const after = Math.max(0, balance - price);
-    const icon =
-      this.attrs.currencyIcon ||
-      (app.forum.attribute('pointSystem.currency_icon') as string) ||
-      'fas fa-coins';
+    const icon = this.attrs.currencyIcon || (app.forum.attribute('pointSystem.currency_icon') as string) || 'fas fa-coins';
 
     return (
       <div className="Modal-body ConfirmPurchaseModal-body">
-        {this.attrs.preview && (
-          <div className="ConfirmPurchaseModal-preview">{this.attrs.preview}</div>
-        )}
+        {this.attrs.preview && <div className="ConfirmPurchaseModal-preview">{this.attrs.preview}</div>}
 
         <div className="ConfirmPurchaseModal-item">
           <strong>{this.attrs.itemName || '—'}</strong>
@@ -75,19 +69,10 @@ export default class ConfirmPurchaseModal extends Modal {
         </dl>
 
         <div className="Form-group ConfirmPurchaseModal-actions">
-          <Button
-            className="Button"
-            disabled={this.busy}
-            onclick={() => this.hide()}
-          >
+          <Button className="Button" disabled={this.busy} onclick={() => this.hide()}>
             {t('cancel')}
           </Button>
-          <Button
-            className="Button Button--primary"
-            loading={this.busy}
-            disabled={price > balance}
-            onclick={() => this.submit()}
-          >
+          <Button className="Button Button--primary" loading={this.busy} disabled={price > balance} onclick={() => this.submit()}>
             {this.attrs.confirmLabel || t('confirm')}
           </Button>
         </div>

@@ -64,24 +64,27 @@ export default class ShopPage extends Page {
 
     const user = app.session.user;
     const items =
-      this.tab === 'avatar'  ? this.avatarItems() :
-      this.tab === 'name'    ? this.nameItems() :
-      this.tab === 'cover'   ? this.coverItems() :
-      this.tab === 'title'   ? this.titleItems() :
-      this.tab === 'post-hl' ? this.postHlItems() :
-      [];
+      this.tab === 'avatar'
+        ? this.avatarItems()
+        : this.tab === 'name'
+          ? this.nameItems()
+          : this.tab === 'cover'
+            ? this.coverItems()
+            : this.tab === 'title'
+              ? this.titleItems()
+              : this.tab === 'post-hl'
+                ? this.postHlItems()
+                : [];
     const tiers = (app.forum.attribute('pointSystemAutoGroupTiers') as any[]) || [];
-    const coverEnabled  = app.forum.attribute('pointSystem.cover_deco_enabled') !== false;
-    const titleEnabled  = app.forum.attribute('pointSystem.title_deco_enabled') !== false;
+    const coverEnabled = app.forum.attribute('pointSystem.cover_deco_enabled') !== false;
+    const titleEnabled = app.forum.attribute('pointSystem.title_deco_enabled') !== false;
     const postHlEnabled = app.forum.attribute('pointSystem.post_hl_deco_enabled') !== false;
 
     return (
       <div className="PointSystemShop">
         <div className="PointSystemShop-header container">
           <h1>{app.translator.trans('ramon-point-system.forum.shop.title')}</h1>
-          <p className="PointSystemShop-subtitle">
-            {app.translator.trans('ramon-point-system.forum.shop.subtitle')}
-          </p>
+          <p className="PointSystemShop-subtitle">{app.translator.trans('ramon-point-system.forum.shop.subtitle')}</p>
           {user && (
             <div className="PointSystemShop-balance">
               <span className="PointSystemShop-balance-item">
@@ -122,13 +125,9 @@ export default class ShopPage extends Page {
         ) : (
           <div className="container">
             {items.length === 0 ? (
-              <div className="PointSystemShop-empty">
-                {app.translator.trans('ramon-point-system.forum.shop.empty')}
-              </div>
+              <div className="PointSystemShop-empty">{app.translator.trans('ramon-point-system.forum.shop.empty')}</div>
             ) : (
-              <div className={`PointSystemShop-grid PointSystemShop-grid--${this.tab}`}>
-                {items.map((it) => this.renderCard(it))}
-              </div>
+              <div className={`PointSystemShop-grid PointSystemShop-grid--${this.tab}`}>{items.map((it) => this.renderCard(it))}</div>
             )}
           </div>
         )}
@@ -146,13 +145,7 @@ export default class ShopPage extends Page {
       const isActive = current === id;
       const href = app.route('pointSystem.shop.tab', { tab: id });
       return (
-        <LinkButton
-          className="Button Button--link"
-          icon={icon}
-          href={href}
-          active={isActive}
-          itemClassName={isActive ? 'active' : ''}
-        >
+        <LinkButton className="Button Button--link" icon={icon} href={href} active={isActive} itemClassName={isActive ? 'active' : ''}>
           {label}
         </LinkButton>
       );
@@ -161,10 +154,10 @@ export default class ShopPage extends Page {
     return [
       item('avatar', 'fas fa-user-circle', t('ramon-point-system.forum.shop.tab_avatar') as string),
       item('name', 'fas fa-font', t('ramon-point-system.forum.shop.tab_name') as string),
-      coverEnabled  ? item('cover', 'fas fa-image', t('ramon-point-system.forum.shop.tab_cover') as string) : null,
-      titleEnabled  ? item('title', 'fas fa-id-badge', t('ramon-point-system.forum.shop.tab_title') as string) : null,
+      coverEnabled ? item('cover', 'fas fa-image', t('ramon-point-system.forum.shop.tab_cover') as string) : null,
+      titleEnabled ? item('title', 'fas fa-id-badge', t('ramon-point-system.forum.shop.tab_title') as string) : null,
       postHlEnabled ? item('post-hl', 'fas fa-highlighter', t('ramon-point-system.forum.shop.tab_post_hl') as string) : null,
-      hasTiers      ? item('tiers', 'fas fa-layer-group', t('ramon-point-system.forum.shop.tab_tiers') as string) : null,
+      hasTiers ? item('tiers', 'fas fa-layer-group', t('ramon-point-system.forum.shop.tab_tiers') as string) : null,
     ];
   }
 
@@ -173,9 +166,7 @@ export default class ShopPage extends Page {
     if (!tiers.length) {
       return (
         <div className="container">
-          <div className="PointSystemShop-empty">
-            {app.translator.trans('ramon-point-system.forum.shop.tiers_empty')}
-          </div>
+          <div className="PointSystemShop-empty">{app.translator.trans('ramon-point-system.forum.shop.tiers_empty')}</div>
         </div>
       );
     }
@@ -185,33 +176,25 @@ export default class ShopPage extends Page {
 
     return (
       <div className="container PointSystemShop-tiers">
-        <p className="PointSystemShop-subtitle">
-          {app.translator.trans('ramon-point-system.forum.shop.tiers_help')}
-        </p>
+        <p className="PointSystemShop-subtitle">{app.translator.trans('ramon-point-system.forum.shop.tiers_help')}</p>
         <div className="PointSystemShop-tiersGrid">
           {tiers.map((t: any) => {
             const cost = Number(t.pointsRequired || 0);
             const canAfford = user && balance >= cost;
             const owned = user && userGroupIds.has(Number(t.groupId));
-            const progress = user && cost > 0
-              ? Math.min(100, Math.max(0, Math.round((balance / cost) * 100)))
-              : 0;
+            const progress = user && cost > 0 ? Math.min(100, Math.max(0, Math.round((balance / cost) * 100))) : 0;
             const claimKey = `tier:${t.id}`;
             const isClaiming = this.claiming.has(claimKey);
 
             return (
               <div className={`PointSystemShop-tier ${canAfford ? 'is-reached' : ''} ${owned ? 'is-owned' : ''}`} key={t.id}>
-                <div
-                  className="PointSystemShop-tier-badge"
-                  style={t.groupColor ? `background:${t.groupColor}` : undefined}
-                >
+                <div className="PointSystemShop-tier-badge" style={t.groupColor ? `background:${t.groupColor}` : undefined}>
                   <i className={t.groupIcon || 'fas fa-medal'} />
                 </div>
                 <div className="PointSystemShop-tier-body">
                   <div className="PointSystemShop-tier-name">{t.groupName || '—'}</div>
                   <div className="PointSystemShop-tier-points">
-                    <i className={(app.forum.attribute('pointSystem.currency_icon') as string) || 'fas fa-coins'} />{' '}
-                    {Number(cost).toLocaleString()}{' '}
+                    <i className={(app.forum.attribute('pointSystem.currency_icon') as string) || 'fas fa-coins'} /> {Number(cost).toLocaleString()}{' '}
                     {app.translator.trans('ramon-point-system.forum.shop.tier_cost')}
                   </div>
                   {user && !owned && cost > 0 && (
@@ -223,16 +206,11 @@ export default class ShopPage extends Page {
                 <div className="PointSystemShop-tier-action">
                   {user && owned && (
                     <Button className="Button Button--primary PointSystemShop-equippedBtn" disabled>
-                      <i className="fas fa-check" />{' '}
-                      {app.translator.trans('ramon-point-system.forum.shop.tier_claimed')}
+                      <i className="fas fa-check" /> {app.translator.trans('ramon-point-system.forum.shop.tier_claimed')}
                     </Button>
                   )}
                   {user && !owned && canAfford && (
-                    <Button
-                      className="Button Button--primary"
-                      loading={isClaiming}
-                      onclick={() => this.confirmClaimTier(t)}
-                    >
+                    <Button className="Button Button--primary" loading={isClaiming} onclick={() => this.confirmClaimTier(t)}>
                       {app.translator.trans('ramon-point-system.forum.shop.tier_claim')}
                     </Button>
                   )}
@@ -319,23 +297,28 @@ export default class ShopPage extends Page {
       item.isAnimated ? 'is-animated' : '',
       owned ? 'is-owned' : '',
       equipped ? 'is-equipped' : '',
-    ].filter(Boolean).join(' ');
+    ]
+      .filter(Boolean)
+      .join(' ');
 
     return (
       <div className={cardCls}>
         {equipped && (
           <div className="PointSystemShop-card-equippedRibbon">
-            <i className="fas fa-check-circle" />{' '}
-            {app.translator.trans('ramon-point-system.forum.shop.equipped_label')}
+            <i className="fas fa-check-circle" /> {app.translator.trans('ramon-point-system.forum.shop.equipped_label')}
           </div>
         )}
 
         <div className="PointSystemShop-card-preview">
-          {item.type === 'avatar_decoration'           ? this.previewAvatar(item)
-            : item.type === 'cover_decoration'          ? this.previewCover(item)
-            : item.type === 'title_decoration'          ? this.previewTitle(item)
-            : item.type === 'post_highlight_decoration' ? this.previewPostHl(item)
-            : this.previewName(item)}
+          {item.type === 'avatar_decoration'
+            ? this.previewAvatar(item)
+            : item.type === 'cover_decoration'
+              ? this.previewCover(item)
+              : item.type === 'title_decoration'
+                ? this.previewTitle(item)
+                : item.type === 'post_highlight_decoration'
+                  ? this.previewPostHl(item)
+                  : this.previewName(item)}
         </div>
 
         <div className="PointSystemShop-card-body">
@@ -358,29 +341,18 @@ export default class ShopPage extends Page {
 
           {user && equipped && (
             <Button className="Button Button--primary PointSystemShop-equippedBtn" disabled>
-              <i className="fas fa-check" />{' '}
-              {app.translator.trans('ramon-point-system.forum.shop.equipped')}
+              <i className="fas fa-check" /> {app.translator.trans('ramon-point-system.forum.shop.equipped')}
             </Button>
           )}
 
           {user && owned && !equipped && (
-            <Button
-              className="Button Button--primary"
-              loading={isClaiming}
-              onclick={() => this.equip(item)}
-            >
-              <i className="fas fa-bolt" />{' '}
-              {app.translator.trans('ramon-point-system.forum.shop.equip')}
+            <Button className="Button Button--primary" loading={isClaiming} onclick={() => this.equip(item)}>
+              <i className="fas fa-bolt" /> {app.translator.trans('ramon-point-system.forum.shop.equip')}
             </Button>
           )}
 
           {user && !owned && (
-            <Button
-              className="Button Button--primary"
-              disabled={!canAfford}
-              loading={isClaiming}
-              onclick={() => this.confirmClaim(item)}
-            >
+            <Button className="Button Button--primary" disabled={!canAfford} loading={isClaiming} onclick={() => this.confirmClaim(item)}>
               {canAfford
                 ? app.translator.trans('ramon-point-system.forum.shop.claim')
                 : app.translator.trans('ramon-point-system.forum.shop.not_enough')}
@@ -494,9 +466,11 @@ export default class ShopPage extends Page {
     const balance = Number(user.attribute('pointBalance') ?? 0);
 
     const preview =
-      item.type === 'avatar_decoration' ? this.previewAvatar(item) :
-      item.type === 'cover_decoration'  ? this.previewCover(item) :
-      this.previewName(item);
+      item.type === 'avatar_decoration'
+        ? this.previewAvatar(item)
+        : item.type === 'cover_decoration'
+          ? this.previewCover(item)
+          : this.previewName(item);
 
     app.modal.show(ConfirmPurchaseModal, {
       title: app.translator.trans('ramon-point-system.forum.confirm.title'),
@@ -614,9 +588,7 @@ export default class ShopPage extends Page {
   resolveAsset(path: string): string {
     if (!path) return '';
     if (/^https?:\/\//i.test(path)) return path;
-    const base =
-      (app.forum.attribute('assetsBaseUrl') as string | undefined) ||
-      (app.forum.attribute('baseUrl') as string) + '/assets';
+    const base = (app.forum.attribute('assetsBaseUrl') as string | undefined) || (app.forum.attribute('baseUrl') as string) + '/assets';
     return base.replace(/\/+$/, '') + '/' + String(path).replace(/^\/+/, '');
   }
 }
