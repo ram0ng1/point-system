@@ -24,16 +24,19 @@ class TierClaimedBlueprint implements BlueprintInterface, AlertableInterface
         public int $pointsRequired = 0,
     ) {}
 
+    #[\Override]
     public function getSubject(): ?AbstractModel
     {
         return $this->group;
     }
 
+    #[\Override]
     public function getFromUser(): ?User
     {
         return null;
     }
 
+    #[\Override]
     public function getData(): mixed
     {
         return [
@@ -44,11 +47,13 @@ class TierClaimedBlueprint implements BlueprintInterface, AlertableInterface
         ];
     }
 
+    #[\Override]
     public static function getType(): string
     {
         return 'pointSystemTierClaimed';
     }
 
+    #[\Override]
     public static function getSubjectModel(): string
     {
         return Group::class;

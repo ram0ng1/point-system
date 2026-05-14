@@ -18,8 +18,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class ShopClaim extends AbstractModel
 {
-    public const TYPE_AVATAR = 'avatar_decoration';
-    public const TYPE_NAME   = 'name_decoration';
+    public const TYPE_AVATAR  = 'avatar_decoration';
+    public const TYPE_NAME    = 'name_decoration';
+    public const TYPE_COVER   = 'cover_decoration';
+    public const TYPE_TITLE   = 'title_decoration';
+    public const TYPE_POST_HL = 'post_highlight_decoration';
 
     protected $table = 'point_system_claims';
 

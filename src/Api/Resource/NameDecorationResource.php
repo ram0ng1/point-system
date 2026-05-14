@@ -12,7 +12,9 @@ use Flarum\Api\Sort\SortColumn;
 use Flarum\Foundation\ValidationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
+use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Model\NameDecoration;
+use Ramon\PointSystem\Model\ShopClaim;
 
 /**
  * @extends AbstractDatabaseResource<NameDecoration>
@@ -32,24 +34,36 @@ class NameDecorationResource extends AbstractDatabaseResource
         'glass', 'stamp', 'hearts', 'sparkle', 'wave',
     ];
 
+    #[\Override]
     public function type(): string
     {
         return 'point-system-name-decorations';
     }
 
+    #[\Override]
     public function model(): string
     {
         return NameDecoration::class;
     }
 
+    #[\Override]
     public function scope(Builder $query, \Tobyz\JsonApiServer\Context $context): void
     {
         $actor = $context->getActor();
+
+        // Feature gate: when admin turns the family off, non-managers see an
+        // empty catalog (their shop tab disappears entirely). Managers still
+        // see everything so they can re-enable individual rows from admin.
         if (! $actor->hasPermission('pointSystem.manage')) {
+            if (! resolve(FeatureGate::class)->isEnabled(ShopClaim::TYPE_NAME)) {
+                $query->whereRaw('1 = 0');
+                return;
+            }
             $query->where('is_enabled', true);
         }
     }
 
+    #[\Override]
     public function endpoints(): array
     {
         return [
@@ -60,6 +74,7 @@ class NameDecorationResource extends AbstractDatabaseResource
                 ->authenticated()
                 ->action(function (Context $context) {
                     $context->getActor()->assertCan('pointSystem.manage');
+                    resolve(FeatureGate::class)->assertEnabled(ShopClaim::TYPE_NAME);
                     $attrs = (array) ($context->body()['data']['attributes'] ?? []);
                     $deco = new NameDecoration();
                     $this->fill($deco, $attrs, isNew: true);
@@ -70,6 +85,7 @@ class NameDecorationResource extends AbstractDatabaseResource
             Endpoint\Update::make()
                 ->action(function (Context $context) {
                     $context->getActor()->assertCan('pointSystem.manage');
+                    resolve(FeatureGate::class)->assertEnabled(ShopClaim::TYPE_NAME);
                     /** @var NameDecoration $deco */
                     $deco = NameDecoration::query()->findOrFail($context->modelId);
                     $attrs = (array) ($context->body()['data']['attributes'] ?? []);
@@ -81,6 +97,7 @@ class NameDecorationResource extends AbstractDatabaseResource
             Endpoint\Delete::make()
                 ->action(function (Context $context) {
                     $context->getActor()->assertCan('pointSystem.manage');
+                    resolve(FeatureGate::class)->assertEnabled(ShopClaim::TYPE_NAME);
                     /** @var NameDecoration $deco */
                     $deco = NameDecoration::query()->findOrFail($context->modelId);
                     $deco->delete();
@@ -89,6 +106,7 @@ class NameDecorationResource extends AbstractDatabaseResource
         ];
     }
 
+    #[\Override]
     public function fields(): array
     {
         return [
@@ -104,6 +122,7 @@ class NameDecorationResource extends AbstractDatabaseResource
         ];
     }
 
+    #[\Override]
     public function sorts(): array
     {
         return [

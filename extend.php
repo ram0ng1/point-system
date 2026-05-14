@@ -26,7 +26,9 @@ return [
         ->js(__DIR__.'/js/dist/forum.js')
         ->css(__DIR__.'/less/forum.less')
         ->route('/rewards', 'pointSystem.shop')
-        ->route('/decorations', 'pointSystem.decorations'),
+        ->route('/rewards/{tab}', 'pointSystem.shop.tab')
+        ->route('/decorations', 'pointSystem.decorations')
+        ->route('/decorations/{tab}', 'pointSystem.decorations.tab'),
 
     (new Extend\Frontend('admin'))
         ->js(__DIR__.'/js/dist/admin.js')
@@ -64,6 +66,9 @@ return [
     (new Extend\ApiResource(\Ramon\PointSystem\Api\Resource\ShopItemResource::class)),
     (new Extend\ApiResource(\Ramon\PointSystem\Api\Resource\AvatarDecorationResource::class)),
     (new Extend\ApiResource(\Ramon\PointSystem\Api\Resource\NameDecorationResource::class)),
+    (new Extend\ApiResource(\Ramon\PointSystem\Api\Resource\CoverDecorationResource::class)),
+    (new Extend\ApiResource(\Ramon\PointSystem\Api\Resource\TitleDecorationResource::class)),
+    (new Extend\ApiResource(\Ramon\PointSystem\Api\Resource\PostHighlightDecorationResource::class)),
     (new Extend\ApiResource(\Ramon\PointSystem\Api\Resource\AutoGroupTierResource::class)),
     (new Extend\ApiResource(\Ramon\PointSystem\Api\Resource\ShopClaimResource::class)),
 
@@ -80,6 +85,8 @@ return [
         ->post('/point-system/unequip', 'pointSystem.unequip', Controller\UnequipDecorationController::class)
         ->post('/point-system/avatar-decoration/upload', 'pointSystem.avatarDeco.upload', Controller\UploadAvatarDecorationController::class)
         ->delete('/point-system/avatar-decoration/{id}', 'pointSystem.avatarDeco.delete', Controller\DeleteAvatarDecorationController::class)
+        ->post('/point-system/cover-decoration/upload', 'pointSystem.coverDeco.upload', Controller\UploadCoverDecorationController::class)
+        ->delete('/point-system/cover-decoration/{id}', 'pointSystem.coverDeco.delete', Controller\DeleteCoverDecorationController::class)
         ->post('/point-system/award', 'pointSystem.award', Controller\ManualAwardController::class),
 
     // ── Permissions ──────────────────────────────────────────────────────────
@@ -104,6 +111,9 @@ return [
         ->serializeToForum('pointSystem.auto_group_enabled', 'point-system.auto_group_enabled', 'boolval')
         ->serializeToForum('pointSystem.avatar_deco_enabled', 'point-system.avatar_deco_enabled', 'boolval')
         ->serializeToForum('pointSystem.name_deco_enabled', 'point-system.name_deco_enabled', 'boolval')
+        ->serializeToForum('pointSystem.cover_deco_enabled', 'point-system.cover_deco_enabled', 'boolval')
+        ->serializeToForum('pointSystem.title_deco_enabled', 'point-system.title_deco_enabled', 'boolval')
+        ->serializeToForum('pointSystem.post_hl_deco_enabled', 'point-system.post_hl_deco_enabled', 'boolval')
         ->serializeToForum('pointSystem.deco_in_posts', 'point-system.deco_in_posts', 'boolval')
         ->serializeToForum('pointSystem.deco_in_user_card', 'point-system.deco_in_user_card', 'boolval')
         ->serializeToForum('pointSystem.deco_in_lists', 'point-system.deco_in_lists', 'boolval')
@@ -123,6 +133,9 @@ return [
         ->default('point-system.auto_group_enabled', true)
         ->default('point-system.avatar_deco_enabled', true)
         ->default('point-system.name_deco_enabled', true)
+        ->default('point-system.cover_deco_enabled', true)
+        ->default('point-system.title_deco_enabled', true)
+        ->default('point-system.post_hl_deco_enabled', true)
         ->default('point-system.deco_in_posts', true)
         ->default('point-system.deco_in_user_card', true)
         ->default('point-system.deco_in_lists', true)

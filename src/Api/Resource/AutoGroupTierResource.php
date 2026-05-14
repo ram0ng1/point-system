@@ -18,11 +18,13 @@ use Ramon\PointSystem\Model\AutoGroupTier;
  */
 class AutoGroupTierResource extends AbstractDatabaseResource
 {
+    #[\Override]
     public function type(): string
     {
         return 'point-system-auto-group-tiers';
     }
 
+    #[\Override]
     public function model(): string
     {
         return AutoGroupTier::class;
@@ -32,6 +34,7 @@ class AutoGroupTierResource extends AbstractDatabaseResource
      * Hide tiers from non-admin readers when the auto-group system is off.
      * Admins keep access so they can still configure tiers before re-enabling.
      */
+    #[\Override]
     public function scope(Builder $query, \Tobyz\JsonApiServer\Context $context): void
     {
         $actor = $context->getActor();
@@ -43,6 +46,7 @@ class AutoGroupTierResource extends AbstractDatabaseResource
         }
     }
 
+    #[\Override]
     public function endpoints(): array
     {
         return [
@@ -85,6 +89,7 @@ class AutoGroupTierResource extends AbstractDatabaseResource
             ->get('point-system.auto_group_enabled', true);
     }
 
+    #[\Override]
     public function fields(): array
     {
         return [

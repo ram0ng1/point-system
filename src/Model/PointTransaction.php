@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $reason
  * @property string|null $reference_type
  * @property int|null $reference_id
- * @property string|null $meta
+ * @property array|null $meta
  * @property \Carbon\Carbon $created_at
  */
 class PointTransaction extends AbstractModel
@@ -28,6 +28,7 @@ class PointTransaction extends AbstractModel
         'amount' => 'integer',
         'reference_id' => 'integer',
         'created_at' => 'datetime',
+        'meta' => 'array',
     ];
 
     protected $guarded = [];

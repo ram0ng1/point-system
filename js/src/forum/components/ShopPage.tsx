@@ -5,26 +5,41 @@ import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import Button from 'flarum/common/components/Button';
 import Tooltip from 'flarum/common/components/Tooltip';
 import LinkButton from 'flarum/common/components/LinkButton';
+import SelectDropdown from 'flarum/common/components/SelectDropdown';
+import ConfirmPurchaseModal from './ConfirmPurchaseModal';
 
 interface ShopItem {
   id: number;
-  type: 'avatar_decoration' | 'name_decoration';
+  type: 'avatar_decoration' | 'name_decoration' | 'cover_decoration' | 'title_decoration' | 'post_highlight_decoration';
   name: string;
   description: string | null;
   price: number;
-  // avatar specific
+  // avatar / cover specific
   imagePath?: string;
   isAnimated?: boolean;
-  // name specific
+  // name / title / post-hl specific
   slug?: string;
   preset?: string | null;
   customCss?: string | null;
+  // title specific
+  titleText?: string;
+  color?: string | null;
 }
+
+type ShopTab = 'avatar' | 'name' | 'cover' | 'title' | 'post-hl' | 'tiers';
 
 export default class ShopPage extends Page {
   loading = false;
-  tab: 'avatar' | 'name' | 'tiers' = 'avatar';
   claiming = new Set<string>();
+
+  // Active tab is derived from the route param `tab` so that each section has
+  // its own URL (/rewards/name, /rewards/cover, /rewards/tiers). The bare
+  // `/rewards` path falls back to 'avatar' below.
+  get tab(): ShopTab {
+    const raw = m.route.param('tab');
+    const valid: ShopTab[] = ['avatar', 'name', 'cover', 'title', 'post-hl', 'tiers'];
+    return (valid as string[]).includes(raw) ? (raw as ShopTab) : 'avatar';
+  }
 
   oninit(vnode: any) {
     super.oninit(vnode);
@@ -48,8 +63,17 @@ export default class ShopPage extends Page {
     }
 
     const user = app.session.user;
-    const items = this.tab === 'avatar' ? this.avatarItems() : this.tab === 'name' ? this.nameItems() : [];
+    const items =
+      this.tab === 'avatar'  ? this.avatarItems() :
+      this.tab === 'name'    ? this.nameItems() :
+      this.tab === 'cover'   ? this.coverItems() :
+      this.tab === 'title'   ? this.titleItems() :
+      this.tab === 'post-hl' ? this.postHlItems() :
+      [];
     const tiers = (app.forum.attribute('pointSystemAutoGroupTiers') as any[]) || [];
+    const coverEnabled  = app.forum.attribute('pointSystem.cover_deco_enabled') !== false;
+    const titleEnabled  = app.forum.attribute('pointSystem.title_deco_enabled') !== false;
+    const postHlEnabled = app.forum.attribute('pointSystem.post_hl_deco_enabled') !== false;
 
     return (
       <div className="PointSystemShop">
@@ -83,31 +107,15 @@ export default class ShopPage extends Page {
           )}
         </div>
 
-        <div className="PointSystemShop-tabs container">
-          <button
-            className={`PointSystemShop-tab ${this.tab === 'avatar' ? 'is-active' : ''}`}
-            onclick={() => (this.tab = 'avatar')}
+        <nav className="PointSystemShop-nav container">
+          <SelectDropdown
+            className="PointSystemShop-nav-select App-titleControl"
+            buttonClassName="Button"
+            accessibleToggleLabel={app.translator.trans('ramon-point-system.forum.shop.toggle_nav_label')}
           >
-            <i className="fas fa-user-circle" />{' '}
-            {app.translator.trans('ramon-point-system.forum.shop.tab_avatar')}
-          </button>
-          <button
-            className={`PointSystemShop-tab ${this.tab === 'name' ? 'is-active' : ''}`}
-            onclick={() => (this.tab = 'name')}
-          >
-            <i className="fas fa-font" />{' '}
-            {app.translator.trans('ramon-point-system.forum.shop.tab_name')}
-          </button>
-          {tiers.length > 0 && (
-            <button
-              className={`PointSystemShop-tab ${this.tab === 'tiers' ? 'is-active' : ''}`}
-              onclick={() => (this.tab = 'tiers')}
-            >
-              <i className="fas fa-layer-group" />{' '}
-              {app.translator.trans('ramon-point-system.forum.shop.tab_tiers')}
-            </button>
-          )}
-        </div>
+            {this.navItems(coverEnabled, titleEnabled, postHlEnabled, tiers.length > 0)}
+          </SelectDropdown>
+        </nav>
 
         {this.tab === 'tiers' ? (
           this.renderTiers(user)
@@ -118,7 +126,7 @@ export default class ShopPage extends Page {
                 {app.translator.trans('ramon-point-system.forum.shop.empty')}
               </div>
             ) : (
-              <div className="PointSystemShop-grid">
+              <div className={`PointSystemShop-grid PointSystemShop-grid--${this.tab}`}>
                 {items.map((it) => this.renderCard(it))}
               </div>
             )}
@@ -126,6 +134,38 @@ export default class ShopPage extends Page {
         )}
       </div>
     );
+  }
+
+  navItems(coverEnabled: boolean, titleEnabled: boolean, postHlEnabled: boolean, hasTiers: boolean) {
+    // Bind explicitly — destructuring `app.translator.trans` loses the `this`
+    // reference and trips `preprocessTranslation` on the default theme.
+    const t = app.translator.trans.bind(app.translator);
+    const current = this.tab;
+
+    const item = (id: ShopTab, icon: string, label: string) => {
+      const isActive = current === id;
+      const href = app.route('pointSystem.shop.tab', { tab: id });
+      return (
+        <LinkButton
+          className="Button Button--link"
+          icon={icon}
+          href={href}
+          active={isActive}
+          itemClassName={isActive ? 'active' : ''}
+        >
+          {label}
+        </LinkButton>
+      );
+    };
+
+    return [
+      item('avatar', 'fas fa-user-circle', t('ramon-point-system.forum.shop.tab_avatar') as string),
+      item('name', 'fas fa-font', t('ramon-point-system.forum.shop.tab_name') as string),
+      coverEnabled  ? item('cover', 'fas fa-image', t('ramon-point-system.forum.shop.tab_cover') as string) : null,
+      titleEnabled  ? item('title', 'fas fa-id-badge', t('ramon-point-system.forum.shop.tab_title') as string) : null,
+      postHlEnabled ? item('post-hl', 'fas fa-highlighter', t('ramon-point-system.forum.shop.tab_post_hl') as string) : null,
+      hasTiers      ? item('tiers', 'fas fa-layer-group', t('ramon-point-system.forum.shop.tab_tiers') as string) : null,
+    ];
   }
 
   renderTiers(user: any) {
@@ -191,7 +231,7 @@ export default class ShopPage extends Page {
                     <Button
                       className="Button Button--primary"
                       loading={isClaiming}
-                      onclick={() => this.claimTier(t)}
+                      onclick={() => this.confirmClaimTier(t)}
                     >
                       {app.translator.trans('ramon-point-system.forum.shop.tier_claim')}
                     </Button>
@@ -249,6 +289,21 @@ export default class ShopPage extends Page {
     }
   }
 
+  coverItems(): ShopItem[] {
+    const raw = (app.forum.attribute('pointSystemCoverDecorations') as any[]) || [];
+    return raw.map((d) => ({ ...d, type: 'cover_decoration' as const }));
+  }
+
+  titleItems(): ShopItem[] {
+    const raw = (app.forum.attribute('pointSystemTitleDecorations') as any[]) || [];
+    return raw.map((d) => ({ ...d, type: 'title_decoration' as const }));
+  }
+
+  postHlItems(): ShopItem[] {
+    const raw = (app.forum.attribute('pointSystemPostHighlightDecorations') as any[]) || [];
+    return raw.map((d) => ({ ...d, type: 'post_highlight_decoration' as const }));
+  }
+
   renderCard(item: ShopItem) {
     const user = app.session.user;
     const balance = Number(user?.attribute('pointBalance') ?? 0);
@@ -260,6 +315,7 @@ export default class ShopPage extends Page {
 
     const cardCls = [
       'PointSystemShop-card',
+      `PointSystemShop-card--${item.type.replace(/_decoration$/, '').replace(/_/g, '-')}`,
       item.isAnimated ? 'is-animated' : '',
       owned ? 'is-owned' : '',
       equipped ? 'is-equipped' : '',
@@ -275,7 +331,11 @@ export default class ShopPage extends Page {
         )}
 
         <div className="PointSystemShop-card-preview">
-          {item.type === 'avatar_decoration' ? this.previewAvatar(item) : this.previewName(item)}
+          {item.type === 'avatar_decoration'           ? this.previewAvatar(item)
+            : item.type === 'cover_decoration'          ? this.previewCover(item)
+            : item.type === 'title_decoration'          ? this.previewTitle(item)
+            : item.type === 'post_highlight_decoration' ? this.previewPostHl(item)
+            : this.previewName(item)}
         </div>
 
         <div className="PointSystemShop-card-body">
@@ -319,7 +379,7 @@ export default class ShopPage extends Page {
               className="Button Button--primary"
               disabled={!canAfford}
               loading={isClaiming}
-              onclick={() => this.claim(item)}
+              onclick={() => this.confirmClaim(item)}
             >
               {canAfford
                 ? app.translator.trans('ramon-point-system.forum.shop.claim')
@@ -336,6 +396,15 @@ export default class ShopPage extends Page {
     if (!user) return false;
     if (item.type === 'avatar_decoration') {
       return Number(user.attribute('equippedAvatarDecorationId') ?? 0) === Number(item.id);
+    }
+    if (item.type === 'cover_decoration') {
+      return Number(user.attribute('equippedCoverDecorationId') ?? 0) === Number(item.id);
+    }
+    if (item.type === 'title_decoration') {
+      return Number(user.attribute('equippedTitleDecorationId') ?? 0) === Number(item.id);
+    }
+    if (item.type === 'post_highlight_decoration') {
+      return Number(user.attribute('equippedPostHighlightDecorationId') ?? 0) === Number(item.id);
     }
     return Number(user.attribute('equippedNameDecorationId') ?? 0) === Number(item.id);
   }
@@ -357,12 +426,49 @@ export default class ShopPage extends Page {
     );
   }
 
+  previewCover(item: ShopItem) {
+    const url = item.imagePath ? this.resolveAsset(item.imagePath) : '';
+    return (
+      <div className="PointSystemShop-coverPreview">
+        {url ? <img src={url} alt={item.name} /> : <div className="PointSystemShop-coverPreview-empty" />}
+      </div>
+    );
+  }
+
   previewName(item: ShopItem) {
     const slug = String(item.slug || '').replace(/[^a-zA-Z0-9_-]/g, '');
     const username = app.session.user?.username?.() || 'Username';
     return (
       <div className="PointSystemShop-namePreview">
         <span className={`ps-name-preview ps-name-${slug}`}>{username}</span>
+      </div>
+    );
+  }
+
+  previewTitle(item: ShopItem) {
+    const slug = String(item.slug || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    const text = String(item.titleText || item.name || '—');
+    const styleVar = item.color ? `--ps-title-color:${String(item.color).replace(/[<>"';]/g, '')};` : '';
+    return (
+      <div className="PointSystemShop-titlePreview">
+        <span className={`ps-title-preview ps-title-${slug}`} style={styleVar}>
+          {text}
+        </span>
+      </div>
+    );
+  }
+
+  previewPostHl(item: ShopItem) {
+    const slug = String(item.slug || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    return (
+      <div className="PointSystemShop-postHlPreview">
+        <div className={`ps-posthl-preview ps-posthl-${slug}`}>
+          <div className="ps-posthl-preview-avatar" />
+          <div className="ps-posthl-preview-body">
+            <div className="ps-posthl-preview-line" />
+            <div className="ps-posthl-preview-line short" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -380,6 +486,49 @@ export default class ShopPage extends Page {
   userOwns(item: ShopItem): boolean {
     const list = (app.session.user?.attribute('ownedDecorationIds') as any[]) || [];
     return list.some((o) => o.type === item.type && Number(o.id) === Number(item.id));
+  }
+
+  confirmClaim(item: ShopItem) {
+    const user = app.session.user;
+    if (!user) return;
+    const balance = Number(user.attribute('pointBalance') ?? 0);
+
+    const preview =
+      item.type === 'avatar_decoration' ? this.previewAvatar(item) :
+      item.type === 'cover_decoration'  ? this.previewCover(item) :
+      this.previewName(item);
+
+    app.modal.show(ConfirmPurchaseModal, {
+      title: app.translator.trans('ramon-point-system.forum.confirm.title'),
+      itemName: item.name,
+      itemPrice: item.price,
+      currentBalance: balance,
+      preview,
+      confirmLabel: app.translator.trans('ramon-point-system.forum.shop.claim'),
+      onConfirm: () => this.claim(item),
+    });
+  }
+
+  confirmClaimTier(tier: any) {
+    const user = app.session.user;
+    if (!user) return;
+    const balance = Number(user.attribute('pointBalance') ?? 0);
+
+    const preview = (
+      <div className="PointSystemShop-tier-badge" style={tier.groupColor ? `background:${tier.groupColor}` : undefined}>
+        <i className={tier.groupIcon || 'fas fa-medal'} />
+      </div>
+    );
+
+    app.modal.show(ConfirmPurchaseModal, {
+      title: app.translator.trans('ramon-point-system.forum.confirm.title_tier'),
+      itemName: tier.groupName || '—',
+      itemPrice: Number(tier.pointsRequired || 0),
+      currentBalance: balance,
+      preview,
+      confirmLabel: app.translator.trans('ramon-point-system.forum.shop.tier_claim'),
+      onConfirm: () => this.claimTier(tier),
+    });
   }
 
   async claim(item: ShopItem) {
@@ -429,6 +578,22 @@ export default class ShopPage extends Page {
         app.session.user.pushAttributes({
           equippedAvatarDecorationId: item.id,
           equippedAvatarDecorationUrl: item.imagePath,
+        });
+      } else if (item.type === 'cover_decoration') {
+        app.session.user.pushAttributes({
+          equippedCoverDecorationId: item.id,
+          equippedCoverDecorationUrl: item.imagePath,
+        });
+      } else if (item.type === 'title_decoration') {
+        app.session.user.pushAttributes({
+          equippedTitleDecorationId: item.id,
+          equippedTitleDecorationSlug: item.slug,
+          equippedTitleDecorationText: item.titleText,
+        });
+      } else if (item.type === 'post_highlight_decoration') {
+        app.session.user.pushAttributes({
+          equippedPostHighlightDecorationId: item.id,
+          equippedPostHighlightDecorationSlug: item.slug,
         });
       } else {
         app.session.user.pushAttributes({

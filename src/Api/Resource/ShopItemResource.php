@@ -21,16 +21,19 @@ use Ramon\PointSystem\Model\AvatarDecoration;
  */
 class ShopItemResource extends AbstractDatabaseResource
 {
+    #[\Override]
     public function type(): string
     {
         return 'point-system-shop-items';
     }
 
+    #[\Override]
     public function model(): string
     {
         return AvatarDecoration::class;
     }
 
+    #[\Override]
     public function scope(Builder $query, \Tobyz\JsonApiServer\Context $context): void
     {
         $actor = $context->getActor();
@@ -39,6 +42,7 @@ class ShopItemResource extends AbstractDatabaseResource
         }
     }
 
+    #[\Override]
     public function endpoints(): array
     {
         return [
@@ -47,6 +51,7 @@ class ShopItemResource extends AbstractDatabaseResource
         ];
     }
 
+    #[\Override]
     public function fields(): array
     {
         return [

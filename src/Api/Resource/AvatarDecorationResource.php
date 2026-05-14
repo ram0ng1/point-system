@@ -11,31 +11,41 @@ use Flarum\Api\Schema;
 use Flarum\Api\Sort\SortColumn;
 use Flarum\Foundation\ValidationException;
 use Illuminate\Database\Eloquent\Builder;
+use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Model\AvatarDecoration;
+use Ramon\PointSystem\Model\ShopClaim;
 
 /**
  * @extends AbstractDatabaseResource<AvatarDecoration>
  */
 class AvatarDecorationResource extends AbstractDatabaseResource
 {
+    #[\Override]
     public function type(): string
     {
         return 'point-system-avatar-decorations';
     }
 
+    #[\Override]
     public function model(): string
     {
         return AvatarDecoration::class;
     }
 
+    #[\Override]
     public function scope(Builder $query, \Tobyz\JsonApiServer\Context $context): void
     {
         $actor = $context->getActor();
         if (! $actor->hasPermission('pointSystem.manage')) {
+            if (! resolve(FeatureGate::class)->isEnabled(ShopClaim::TYPE_AVATAR)) {
+                $query->whereRaw('1 = 0');
+                return;
+            }
             $query->where('is_enabled', true);
         }
     }
 
+    #[\Override]
     public function endpoints(): array
     {
         return [
@@ -64,6 +74,7 @@ class AvatarDecorationResource extends AbstractDatabaseResource
         ];
     }
 
+    #[\Override]
     public function fields(): array
     {
         return [
@@ -78,6 +89,7 @@ class AvatarDecorationResource extends AbstractDatabaseResource
         ];
     }
 
+    #[\Override]
     public function sorts(): array
     {
         return [

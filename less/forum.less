@@ -1,5 +1,31 @@
 @import 'common/decorations.less';
 
+// ─── Design tokens (Linear-inspired, scoped to the extension) ─────────────────
+// We don't redefine Flarum's palette — we layer subtler defaults on top of it.
+// Every component below uses these vars so a host theme can override the look
+// in one place. Spacing follows a 4px grid; radii are conservative (10/12px);
+// borders are nearly invisible single-pixel lines; shadows are short and flat.
+:root {
+  --ps-radius-sm: 8px;
+  --ps-radius:    10px;
+  --ps-radius-lg: 12px;
+  --ps-radius-xl: 14px;
+
+  --ps-border:        var(--control-bg, #e6e6e9);
+  --ps-border-subtle: rgba(0, 0, 0, 0.06);
+  --ps-surface:       var(--body-bg, #fff);
+  --ps-surface-muted: var(--control-bg, #f5f5f7);
+  --ps-text-muted:    var(--muted-color, #6b7280);
+
+  --ps-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --ps-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --ps-shadow-3: 0 8px 24px rgba(0, 0, 0, 0.08);
+
+  --ps-t: 0.16s ease;
+
+  --ps-num-tabular: 'tnum' 1, 'lnum' 1;
+}
+
 // ─── Rewards page tiers section ───────────────────────────────────────────────
 .PointSystemShop-tiers {
   margin: 48px auto 32px;
@@ -22,11 +48,16 @@
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  background: var(--body-bg, #fff);
-  border: 1px solid var(--control-bg, #e0e0e0);
-  border-radius: 12px;
+  background: var(--ps-surface);
+  border: 1px solid var(--ps-border);
+  border-radius: var(--ps-radius);
   position: relative;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--ps-t), box-shadow var(--ps-t), transform var(--ps-t);
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--ps-shadow-2);
+  }
 
   &.is-reached {
     border-color: var(--primary-color, #6cc04a);
@@ -173,12 +204,34 @@
   overflow: visible !important;
 }
 
+// Default behaviour — the inner element fills the wrapper. We keep this
+// rule loose (no `!important`, no forced box-sizing/margin reset) so we
+// don't fight Flarum/theme layout rules in normal post/profile contexts.
+// Specific contexts (session dropdown below) get their own overrides.
 .ps-avatar-deco-wrap > img,
 .ps-avatar-deco-wrap > span:not(.ps-avatar-deco) {
   display: block;
   width: 100%;
   height: 100%;
   border-radius: inherit;
+}
+
+// Session dropdown button only: in this single context core applies
+// `.SessionDropdown .Dropdown-toggle .Avatar { margin: -2px 0 -2px -6px;
+//  .Avatar--size(24px); }` which cascades onto our INNER .Avatar img
+// (it also has class .Avatar) and displaces the frame. Reset just here,
+// not globally.
+.SessionDropdown .Dropdown-toggle .ps-avatar-deco-wrap {
+  flex: 0 0 auto;
+  aspect-ratio: 1;
+
+  > img.Avatar,
+  > span.Avatar:not(.ps-avatar-deco) {
+    margin: 0;
+    --size: 100%;
+    width: 100%;
+    height: 100%;
+  }
 }
 
 // Avocado's small reply card wraps the avatar in `.AvocadoHome-replyCard-avatar`
@@ -254,6 +307,177 @@ body.ps-hide-badges-with-deco {
   // later sibling of our wrap, so it naturally renders above the frame.
 }
 
+// ─── Section nav (Shop + Decorations) ────────────────────────────────────────
+// Uses Flarum core's `.sideNav` infrastructure so we inherit the bottom-sheet
+// dropdown behaviour on `@phone` (defined in core/less/common/Dropdown.less)
+// and the .Dropdown--expanded() expansion on tablet+. We then layer Avocado-
+// inspired styling on top: pill-shaped tabs with a circular icon chip on
+// tablet+, centred trigger button + rounded bottom-sheet on phone.
+.PointSystemShop-nav,
+.PointSystemDecorations-nav {
+  margin: 0 auto 20px;
+
+  // ─── Tablet+ : tabs expanded inline (horizontal pill row) ────────────────
+  @media @tablet-up {
+    .Dropdown-toggle { display: none; }
+
+    .Dropdown-menu {
+      display: flex;
+      gap: 6px;
+      position: static;
+      flex-wrap: wrap;
+      padding: 0;
+      margin: 0;
+      min-width: 0;
+      background: none;
+      box-shadow: none;
+      border-radius: 0;
+      list-style: none;
+      justify-content: center;
+
+      > li {
+        margin: 0;
+        > a, > button {
+          --icon-size: 22px;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 14px;
+          background: var(--ps-surface);
+          border: 1px solid var(--ps-border);
+          border-radius: 999px;
+          color: var(--ps-text-muted);
+          font-weight: 500;
+          font-size: 13.5px;
+          line-height: 1.2;
+          transition: color var(--ps-t), background-color var(--ps-t), border-color var(--ps-t);
+          width: auto;
+
+          .Button-icon {
+            width: var(--icon-size) !important;
+            height: var(--icon-size);
+            line-height: var(--icon-size);
+            font-size: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--ps-surface-muted);
+            border-radius: 999px;
+            margin: 0;
+          }
+
+          &:hover {
+            color: var(--text-color, inherit);
+            background: var(--ps-surface);
+            border-color: var(--ps-border);
+            text-decoration: none;
+          }
+        }
+
+        &.active > a,
+        &.active > button {
+          &, &:hover {
+            background: color-mix(in srgb, var(--primary-color, #6cc04a) 12%, transparent);
+            color: var(--primary-color, #6cc04a);
+            border-color: color-mix(in srgb, var(--primary-color, #6cc04a) 35%, transparent);
+          }
+
+          .Button-icon {
+            background: var(--body-bg);
+            color: var(--primary-color, #6cc04a);
+          }
+        }
+      }
+    }
+  }
+
+  // ─── Phone : title control escapes to phone header, menu opens as
+  // rounded bottom-sheet. Positioning of the toggle is handled by core's
+  // `.App-titleControl` rules in common/App.less (position:absolute, centred
+  // at top of viewport). We only restyle the bottom-sheet surface here.
+  @media @phone {
+    // The nav element itself is empty on phone (the App-titleControl
+    // child escapes via position:absolute). Don't reserve vertical space.
+    margin: 0;
+    padding: 0;
+    height: 0;
+
+    // Inside the floating .App-titleControl, force the label to center and
+    // give the caret a sensible offset. We deliberately keep the toggle
+    // visually plain (transparent, header-coloured) to match core/avocado.
+    .Dropdown-toggle.Button {
+      > .Button-label {
+        display: block;
+        text-align: center;
+      }
+      .Button-caret {
+        margin-left: 6px;
+        opacity: 0.7;
+      }
+    }
+
+    // Bottom-sheet polish — match avocado's rounded top, padded list,
+    // pill-style active row. Core already positions the menu fixed at the
+    // bottom; we only restyle the surface.
+    .Dropdown-menu {
+      border-radius: 18px 18px 0 0;
+      padding-bottom: 18px;
+
+      > li {
+        > a, > button {
+          --icon-size: 28px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 20px;
+          font-size: 15px;
+          background: var(--body-bg);
+          color: var(--text-color);
+
+          .Button-icon {
+            flex: 0 0 var(--icon-size);
+            width: var(--icon-size) !important;
+            height: var(--icon-size);
+            line-height: var(--icon-size);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--ps-surface-muted);
+            border-radius: 100%;
+            float: none;
+            margin: 0;
+            font-size: 14px;
+            color: var(--text-color);
+          }
+
+          .Button-label {
+            flex: 1;
+            text-align: left;
+          }
+
+          &:hover {
+            background: var(--ps-surface-muted);
+            color: var(--text-color);
+          }
+        }
+
+        &.active > a,
+        &.active > button {
+          &, &:hover {
+            background: color-mix(in srgb, var(--primary-color, #6cc04a) 12%, var(--body-bg)) !important;
+            color: var(--primary-color, #6cc04a) !important;
+          }
+
+          .Button-icon {
+            background: var(--body-bg);
+            color: var(--primary-color, #6cc04a);
+          }
+        }
+      }
+    }
+  }
+}
+
 // ─── Shop page ────────────────────────────────────────────────────────────────
 .PointSystemShop {
   padding: 24px 0 64px;
@@ -263,104 +487,98 @@ body.ps-hide-badges-with-deco {
     margin-bottom: 24px;
 
     h1 {
-      margin: 0 0 8px;
+      margin: 0 0 6px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
     }
   }
 
   &-subtitle {
-    color: var(--muted-color, #777);
+    color: var(--ps-text-muted);
     margin: 0 0 16px;
+    font-size: 14px;
   }
 
   &-balance {
     display: inline-flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px 14px;
-    padding: 10px 18px;
-    background: var(--avocado-surface-2, var(--control-bg, #f5f5f5));
-    border: 1px solid var(--avocado-border-subtle, transparent);
+    gap: 4px 18px;
+    padding: 8px 16px;
+    background: var(--ps-surface-muted);
+    border: 1px solid var(--ps-border-subtle);
     border-radius: 999px;
-    font-size: 14px;
-    color: var(--avocado-text-dark, inherit);
+    font-size: 13.5px;
+    color: inherit;
 
     &-item {
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      font-variant-numeric: tabular-nums;
 
-      i { color: #e6a800; }
+      strong { font-feature-settings: var(--ps-num-tabular); }
+      i { color: #d6a200; opacity: 0.9; }
 
-      &--lifetime i { color: var(--avocado-online, #6cc04a); }
-    }
-  }
-
-  &-tabs {
-    display: flex;
-    gap: 8px;
-    border-bottom: 1px solid var(--control-bg, #e0e0e0);
-    margin-bottom: 24px;
-  }
-
-  &-tab {
-    background: none;
-    border: 0;
-    padding: 10px 16px;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    font-weight: 500;
-    color: var(--muted-color, #666);
-    transition: color 0.15s ease, border-color 0.15s ease;
-
-    &:hover {
-      color: var(--text-color, #333);
-    }
-
-    &.is-active {
-      color: var(--primary-color, #6cc04a);
-      border-color: var(--primary-color, #6cc04a);
-    }
-
-    i {
-      margin-right: 6px;
+      &--lifetime i { color: #16a34a; opacity: 0.9; }
     }
   }
 
   &-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 16px;
+    gap: 14px;
+
+    // ── Per-tab grid density ──────────────────────────────────────────────
+    // Name styles and titles are text-only — they don't need a square preview
+    // chip, so we pack them tighter (smaller minmax). Covers are landscape
+    // banners — they need wider columns to keep the 16:9 ratio readable.
+    // Post highlights show a small mock-post wireframe; middle ground works.
+    &--name,
+    &--title {
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 10px;
+    }
+
+    &--cover {
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+    }
+
+    &--post-hl {
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 14px;
+    }
   }
 
   &-empty {
     text-align: center;
-    padding: 60px 20px;
-    color: var(--muted-color, #999);
-    background: var(--control-bg, #f7f7f7);
-    border-radius: 12px;
-    font-size: 15px;
+    padding: 56px 20px;
+    color: var(--ps-text-muted);
+    background: var(--ps-surface-muted);
+    border-radius: var(--ps-radius);
+    font-size: 14.5px;
   }
 
   &-card {
     display: flex;
     flex-direction: column;
-    background: var(--body-bg, #fff);
-    border: 1px solid var(--avocado-border-subtle, var(--control-bg, #e8e8e8));
-    border-radius: 14px;
+    background: var(--ps-surface);
+    border: 1px solid var(--ps-border);
+    border-radius: var(--ps-radius);
     overflow: hidden;
     position: relative;
-    transition: transform var(--avocado-t-normal, 0.16s ease),
-                box-shadow var(--avocado-t-normal, 0.16s ease),
-                border-color var(--avocado-t-normal, 0.16s ease);
+    transition: transform var(--ps-t), box-shadow var(--ps-t), border-color var(--ps-t);
 
     &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+      transform: translateY(-1px);
+      box-shadow: var(--ps-shadow-2);
+      border-color: var(--ps-border-subtle);
     }
 
     &.is-equipped {
-      border-color: var(--avocado-online, var(--primary-color, #6cc04a));
-      box-shadow: 0 0 0 2px rgba(108, 192, 74, 0.18);
+      border-color: var(--primary-color, #2f81f7);
+      box-shadow: 0 0 0 1px var(--primary-color, #2f81f7);
     }
 
     &-equippedRibbon {
@@ -388,31 +606,71 @@ body.ps-hide-badges-with-deco {
       background: linear-gradient(135deg, #fafafa, #f0f0f0);
     }
 
+    // ── Per-type preview shape ───────────────────────────────────────────
+    // Square is the default (avatar frames). Covers are 16:9 landscape;
+    // name / title rows drop the fixed aspect so the chip hugs its content
+    // and the body sits directly under it. Post highlights use a tighter
+    // box so the mock-post wireframe doesn't waste vertical space.
+    &--cover > .PointSystemShop-card-preview {
+      aspect-ratio: 16 / 9;
+      background: none;
+    }
+
+    &--name > .PointSystemShop-card-preview,
+    &--title > .PointSystemShop-card-preview {
+      aspect-ratio: auto;
+      min-height: 64px;
+      padding: 14px 10px;
+    }
+
+    &--post-hl > .PointSystemShop-card-preview {
+      aspect-ratio: auto;
+      min-height: 90px;
+      background: none;
+      padding: 14px;
+    }
+
+    // Tighter body on the small text-only cards so the price + button
+    // don't dominate the layout.
+    &--name > .PointSystemShop-card-body,
+    &--title > .PointSystemShop-card-body {
+      padding: 10px 12px 12px;
+      gap: 2px;
+
+      .PointSystemShop-card-title { font-size: 13.5px; }
+      .PointSystemShop-card-desc  { font-size: 11.5px; }
+    }
+
     &-body {
       padding: 12px 14px 14px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
     }
 
     &-title {
       margin: 0;
-      font-size: 15px;
+      font-size: 14.5px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
     }
 
     &-desc {
       margin: 0;
-      font-size: 12px;
-      color: var(--muted-color, #777);
+      font-size: 12.5px;
+      color: var(--ps-text-muted);
+      line-height: 1.4;
     }
 
     &-price {
       display: flex;
       align-items: center;
       gap: 4px;
-      color: #e6a800;
+      color: #d6a200;
       font-weight: 600;
-      margin: 6px 0 8px;
+      margin: 8px 0;
+      font-variant-numeric: tabular-nums;
+      font-size: 14px;
     }
   }
 
@@ -454,10 +712,141 @@ body.ps-hide-badges-with-deco {
     text-align: center;
   }
 
-  // ── Mobile layout — keep the rewards/decoration pages comfortable on
-  // narrow viewports. Drops tab labels under icons, lets the balance pill
-  // wrap, and shrinks card sizes so two columns still fit on a phone.
-  @media (max-width: 767px) {
+  // Title decoration preview chip — shop card and Decorations page share the
+  // `.ps-title-preview` look. Admin CSS layered via the runtime <style> can
+  // override colours / font; this is the neutral baseline.
+  &-titlePreview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 8px;
+  }
+
+  // Tiny mock post for the post-highlight preview: a circular avatar bubble
+  // and two text lines — enough surface for the highlight CSS to wrap and
+  // demonstrate the effect on the shop card without rendering an actual post.
+  &-postHlPreview {
+    padding: 12px 14px;
+    display: flex;
+    justify-content: center;
+  }
+}
+
+// ─── Custom title — rendered in two places per post (CommentPost.sideItems
+// for the desktop avatar column, PostUser.userViewItems for the phone inline
+// header). Exactly one is visible at any breakpoint, switched by the rules
+// below. The chip itself is a centred block-level pill that adapts to its
+// container's width.
+.PointSystemUserTitle {
+  display: inline-block;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--ps-title-color, var(--primary-color, #6cc04a)) 14%, transparent);
+  color: var(--ps-title-color, var(--primary-color, #6cc04a));
+  border-radius: 999px;
+  line-height: 1.4;
+  text-align: center;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+
+// ── Side-column variant (desktop / tablet-up) ───────────────────────────────
+// `.Post-side` is the avatar column. Avocado sets it to `display: flex` row
+// + `align-items: flex-start`, which would squeeze our title chip into a tiny
+// flex sibling next to `.Post-side-inner`. We force a column stack and centre
+// alignment so the title sits cleanly UNDER the avatar in both Flarum core
+// and Avocado layouts.
+//
+// Avocado's own targeting rule is `.Page.DiscussionPage .CommentPost
+// .Post-side` (specificity 0,4,0); we match it here with the same chain
+// (plus the `--fixedAvatar` variant) so `!important` doesn't have to fight
+// source-order ties.
+.Post-side,
+.CommentPost .Post-side,
+.CommentPost.CommentPost--fixedAvatar .Post-side,
+.Page.DiscussionPage .CommentPost .Post-side,
+.Page.DiscussionPage .CommentPost.CommentPost--fixedAvatar .Post-side {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  text-align: center;
+  overflow: visible;
+}
+
+// The Post-side-inner wrapper Avocado creates is the row that holds avatar
+// + badges. Make it a non-shrink flex item so it doesn't collapse when our
+// title joins the column.
+.Post-side > .Post-side-inner {
+  flex: 0 0 auto;
+}
+
+.PointSystemUserTitle--inSide {
+  display: block;
+  margin: 8px auto 0;
+  width: max-content;
+  max-width: 160px;
+  // Lift over Avocado's sticky badges (z-index 3) so the chip is never
+  // partially covered when the column has overflowing siblings.
+  position: relative;
+  z-index: 2;
+  // Don't let the column squash the chip when the layout briefly flips back
+  // to a row before our `!important` rules apply (avoids the flash of
+  // truncated "O" the user reported).
+  flex: 0 0 auto;
+}
+
+// ── Header variant (phone) ──────────────────────────────────────────────────
+// On phone, Flarum hides the side-column avatar and shows a 32px inline
+// avatar in `.PostUser-name`. We render the chip as its OWN block on a new
+// line below the avatar/name/badges row, left-aligned under the avatar so
+// the badge still reads as "below the profile photo".
+.PointSystemUserTitle--inHeader {
+  font-size: 10.5px;
+  padding: 1px 8px;
+}
+
+// ── Breakpoint swap ─────────────────────────────────────────────────────────
+// Default: side variant visible, header variant hidden. Below tablet width,
+// the side avatar is hidden by core CSS so the side variant is meaningless;
+// flip visibility there and force the header chip onto its own line.
+.PointSystemUserTitle--inHeader { display: none; }
+
+@media (max-width: 767px) {
+  .PointSystemUserTitle--inSide { display: none; }
+
+  // Force the chip onto a fresh line under the avatar row. `clear: left`
+  // bumps it past any floated content (some themes float the avatar).
+  // `width: fit-content` keeps the pill from spanning the whole row.
+  .PointSystemUserTitle--inHeader {
+    display: block;
+    width: fit-content;
+    clear: left;
+    margin: 4px 0 0;
+  }
+}
+
+// ── Hero / large-avatar contexts — slightly bigger chip with more padding
+// since the surrounding avatar is much larger than in a post column.
+.UserCard .PointSystemUserTitle,
+.UserHero .PointSystemUserTitle,
+.AvocadoUserPage-hero .PointSystemUserTitle,
+.PointSystemDecorations-previewAvatar .PointSystemUserTitle {
+  font-size: 12px;
+  padding: 2px 10px;
+}
+
+// ── Mobile layout — keep the rewards/decoration pages comfortable on
+// narrow viewports. Drops tab labels under icons, lets the balance pill
+// wrap, and shrinks card sizes so two columns still fit on a phone.
+@media (max-width: 767px) {
+  .PointSystemShop {
     padding: 16px 0 48px;
 
     &-header h1 { font-size: 22px; }
@@ -474,25 +863,21 @@ body.ps-hide-badges-with-deco {
       &-item { justify-content: center; }
     }
 
-    &-tabs {
-      overflow-x: auto;
-      flex-wrap: nowrap;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none; // Firefox
-
-      &::-webkit-scrollbar { display: none; }
-    }
-
-    &-tab {
-      flex: 0 0 auto;
-      white-space: nowrap;
-      font-size: 13px;
-      padding: 8px 12px;
-    }
-
     &-grid {
       grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
       gap: 10px;
+
+      // Mobile-only per-tab adjustments — names/titles fit 3-4 columns on
+      // a phone (text only), covers stay one-column for legibility.
+      &--name,
+      &--title {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 8px;
+      }
+
+      &--cover {
+        grid-template-columns: 1fr;
+      }
     }
 
     &-card {
@@ -516,14 +901,14 @@ body.ps-hide-badges-with-deco {
       grid-template-columns: 1fr;
     }
   }
+}
 
-  // Equipped state for the action button (no spinner, no hover, just signals).
-  &-equippedBtn {
-    cursor: default !important;
-    opacity: 1 !important;
-    background: var(--primary-color, #6cc04a) !important;
-    color: #fff !important;
-  }
+// Equipped state for the action button (no spinner, no hover, just signals).
+.PointSystemShop-equippedBtn {
+  cursor: default !important;
+  opacity: 1 !important;
+  background: var(--primary-color, #6cc04a) !important;
+  color: #fff !important;
 }
 
 // ─── My decorations page ─────────────────────────────────────────────────────
@@ -572,6 +957,153 @@ body.ps-hide-badges-with-deco {
     &-name {
       font-weight: 600;
       margin-bottom: 8px;
+    }
+  }
+}
+
+// ─── Profile cover (shop-sold banner) ─────────────────────────────────────────
+// Same pattern as forumaker/profile-cover: stamp `background-image` directly
+// on every user-related hero element so themes that already style these
+// containers (avocado's hero, Flarum core's UserCard, profile page Hero) pick
+// the banner up automatically. No mask, no gradient, no `::before` — flat
+// background that the theme's existing rules can build on top of.
+.UserHero.ps-has-cover,
+.UserCard.ps-has-cover,
+.AvocadoUserPage-hero.ps-has-cover {
+  background-image: var(--ps-cover-url);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+// Shop card cover preview (landscape thumbnail, 16:9).
+.PointSystemShop-coverPreview {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--control-bg, #f4f4f7);
+  border-radius: 10px;
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  &-empty {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+  }
+}
+
+// Decorations page cover section
+.PointSystemDecorations-coverGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.PointSystemDecorations-coverItem {
+  background: var(--body-bg, #fff);
+  border: 1px solid var(--control-bg, #e0e0e0);
+  border-radius: 12px;
+  padding: 10px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &.is-equipped {
+    border-color: var(--primary-color, #2f81f7);
+    box-shadow: 0 0 0 1px var(--primary-color, #2f81f7);
+  }
+
+  &-preview {
+    aspect-ratio: 16 / 9;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    background: var(--control-bg, #f4f4f7);
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+  }
+}
+
+// ─── Confirm-purchase modal ───────────────────────────────────────────────────
+// Minimal layout — preview chip on top, item name, then a small ledger of
+// (price / current / after) so the user sees exactly what they're committing
+// to. Pill-shaped buttons aligned right to match Flarum's other modals.
+.ConfirmPurchaseModal {
+  &-body {
+    padding: 16px 20px 20px;
+  }
+
+  &-preview {
+    display: flex;
+    justify-content: center;
+    margin: 4px 0 14px;
+  }
+
+  &-item {
+    font-size: 16px;
+    text-align: center;
+    margin-bottom: 18px;
+
+    strong {
+      font-weight: 600;
+    }
+  }
+
+  &-ledger {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    row-gap: 8px;
+    column-gap: 16px;
+    margin: 0 0 20px;
+    padding: 12px 14px;
+    background: var(--control-bg, #f4f4f7);
+    border-radius: 10px;
+    font-size: 14px;
+
+    > div {
+      display: contents;
+    }
+    dt {
+      font-weight: 400;
+      color: var(--muted-color, #6b7280);
+      margin: 0;
+    }
+    dd {
+      margin: 0;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+
+      i {
+        opacity: 0.7;
+        margin-right: 4px;
+      }
+    }
+    &-after dt,
+    &-after dd {
+      font-weight: 600;
+      color: var(--text-color, inherit);
+      padding-top: 8px;
+      border-top: 1px solid var(--control-bg-darker, rgba(0, 0, 0, 0.05));
+    }
+  }
+
+  &-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin: 0;
+
+    .Button {
+      min-width: 96px;
     }
   }
 }

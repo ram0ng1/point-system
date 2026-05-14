@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ramon\PointSystem\Controller;
 
+use Flarum\Foundation\DispatchEventsTrait;
 use Flarum\Http\RequestUtil;
 use Flarum\User\User;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -22,11 +23,14 @@ use Ramon\PointSystem\Repository\PointsRepository;
  */
 class ManualAwardController implements RequestHandlerInterface
 {
+    use DispatchEventsTrait;
+
     public function __construct(
         protected PointsRepository $points,
         protected Dispatcher $events,
     ) {}
 
+    #[\Override]
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $actor = RequestUtil::getActor($request);
@@ -66,10 +70,12 @@ class ManualAwardController implements RequestHandlerInterface
             }
         }
 
-        // Notification + any future audit log react via listeners.
-        $this->events->dispatch(new PointsManuallyChanged($user, $actor, $amount, $reason ?: null));
-
+        // Raise the admin-action event on the UserPoints row so it travels
+        // through the same `releaseEvents()` pipeline as auto-credits — the
+        // notification listener and any audit log react to it uniformly.
         $points = $this->points->getOrCreate($user);
+        $points->raise(new PointsManuallyChanged($user, $actor, $amount, $reason ?: null));
+        $this->dispatchEventsFor($points, $actor);
 
         return new JsonResponse(['data' => [
             'userId' => $user->id,

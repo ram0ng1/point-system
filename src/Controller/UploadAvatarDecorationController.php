@@ -11,7 +11,9 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UploadedFileInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Model\AvatarDecoration;
+use Ramon\PointSystem\Model\ShopClaim;
 
 /**
  * POST /api/point-system/avatar-decoration/upload (admin only)
@@ -28,7 +30,10 @@ class UploadAvatarDecorationController implements RequestHandlerInterface
     private const MAX_BYTES   = 4_000_000; // 4MB
     private const DEST_DIR    = 'point-system/avatar-decorations';
 
-    public function __construct(protected Paths $paths) {}
+    public function __construct(
+        protected Paths $paths,
+        protected FeatureGate $features,
+    ) {}
 
     /**
      * Check whether the first bytes of the uploaded stream match the declared
@@ -52,10 +57,12 @@ class UploadAvatarDecorationController implements RequestHandlerInterface
         return false;
     }
 
+    #[\Override]
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $actor = RequestUtil::getActor($request);
         $actor->assertCan('pointSystem.manage');
+        $this->features->assertEnabled(ShopClaim::TYPE_AVATAR);
 
         $files = $request->getUploadedFiles();
         $file  = $files['image'] ?? null;

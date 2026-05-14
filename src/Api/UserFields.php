@@ -8,8 +8,11 @@ use Flarum\Api\Context;
 use Flarum\Api\Schema;
 use Flarum\User\User;
 use Ramon\PointSystem\Model\AvatarDecoration;
+use Ramon\PointSystem\Model\CoverDecoration;
 use Ramon\PointSystem\Model\NameDecoration;
+use Ramon\PointSystem\Model\PostHighlightDecoration;
 use Ramon\PointSystem\Model\ShopClaim;
+use Ramon\PointSystem\Model\TitleDecoration;
 use Ramon\PointSystem\Model\UserPoints;
 
 class UserFields
@@ -56,6 +59,59 @@ class UserFields
                     }
                     $deco = NameDecoration::find($p->current_name_decoration_id);
                     return $deco?->slug;
+                }),
+
+            Schema\Integer::make('equippedCoverDecorationId')
+                ->nullable()
+                ->get(fn (User $user) => $this->points($user)?->current_cover_decoration_id),
+
+            Schema\Str::make('equippedCoverDecorationUrl')
+                ->nullable()
+                ->get(function (User $user): ?string {
+                    $p = $this->points($user);
+                    if (! $p || ! $p->current_cover_decoration_id) {
+                        return null;
+                    }
+                    $deco = CoverDecoration::find($p->current_cover_decoration_id);
+                    return $deco?->image_path;
+                }),
+
+            Schema\Integer::make('equippedTitleDecorationId')
+                ->nullable()
+                ->get(fn (User $user) => $this->points($user)?->current_title_decoration_id),
+
+            Schema\Str::make('equippedTitleDecorationSlug')
+                ->nullable()
+                ->get(function (User $user): ?string {
+                    $p = $this->points($user);
+                    if (! $p || ! $p->current_title_decoration_id) {
+                        return null;
+                    }
+                    return TitleDecoration::find($p->current_title_decoration_id)?->slug;
+                }),
+
+            Schema\Str::make('equippedTitleDecorationText')
+                ->nullable()
+                ->get(function (User $user): ?string {
+                    $p = $this->points($user);
+                    if (! $p || ! $p->current_title_decoration_id) {
+                        return null;
+                    }
+                    return TitleDecoration::find($p->current_title_decoration_id)?->title_text;
+                }),
+
+            Schema\Integer::make('equippedPostHighlightDecorationId')
+                ->nullable()
+                ->get(fn (User $user) => $this->points($user)?->current_post_hl_decoration_id),
+
+            Schema\Str::make('equippedPostHighlightDecorationSlug')
+                ->nullable()
+                ->get(function (User $user): ?string {
+                    $p = $this->points($user);
+                    if (! $p || ! $p->current_post_hl_decoration_id) {
+                        return null;
+                    }
+                    return PostHighlightDecoration::find($p->current_post_hl_decoration_id)?->slug;
                 }),
 
             Schema\Arr::make('ownedDecorationIds')

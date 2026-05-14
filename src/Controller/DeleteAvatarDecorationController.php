@@ -10,16 +10,23 @@ use Laminas\Diactoros\Response\EmptyResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Model\AvatarDecoration;
+use Ramon\PointSystem\Model\ShopClaim;
 
 class DeleteAvatarDecorationController implements RequestHandlerInterface
 {
-    public function __construct(protected Paths $paths) {}
+    public function __construct(
+        protected Paths $paths,
+        protected FeatureGate $features,
+    ) {}
 
+    #[\Override]
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $actor = RequestUtil::getActor($request);
         $actor->assertCan('pointSystem.manage');
+        $this->features->assertEnabled(ShopClaim::TYPE_AVATAR);
 
         $params = (array) $request->getAttribute('routeParameters', []);
         $id = (int) ($params['id'] ?? 0);

@@ -25,8 +25,15 @@ const setting = (key: string, fallback = true): boolean => {
 
 app.initializers.add('ramon/point-system', () => {
   // ── Routes ──────────────────────────────────────────────────────────────
-  app.routes['pointSystem.shop'] = { path: '/rewards', component: ShopPage };
-  app.routes['pointSystem.decorations'] = { path: '/decorations', component: DecorationsPage };
+  // Tab routes mount the SAME component as the bare route and let it pick
+  // the active section from `m.route.param('tab')`. We register the bare
+  // path first so `app.route('pointSystem.shop')` resolves to /rewards
+  // (used by external nav links) while users that bookmark a specific tab
+  // (e.g. /rewards/name) land on it directly.
+  app.routes['pointSystem.shop']             = { path: '/rewards',        component: ShopPage };
+  app.routes['pointSystem.shop.tab']         = { path: '/rewards/:tab',   component: ShopPage };
+  app.routes['pointSystem.decorations']      = { path: '/decorations',         component: DecorationsPage };
+  app.routes['pointSystem.decorations.tab']  = { path: '/decorations/:tab',    component: DecorationsPage };
 
   // ── Notification components ─────────────────────────────────────────────
   app.notificationComponents.pointsManual = PointsManualNotification;
@@ -36,10 +43,13 @@ app.initializers.add('ramon/point-system', () => {
   // Deferred: `app.forum` isn't populated until after initializers finish.
   app.beforeMount(() => {
     injectNameDecorationStyles();
+    injectTitleDecorationStyles();
+    injectPostHighlightDecorationStyles();
     setupPerLetterRewriter();
     setupAvocadoProfilePoints();
     setupThemeUsernameTagger();
     setupUsernameSpanTagger();
+    setupUserTitleRenderer();
     // Hide-badges-with-avatar-deco setting: just toggle a body class. The
     // actual hiding is done by CSS rules in forum.less which use `:has()` to
     // scope to user-containers that wrap a decorated avatar. We deliberately
@@ -50,7 +60,18 @@ app.initializers.add('ramon/point-system', () => {
     }
   });
 
-  // ── "Rewards" entry in IndexSidebar nav (gated by permission) ──────────
+  // ── Rewards entry in the IndexSidebar nav dropdown ──────────────────────
+  //
+  // This is the SAME single hook the avocado theme uses for every nav entry
+  // it adds (Popular, Search, Team): a single `extend(IndexSidebar.prototype,
+  // 'navItems')` with a priority that slots into the dropdown's natural
+  // order (110 → 90 in avocado). We don't add a sibling button on `items()`
+  // or stamp the entry on `HeaderPrimary`/`SessionDropdown` — themes that
+  // care about mobile (avocado, etc.) already mount IndexSidebar on every
+  // page via `PageStructure.sidebar` override, so this dropdown is the
+  // canonical place. On stock Flarum, the dropdown is only mounted on the
+  // IndexPage — which is the standard core UX; users without a custom theme
+  // reach the Rewards page via direct URL or the new-discussion-area links.
   extend(IndexSidebar.prototype, 'navItems', function (items) {
     if (!app.forum.attribute('pointSystemCanViewShop')) return;
     const icon = (app.forum.attribute('pointSystem.currency_icon') as string) || 'fas fa-coins';
@@ -59,7 +80,10 @@ app.initializers.add('ramon/point-system', () => {
       <LinkButton href={app.route('pointSystem.shop')} icon={icon}>
         {app.translator.trans('ramon-point-system.forum.nav.shop')}
       </LinkButton>,
-      75
+      // Sits just below avocado's "Team" (90) but above the default end.
+      // Stock Flarum has only "All Discussions" at 100 here, so we land
+      // directly under it — a sensible position in either environment.
+      85
     );
   });
 
@@ -79,13 +103,47 @@ app.initializers.add('ramon/point-system', () => {
   // so the class participates in the normal flow instead of being mutated
   // onto an already-built vnode (which is brittle for class components).
   extend(CommentPost.prototype, 'classes', function (classes) {
-    if (!setting('pointSystem.name_deco_enabled') || !setting('pointSystem.deco_in_posts')) return;
-    pushDecoClass(classes, this.attrs.post?.user?.());
+    const user = this.attrs.post?.user?.();
+    if (setting('pointSystem.name_deco_enabled') && setting('pointSystem.deco_in_posts')) {
+      pushDecoClass(classes, user);
+    }
+    // Post highlight: tag the CommentPost root with `ps-posthl-{slug}` so the
+    // global stylesheet (built-in presets + admin custom CSS injected above)
+    // can render a border / glow / ribbon around the post. Same plumbing as
+    // the name decoration class push — relies on the Mithril classes() hook
+    // (no DOM mutation) so it survives every redraw.
+    if (setting('pointSystem.post_hl_deco_enabled') && setting('pointSystem.deco_in_posts')) {
+      pushPostHlClass(classes, user);
+    }
   });
   extend(UserCard.prototype, 'view', function (vnode) {
     // UserCard doesn't have a classes() method, so fall back to vnode mutation.
-    if (!setting('pointSystem.name_deco_enabled') || !setting('pointSystem.deco_in_user_card')) return;
-    applyNameDecorationClass(vnode, this.attrs.user);
+    if (setting('pointSystem.name_deco_enabled') && setting('pointSystem.deco_in_user_card')) {
+      applyNameDecorationClass(vnode, this.attrs.user);
+    }
+
+    // Cover decoration: stamp a CSS class + custom property on the root so
+    // the LESS rule below can render the banner as `::before`. We avoid
+    // setting `background-image` directly so the cover sits in its own
+    // stacking context (clean rounded corners, no overlay bleed on text).
+    if (setting('pointSystem.cover_deco_enabled')) {
+      const user = this.attrs.user;
+      const coverPath = user?.attribute?.('equippedCoverDecorationUrl');
+      if (coverPath) {
+        const url = resolveAssetUrl(String(coverPath));
+        vnode.attrs = vnode.attrs || {};
+        const existing = String(vnode.attrs.className || '');
+        if (!existing.includes('ps-has-cover')) {
+          vnode.attrs.className = `${existing} ps-has-cover`.trim();
+        }
+        const prevStyle = vnode.attrs.style || '';
+        const styleAdd = `--ps-cover-url: url("${url.replace(/"/g, '%22')}");`;
+        vnode.attrs.style =
+          typeof prevStyle === 'string'
+            ? `${prevStyle}${prevStyle.endsWith(';') || !prevStyle ? '' : ';'} ${styleAdd}`
+            : { ...prevStyle, '--ps-cover-url': `url("${url.replace(/"/g, '%22')}")` };
+      }
+    }
   });
   extend(DiscussionListItem.prototype, 'elementAttrs', function (attrs) {
     if (!setting('pointSystem.name_deco_enabled') || !setting('pointSystem.deco_in_lists')) return;
@@ -113,12 +171,37 @@ app.initializers.add('ramon/point-system', () => {
     );
   });
 
-  // ── Points badge next to the username in posts ─────────────────────────
+  // ── Points badge + custom title in the post header ─────────────────────
+  // The title is rendered in BOTH `.Post-side` (sideItems below) AND here in
+  // `.PostUser` so the post can show it whichever side column is visible at
+  // the current breakpoint. CSS in less/forum.less hides whichever copy
+  // doesn't belong to the active layout — Post-side on @phone, PostUser on
+  // @tablet-up — so only one is ever visible at a time.
   extend(PostUser.prototype, 'userViewItems', function (items) {
-    if (!setting('pointSystem.show_in_post_header')) return;
     const user = this.attrs.post?.user?.();
     if (!user) return;
-    items.add('pointSystem-postBadge', pointsBadge(user), 85);
+
+    if (setting('pointSystem.show_in_post_header')) {
+      items.add('pointSystem-postBadge', pointsBadge(user), 85);
+    }
+
+    if (setting('pointSystem.title_deco_enabled') && setting('pointSystem.deco_in_posts')) {
+      const node = userTitleBadge(user, 'PointSystemUserTitle--inHeader');
+      if (node) items.add('pointSystem-userTitle', node, 40);
+    }
+  });
+
+  // ── Custom title below the avatar in the post side column ──────────────
+  // CommentPost.sideItems is the canonical hook for things that sit next to
+  // the avatar in `.Post-side`. Works on both Flarum core (avatar-only column)
+  // and Avocado (which already overrides this ItemList to add `.Post-side-inner`).
+  // Adding with priority 50 places the title after the avatar(=100) in both.
+  extend(CommentPost.prototype, 'sideItems', function (items) {
+    if (!setting('pointSystem.title_deco_enabled') || !setting('pointSystem.deco_in_posts')) return;
+    const user = this.attrs.post?.user?.();
+    if (!user) return;
+    const node = userTitleBadge(user, 'PointSystemUserTitle--inSide');
+    if (node) items.add('pointSystem-userTitle', node, 50);
   });
 
   // ── Points badge on the user profile card ──────────────────────────────
@@ -140,12 +223,114 @@ function pointsBadge(user: any) {
   );
 }
 
+function userTitleBadge(user: any, variantClass: string = ''): any | null {
+  const slug = user?.attribute?.('equippedTitleDecorationSlug');
+  const text = user?.attribute?.('equippedTitleDecorationText');
+  if (!slug || !text) return null;
+  const cleanSlug = String(slug).replace(/[^a-zA-Z0-9_-]/g, '');
+  if (!cleanSlug) return null;
+  const cls = ['PointSystemUserTitle', `ps-title-${cleanSlug}`, variantClass].filter(Boolean).join(' ');
+  return <span className={cls}>{text}</span>;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────
 // Name-decoration CSS supports two modes:
 //   1. Property list (`color: red; font-weight: bold;`) — wrapped in the
 //      default selector chain. Legacy / quick decorations.
 //   2. Full CSS (contains `{`) — injected as-is, with `&` replaced by the
 //      selector chain. Supports `@keyframes`, pseudo-elements, multi-rule.
+// Inject CSS for title-decorations at boot. Same approach as name decorations:
+// the admin-authored CSS is wrapped in a stable selector chain and a `<style>`
+// block is appended to the head. Custom rules support both modes (property
+// list / full CSS with `&` placeholder) and are sanitised server-side.
+function injectTitleDecorationStyles(): void {
+  const id = 'ps-title-deco-runtime';
+  document.getElementById(id)?.remove();
+
+  const decos = app.forum.attribute('pointSystemTitleDecorations') || [];
+  if (!Array.isArray(decos) || decos.length === 0) return;
+
+  const out: string[] = [];
+  for (const d of decos) {
+    if (!d.slug) continue;
+    const cls = cssClass(d.slug);
+    if (!cls) continue;
+    const sel = `.ps-title-${cls},.ps-title-preview.ps-title-${cls}`;
+
+    // Always set the colour variable so presets/css can reference it.
+    if (d.color) {
+      out.push(`${sel} { --ps-title-color: ${String(d.color).replace(/[<>"';]/g, '')}; }`);
+    }
+
+    const css = String(d.customCss || '').trim();
+    if (!css) continue;
+
+    const bangify = (s: string) =>
+      s.replace(/([\w\-]+\s*:\s*[^;{}]+?)(\s*;)/g, (m, decl, semi) =>
+        /!\s*important/i.test(decl) ? m : decl + ' !important' + semi
+      );
+
+    if (css.includes('{')) {
+      out.push(bangify(css.replace(/&/g, sel)));
+    } else {
+      out.push(`${sel} { ${bangify(css.replace(/}/g, '} '))} }`);
+    }
+  }
+  if (out.length === 0) return;
+
+  const style = document.createElement('style');
+  style.id = id;
+  style.textContent = out.join('\n');
+  document.head.appendChild(style);
+}
+
+function injectPostHighlightDecorationStyles(): void {
+  const id = 'ps-posthl-deco-runtime';
+  document.getElementById(id)?.remove();
+
+  const decos = app.forum.attribute('pointSystemPostHighlightDecorations') || [];
+  if (!Array.isArray(decos) || decos.length === 0) return;
+
+  const out: string[] = [];
+  for (const d of decos) {
+    if (!d.slug || !d.customCss) continue;
+    const cls = cssClass(d.slug);
+    if (!cls) continue;
+    // Highlight applies to the whole post container (CommentPost) and to the
+    // shop card preview. We expose both selectors to the user's `&` symbol.
+    const sel =
+      `.CommentPost.ps-posthl-${cls},` +
+      `.Post.ps-posthl-${cls},` +
+      `.ps-posthl-preview.ps-posthl-${cls}`;
+    const css = String(d.customCss).trim();
+
+    const bangify = (s: string) =>
+      s.replace(/([\w\-]+\s*:\s*[^;{}]+?)(\s*;)/g, (m, decl, semi) =>
+        /!\s*important/i.test(decl) ? m : decl + ' !important' + semi
+      );
+
+    if (css.includes('{')) {
+      out.push(bangify(css.replace(/&/g, sel)));
+    } else {
+      out.push(`${sel} { ${bangify(css.replace(/}/g, '} '))} }`);
+    }
+  }
+  if (out.length === 0) return;
+
+  const style = document.createElement('style');
+  style.id = id;
+  style.textContent = out.join('\n');
+  document.head.appendChild(style);
+}
+
+// Stub kept for symmetry with the rest of the setup* family — the actual
+// title rendering now happens declaratively via PostUser.userViewItems. If
+// future themes render usernames in a way the extender doesn't catch, this
+// is where we'd add a MutationObserver tagger.
+function setupUserTitleRenderer(): void {
+  /* no-op for now */
+}
+
 function injectNameDecorationStyles(): void {
   const id = 'ps-name-deco-runtime';
   document.getElementById(id)?.remove();
@@ -490,6 +675,19 @@ function setupAvocadoProfilePoints(): void {
     statsEl.appendChild(pill);
   };
 
+  const injectCover = (heroEl: HTMLElement) => {
+    if (!setting('pointSystem.cover_deco_enabled')) return;
+    if (heroEl.dataset.psCover === '1') return;
+    const user = resolveUser();
+    if (!user) return;
+    const coverPath = user.attribute?.('equippedCoverDecorationUrl');
+    if (!coverPath) return;
+    const url = resolveAssetUrl(String(coverPath));
+    heroEl.dataset.psCover = '1';
+    heroEl.classList.add('ps-has-cover');
+    heroEl.style.setProperty('--ps-cover-url', `url("${url.replace(/"/g, '%22')}")`);
+  };
+
   const tagName = (nameEl: HTMLElement) => {
     if (!showName || nameEl.dataset.psNameDeco === '1') return;
     const user = resolveUser();
@@ -522,6 +720,10 @@ function setupAvocadoProfilePoints(): void {
   const scan = (root: ParentNode) => {
     root.querySelectorAll?.('.AvocadoUserPage-hero-stats').forEach((el) => injectPoints(el as HTMLElement));
     root.querySelectorAll?.('.AvocadoUserPage-hero-name').forEach((el) => tagName(el as HTMLElement));
+    root.querySelectorAll?.('.AvocadoUserPage-hero').forEach((el) => injectCover(el as HTMLElement));
+    // Also cover Flarum core's UserPage hero (used on default theme + many
+    // other themes). UserCard is handled by our `extend(UserCard, 'view')`.
+    root.querySelectorAll?.('.UserPage .Hero, .UserHero').forEach((el) => injectCover(el as HTMLElement));
   };
 
   scan(document);
@@ -531,6 +733,8 @@ function setupAvocadoProfilePoints(): void {
         if (!(node instanceof Element)) return;
         if (node.matches?.('.AvocadoUserPage-hero-stats')) injectPoints(node as HTMLElement);
         else if (node.matches?.('.AvocadoUserPage-hero-name')) tagName(node as HTMLElement);
+        else if (node.matches?.('.AvocadoUserPage-hero')) injectCover(node as HTMLElement);
+        else if (node.matches?.('.UserPage .Hero, .UserHero')) injectCover(node as HTMLElement);
         else scan(node);
       });
     }
@@ -546,6 +750,15 @@ function pushDecoClass(classes: string[], user: any): void {
   const cleanSlug = String(slug).replace(/[^a-zA-Z0-9_-]/g, '');
   if (!cleanSlug) return;
   const target = 'ps-name-' + cleanSlug;
+  if (!classes.includes(target)) classes.push(target);
+}
+
+function pushPostHlClass(classes: string[], user: any): void {
+  const slug = user?.attribute?.('equippedPostHighlightDecorationSlug');
+  if (!slug) return;
+  const cleanSlug = String(slug).replace(/[^a-zA-Z0-9_-]/g, '');
+  if (!cleanSlug) return;
+  const target = 'ps-posthl-' + cleanSlug;
   if (!classes.includes(target)) classes.push(target);
 }
 

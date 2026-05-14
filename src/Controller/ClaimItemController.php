@@ -10,9 +10,13 @@ use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Model\AvatarDecoration;
+use Ramon\PointSystem\Model\CoverDecoration;
 use Ramon\PointSystem\Model\NameDecoration;
+use Ramon\PointSystem\Model\PostHighlightDecoration;
 use Ramon\PointSystem\Model\ShopClaim;
+use Ramon\PointSystem\Model\TitleDecoration;
 use Ramon\PointSystem\Model\UserPoints;
 use Ramon\PointSystem\Repository\PointsRepository;
 
@@ -28,8 +32,10 @@ class ClaimItemController implements RequestHandlerInterface
     public function __construct(
         protected PointsRepository $points,
         protected ConnectionInterface $db,
+        protected FeatureGate $features,
     ) {}
 
+    #[\Override]
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $actor = RequestUtil::getActor($request);
@@ -41,13 +47,27 @@ class ClaimItemController implements RequestHandlerInterface
         $body   = (array) $request->getParsedBody();
         $type = $body['type'] ?? null;
 
-        if (! in_array($type, [ShopClaim::TYPE_AVATAR, ShopClaim::TYPE_NAME], true) || $id <= 0) {
+        if (! in_array($type, [
+            ShopClaim::TYPE_AVATAR,
+            ShopClaim::TYPE_NAME,
+            ShopClaim::TYPE_COVER,
+            ShopClaim::TYPE_TITLE,
+            ShopClaim::TYPE_POST_HL,
+        ], true) || $id <= 0) {
             return new JsonResponse(['errors' => [['detail' => 'Invalid item']]], 422);
         }
 
-        $item = $type === ShopClaim::TYPE_AVATAR
-            ? AvatarDecoration::find($id)
-            : NameDecoration::find($id);
+        // Admin can switch a decoration family off at any moment; the API
+        // refuses claims for the disabled type even if the row still exists.
+        $this->features->assertEnabled($type);
+
+        $item = match ($type) {
+            ShopClaim::TYPE_AVATAR  => AvatarDecoration::find($id),
+            ShopClaim::TYPE_COVER   => CoverDecoration::find($id),
+            ShopClaim::TYPE_TITLE   => TitleDecoration::find($id),
+            ShopClaim::TYPE_POST_HL => PostHighlightDecoration::find($id),
+            default                 => NameDecoration::find($id),
+        };
 
         if (! $item || ! $item->is_enabled) {
             return new JsonResponse(['errors' => [['detail' => 'Item not available']]], 404);

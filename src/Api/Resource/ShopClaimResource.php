@@ -15,16 +15,19 @@ use Ramon\PointSystem\Model\ShopClaim;
  */
 class ShopClaimResource extends AbstractDatabaseResource
 {
+    #[\Override]
     public function type(): string
     {
         return 'point-system-claims';
     }
 
+    #[\Override]
     public function model(): string
     {
         return ShopClaim::class;
     }
 
+    #[\Override]
     public function scope(Builder $query, \Tobyz\JsonApiServer\Context $context): void
     {
         $actor = $context->getActor();
@@ -38,6 +41,7 @@ class ShopClaimResource extends AbstractDatabaseResource
         }
     }
 
+    #[\Override]
     public function endpoints(): array
     {
         return [
@@ -46,6 +50,7 @@ class ShopClaimResource extends AbstractDatabaseResource
         ];
     }
 
+    #[\Override]
     public function fields(): array
     {
         return [
