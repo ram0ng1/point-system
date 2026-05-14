@@ -5,6 +5,9 @@ import PointsRulesPanel from './PointsRulesPanel';
 import UsersPointsPanel from './UsersPointsPanel';
 import AvatarDecorationsPanel from './AvatarDecorationsPanel';
 import NameDecorationsPanel from './NameDecorationsPanel';
+import CoverDecorationsPanel from './CoverDecorationsPanel';
+import TitleDecorationsPanel from './TitleDecorationsPanel';
+import PostHighlightDecorationsPanel from './PostHighlightDecorationsPanel';
 import AutoGroupTiersPanel from './AutoGroupTiersPanel';
 import ManualAwardPanel from './ManualAwardPanel';
 
@@ -22,6 +25,15 @@ export default class PointSystemSettingsPage extends ExtensionPage {
         break;
       case 'name':
         child = <NameDecorationsPanel />;
+        break;
+      case 'cover':
+        child = <CoverDecorationsPanel />;
+        break;
+      case 'title':
+        child = <TitleDecorationsPanel />;
+        break;
+      case 'post-hl':
+        child = <PostHighlightDecorationsPanel />;
         break;
       case 'groups':
         child = <AutoGroupTiersPanel />;

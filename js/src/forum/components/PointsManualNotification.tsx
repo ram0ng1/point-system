@@ -30,9 +30,7 @@ export default class PointsManualNotification extends Notification {
     const abs = Math.abs(amount).toLocaleString();
     const fromUser = this.attrs.notification.fromUser?.();
     const adminName = fromUser?.displayName?.() || app.translator.trans('ramon-point-system.forum.notifications.admin_fallback');
-    const key = amount >= 0
-      ? 'ramon-point-system.forum.notifications.points_added'
-      : 'ramon-point-system.forum.notifications.points_removed';
+    const key = amount >= 0 ? 'ramon-point-system.forum.notifications.points_added' : 'ramon-point-system.forum.notifications.points_removed';
     return app.translator.trans(key, { admin: adminName, amount: abs });
   }
 

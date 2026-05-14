@@ -52,11 +52,21 @@ export default class AvatarDecorationsPanel extends Component {
           </div>
           <div className="Form-group">
             <label>{app.translator.trans('ramon-point-system.admin.avatar.field_description')}</label>
-            <input className="FormControl" value={this.newDescription} oninput={(e: Event) => (this.newDescription = (e.target as HTMLInputElement).value)} />
+            <input
+              className="FormControl"
+              value={this.newDescription}
+              oninput={(e: Event) => (this.newDescription = (e.target as HTMLInputElement).value)}
+            />
           </div>
           <div className="Form-group">
             <label>{app.translator.trans('ramon-point-system.admin.avatar.field_price')}</label>
-            <input type="number" min="0" className="FormControl" value={this.newPrice} oninput={(e: Event) => (this.newPrice = (e.target as HTMLInputElement).value)} />
+            <input
+              type="number"
+              min="0"
+              className="FormControl"
+              value={this.newPrice}
+              oninput={(e: Event) => (this.newPrice = (e.target as HTMLInputElement).value)}
+            />
           </div>
           <div className="Form-group">
             <label>{app.translator.trans('ramon-point-system.admin.avatar.field_image')}</label>
@@ -78,16 +88,12 @@ export default class AvatarDecorationsPanel extends Component {
         </div>
 
         <h3>{app.translator.trans('ramon-point-system.admin.avatar.existing')}</h3>
-        {this.items.length === 0 && (
-          <p className="PointSystemAdmin-empty">{app.translator.trans('ramon-point-system.admin.avatar.none')}</p>
-        )}
+        {this.items.length === 0 && <p className="PointSystemAdmin-empty">{app.translator.trans('ramon-point-system.admin.avatar.none')}</p>}
 
         {/* Render the active edit form full-width above the grid. */}
         {this.renderActiveEdit()}
 
-        <div className="PointSystemAdmin-decoGrid">
-          {this.items.map((it) => this.renderItem(it))}
-        </div>
+        <div className="PointSystemAdmin-decoGrid">{this.items.map((it) => this.renderItem(it))}</div>
       </div>
     );
   }
@@ -112,9 +118,7 @@ export default class AvatarDecorationsPanel extends Component {
 
     return (
       <div className={`PointSystemAdmin-decoCard ${enabled ? '' : 'is-disabled'}`}>
-        <div className="PointSystemAdmin-decoCard-preview">
-          {url && <img src={url} alt={name} />}
-        </div>
+        <div className="PointSystemAdmin-decoCard-preview">{url && <img src={url} alt={name} />}</div>
         <div className="PointSystemAdmin-decoCard-meta">
           <strong>{name}</strong>
           <small>{price} pts</small>
@@ -140,16 +144,10 @@ export default class AvatarDecorationsPanel extends Component {
 
     return (
       <div className="PointSystemAdmin-decoCard PointSystemAdmin-decoCard--editing">
-        <div className="PointSystemAdmin-decoCard-preview">
-          {url && <img src={url} alt={name} />}
-        </div>
+        <div className="PointSystemAdmin-decoCard-preview">{url && <img src={url} alt={name} />}</div>
         <div className="Form-group">
           <label>{app.translator.trans('ramon-point-system.admin.avatar.field_name')}</label>
-          <input
-            className="FormControl"
-            value={draft.name}
-            oninput={(e: Event) => (draft.name = (e.target as HTMLInputElement).value)}
-          />
+          <input className="FormControl" value={draft.name} oninput={(e: Event) => (draft.name = (e.target as HTMLInputElement).value)} />
         </div>
         <div className="Form-group">
           <label>{app.translator.trans('ramon-point-system.admin.avatar.field_description')}</label>
@@ -295,9 +293,7 @@ export default class AvatarDecorationsPanel extends Component {
   resolveAsset(path: string): string {
     if (!path) return '';
     if (/^https?:\/\//i.test(path)) return path;
-    const base =
-      (app.forum.attribute('assetsBaseUrl') as string | undefined) ||
-      (app.forum.attribute('baseUrl') as string) + '/assets';
+    const base = (app.forum.attribute('assetsBaseUrl') as string | undefined) || (app.forum.attribute('baseUrl') as string) + '/assets';
     return base.replace(/\/+$/, '') + '/' + String(path).replace(/^\/+/, '');
   }
 }

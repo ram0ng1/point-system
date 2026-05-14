@@ -18,4 +18,9 @@ class AvatarDecorationPolicy extends AbstractPolicy
     {
         return $actor->hasPermission('pointSystem.manage') ? true : null;
     }
+
+    public function can(User $actor): ?bool
+    {
+        return $actor->hasPermission('pointSystem.manage') ? true : null;
+    }
 }

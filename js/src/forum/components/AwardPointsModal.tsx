@@ -119,12 +119,10 @@ export default class AwardPointsModal extends Modal {
 
       app.alerts.show(
         { type: 'success' },
-        app.translator.trans(
-          direction === 'add'
-            ? 'ramon-point-system.forum.award_modal.added'
-            : 'ramon-point-system.forum.award_modal.removed',
-          { name: this.attrs.user.displayName(), amount: Number(this.amount).toLocaleString() },
-        ),
+        app.translator.trans(direction === 'add' ? 'ramon-point-system.forum.award_modal.added' : 'ramon-point-system.forum.award_modal.removed', {
+          name: this.attrs.user.displayName(),
+          amount: Number(this.amount).toLocaleString(),
+        })
       );
       this.hide();
     } catch (e: any) {

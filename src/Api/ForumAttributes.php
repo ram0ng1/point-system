@@ -7,9 +7,14 @@ namespace Ramon\PointSystem\Api;
 use Flarum\Api\Context;
 use Flarum\Api\Schema;
 use Flarum\Settings\SettingsRepositoryInterface;
+use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Model\AutoGroupTier;
 use Ramon\PointSystem\Model\AvatarDecoration;
+use Ramon\PointSystem\Model\CoverDecoration;
 use Ramon\PointSystem\Model\NameDecoration;
+use Ramon\PointSystem\Model\PostHighlightDecoration;
+use Ramon\PointSystem\Model\ShopClaim;
+use Ramon\PointSystem\Model\TitleDecoration;
 
 /**
  * Adds the full catalog of enabled decorations to the forum payload so they can
@@ -24,6 +29,9 @@ class ForumAttributes
         return [
             Schema\Arr::make('pointSystemAvatarDecorations')
                 ->get(function () {
+                    if (! resolve(FeatureGate::class)->isEnabled(ShopClaim::TYPE_AVATAR)) {
+                        return [];
+                    }
                     return AvatarDecoration::where('is_enabled', true)
                         ->orderBy('sort')
                         ->orderBy('id')
@@ -41,11 +49,77 @@ class ForumAttributes
 
             Schema\Arr::make('pointSystemNameDecorations')
                 ->get(function () {
+                    if (! resolve(FeatureGate::class)->isEnabled(ShopClaim::TYPE_NAME)) {
+                        return [];
+                    }
                     return NameDecoration::where('is_enabled', true)
                         ->orderBy('sort')
                         ->orderBy('id')
                         ->get()
                         ->map(fn (NameDecoration $d) => [
+                            'id' => $d->id,
+                            'name' => $d->name,
+                            'slug' => $d->slug,
+                            'description' => $d->description,
+                            'preset' => $d->preset,
+                            'customCss' => $d->custom_css,
+                            'price' => (int) $d->price,
+                        ])
+                        ->toArray();
+                }),
+
+            Schema\Arr::make('pointSystemCoverDecorations')
+                ->get(function () {
+                    if (! resolve(FeatureGate::class)->isEnabled(ShopClaim::TYPE_COVER)) {
+                        return [];
+                    }
+                    return CoverDecoration::where('is_enabled', true)
+                        ->orderBy('sort')
+                        ->orderBy('id')
+                        ->get()
+                        ->map(fn (CoverDecoration $d) => [
+                            'id' => $d->id,
+                            'name' => $d->name,
+                            'description' => $d->description,
+                            'imagePath' => $d->image_path,
+                            'isAnimated' => (bool) $d->is_animated,
+                            'price' => (int) $d->price,
+                        ])
+                        ->toArray();
+                }),
+
+            Schema\Arr::make('pointSystemTitleDecorations')
+                ->get(function () {
+                    if (! resolve(FeatureGate::class)->isEnabled(ShopClaim::TYPE_TITLE)) {
+                        return [];
+                    }
+                    return TitleDecoration::where('is_enabled', true)
+                        ->orderBy('sort')
+                        ->orderBy('id')
+                        ->get()
+                        ->map(fn (TitleDecoration $d) => [
+                            'id' => $d->id,
+                            'name' => $d->name,
+                            'slug' => $d->slug,
+                            'description' => $d->description,
+                            'titleText' => $d->title_text,
+                            'color' => $d->color,
+                            'customCss' => $d->custom_css,
+                            'price' => (int) $d->price,
+                        ])
+                        ->toArray();
+                }),
+
+            Schema\Arr::make('pointSystemPostHighlightDecorations')
+                ->get(function () {
+                    if (! resolve(FeatureGate::class)->isEnabled(ShopClaim::TYPE_POST_HL)) {
+                        return [];
+                    }
+                    return PostHighlightDecoration::where('is_enabled', true)
+                        ->orderBy('sort')
+                        ->orderBy('id')
+                        ->get()
+                        ->map(fn (PostHighlightDecoration $d) => [
                             'id' => $d->id,
                             'name' => $d->name,
                             'slug' => $d->slug,

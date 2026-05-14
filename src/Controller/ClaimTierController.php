@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Ramon\PointSystem\Controller;
 
+use Flarum\Foundation\DispatchEventsTrait;
 use Flarum\Group\Group;
 use Flarum\Http\RequestUtil;
 use Flarum\Settings\SettingsRepositoryInterface;
 use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Database\ConnectionInterface;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -29,12 +31,16 @@ use Ramon\PointSystem\Repository\PointsRepository;
  */
 class ClaimTierController implements RequestHandlerInterface
 {
+    use DispatchEventsTrait;
+
     public function __construct(
         protected PointsRepository $points,
         protected SettingsRepositoryInterface $settings,
         protected Dispatcher $events,
+        protected ConnectionInterface $db,
     ) {}
 
+    #[\Override]
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $actor = RequestUtil::getActor($request);
@@ -71,28 +77,31 @@ class ClaimTierController implements RequestHandlerInterface
             ]], 200);
         }
 
-        // Deduct the cost from spendable balance — lifetime is preserved (so
-        // the user keeps their reputation/threshold for other systems).
         $cost = max(0, (int) $tier->points_required);
+
+        // Atomic: deduct + attach must both succeed or both roll back. The old
+        // code did the attach AFTER the deduct's own transaction committed, so
+        // a failed attach left the user paying for a tier they didn't get.
         try {
-            if ($cost > 0) {
-                $this->points->deduct($actor, $cost, 'tier.claim', 'auto_group_tier', $tier->id);
-            }
+            $this->db->transaction(function () use ($actor, $tier, $cost) {
+                if ($cost > 0) {
+                    $this->points->deduct($actor, $cost, 'tier.claim', 'auto_group_tier', $tier->id);
+                }
+                // syncWithoutDetaching keeps any other groups the user is in.
+                $actor->groups()->syncWithoutDetaching([$tier->group_id]);
+
+                $group = Group::find($tier->group_id);
+                if ($group) {
+                    $actor->raise(new TierClaimed($actor, $group, $cost));
+                }
+            });
         } catch (\DomainException $e) {
             return new JsonResponse([
                 'errors' => [['code' => 'insufficient_balance', 'detail' => $e->getMessage()]],
             ], 422);
         }
 
-        // Attach the user to the group (manual — no longer relies on
-        // syncAutoGroups for this flow). syncWithoutDetaching keeps any other
-        // groups the user is already part of intact.
-        $actor->groups()->syncWithoutDetaching([$tier->group_id]);
-
-        $group = Group::find($tier->group_id);
-        if ($group) {
-            $this->events->dispatch(new TierClaimed($actor, $group, $cost));
-        }
+        $this->dispatchEventsFor($actor);
 
         $userPoints = $this->points->getOrCreate($actor);
         return new JsonResponse(['data' => [

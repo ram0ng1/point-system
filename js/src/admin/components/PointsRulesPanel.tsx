@@ -12,6 +12,9 @@ const SETTINGS: Array<{ key: string; transKey: string; type: 'number' | 'text' |
   { key: 'point-system.show_in_user_profile', transKey: 'show_in_user_profile', type: 'bool', defaultBool: true },
   { key: 'point-system.avatar_deco_enabled', transKey: 'avatar_deco_enabled', type: 'bool', defaultBool: true },
   { key: 'point-system.name_deco_enabled', transKey: 'name_deco_enabled', type: 'bool', defaultBool: true },
+  { key: 'point-system.cover_deco_enabled', transKey: 'cover_deco_enabled', type: 'bool', defaultBool: true },
+  { key: 'point-system.title_deco_enabled', transKey: 'title_deco_enabled', type: 'bool', defaultBool: true },
+  { key: 'point-system.post_hl_deco_enabled', transKey: 'post_hl_deco_enabled', type: 'bool', defaultBool: true },
   { key: 'point-system.deco_in_posts', transKey: 'deco_in_posts', type: 'bool', defaultBool: true },
   { key: 'point-system.deco_in_user_card', transKey: 'deco_in_user_card', type: 'bool', defaultBool: true },
   { key: 'point-system.deco_in_lists', transKey: 'deco_in_lists', type: 'bool', defaultBool: true },
@@ -38,9 +41,7 @@ export default class PointsRulesPanel extends Component {
           <p className="helpText">{app.translator.trans('ramon-point-system.admin.rules.help')}</p>
         </div>
 
-        <div className="PointSystemAdmin-grid">
-          {SETTINGS.map((s) => this.renderField(s))}
-        </div>
+        <div className="PointSystemAdmin-grid">{SETTINGS.map((s) => this.renderField(s))}</div>
 
         <div className="PointSystemAdmin-actions">
           <Button
@@ -64,11 +65,12 @@ export default class PointsRulesPanel extends Component {
 
     if (s.type === 'bool') {
       // Honor backend default when setting was never persisted (stored === undefined).
-      const checked = this.dirty[s.key] !== undefined
-        ? this.dirty[s.key] === '1' || this.dirty[s.key] === true
-        : stored === undefined
-          ? s.defaultBool === true
-          : stored === true || stored === '1' || stored === 1 || stored === 'true';
+      const checked =
+        this.dirty[s.key] !== undefined
+          ? this.dirty[s.key] === '1' || this.dirty[s.key] === true
+          : stored === undefined
+            ? s.defaultBool === true
+            : stored === true || stored === '1' || stored === 1 || stored === 'true';
       return (
         <div className="Form-group PointSystemAdmin-field">
           <Switch state={checked} onchange={(v: boolean) => (this.dirty[s.key] = v ? '1' : '0')}>

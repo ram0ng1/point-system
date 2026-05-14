@@ -25,11 +25,13 @@ class PointsManualBlueprint implements BlueprintInterface, AlertableInterface
         public ?string $reason = null,
     ) {}
 
+    #[\Override]
     public function getSubject(): ?AbstractModel
     {
         return $this->recipient;
     }
 
+    #[\Override]
     public function getFromUser(): ?User
     {
         return $this->admin;
@@ -39,6 +41,7 @@ class PointsManualBlueprint implements BlueprintInterface, AlertableInterface
      * Stored as JSON on the notification row and surfaced to the frontend via
      * `notification.content()`. Both fields are read by the Mithril component.
      */
+    #[\Override]
     public function getData(): mixed
     {
         return [
@@ -47,11 +50,13 @@ class PointsManualBlueprint implements BlueprintInterface, AlertableInterface
         ];
     }
 
+    #[\Override]
     public static function getType(): string
     {
         return 'pointsManual';
     }
 
+    #[\Override]
     public static function getSubjectModel(): string
     {
         return User::class;

@@ -3,12 +3,15 @@ import app from 'flarum/admin/app';
 
 export default function AdminNav(current: string) {
   const links: Array<[string, string, string]> = [
-    ['rules',  'fas fa-sliders-h',         'rules'],
-    ['users',  'fas fa-users',             'users'],
-    ['avatar', 'fas fa-user-circle',       'avatar'],
-    ['name',   'fas fa-font',              'name'],
-    ['groups', 'fas fa-layer-group',       'groups'],
-    ['manual', 'fas fa-hand-holding-usd',  'manual'],
+    ['rules', 'fas fa-sliders-h', 'rules'],
+    ['users', 'fas fa-users', 'users'],
+    ['avatar', 'fas fa-user-circle', 'avatar'],
+    ['name', 'fas fa-font', 'name'],
+    ['cover', 'fas fa-image', 'cover'],
+    ['title', 'fas fa-id-badge', 'title'],
+    ['post-hl', 'fas fa-highlighter', 'post_hl'],
+    ['groups', 'fas fa-layer-group', 'groups'],
+    ['manual', 'fas fa-hand-holding-usd', 'manual'],
   ];
 
   const base = app.route('extension', { id: 'ramon-point-system' });

@@ -5,49 +5,169 @@ on:
     branches: [master, main, melhoria]
   pull_request:
     branches: [master, main]
+  workflow_dispatch:
+
+# Default-deny do GITHUB_TOKEN. Jobs declaram explicitamente o que precisam.
+permissions: {}
+
+# Evita corridas redundantes no mesmo PR/branch.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  php-lint:
-    name: PHP syntax & composer
+  # Valida o composer.json as-committed (antes de qualquer mutação por matriz).
+  composer-validate:
+    name: composer validate (--strict)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@accd6127cb78bee3e8082180cb391013d204ef9f  # v2
         with:
-          php-version: '8.2'
+          php-version: '8.3'
           coverage: none
           tools: composer:v2
 
-      - name: Validate composer.json
-        run: composer validate --strict --no-check-publish
+      - name: Validar composer.json
+        # --no-check-version mantém o campo "version" (lido pelo release tooling).
+        run: composer validate --strict --no-check-publish --no-check-version
 
-      - name: Install dependencies
-        run: composer install --prefer-dist --no-progress --no-interaction --no-scripts
-
-      - name: PHP syntax check
-        run: find src migrations -type f -name '*.php' -print0 | xargs -0 -n1 php -l
-
-  js-build:
-    name: JS build
+  php:
+    name: PHP ${{ matrix.php }} × flarum/core ${{ matrix.flarum-core }}
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./js
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # flarum/core 2.x requer php ^8.3.
+        php: ['8.3', '8.4']
+        # Testa contra a versão estável E a HEAD do core.
+        flarum-core:
+          - '^2.0.0'
+          - '2.x-dev'
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@accd6127cb78bee3e8082180cb391013d204ef9f  # v2
         with:
-          node-version: '20'
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
 
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
+      - name: Pin flarum/core para a célula da matriz
+        run: composer require --no-update "flarum/core:${{ matrix.flarum-core }}"
 
-      - name: Build
+      - name: Resolver dependências (composer update)
+        run: composer update --no-interaction --no-progress --prefer-stable --no-scripts
+
+      - name: Lint PHP (php -l)
+        run: |
+          set -euo pipefail
+          mapfile -d '' files < <(find src migrations extend.php -name '*.php' -print0 2>/dev/null)
+          [ "${#files[@]}" -gt 0 ] || { echo "Nenhum arquivo PHP encontrado"; exit 1; }
+          printf '%s\0' "${files[@]}" | xargs -0 -n1 -P4 php -l
+
+      # Packagist security advisories — falha em pacotes com CVEs conhecidos.
+      - name: composer audit
+        run: composer audit --no-dev --format=plain
+
+      # PHPStan com flarum/phpstan-stub. continue-on-error: true porque é a
+      # primeira adoção; reduzir conforme baseline melhora.
+      - name: PHPStan (audit-only)
+        if: matrix.php == '8.3' && matrix.flarum-core == '^2.0.0'
+        continue-on-error: true
+        run: |
+          composer require --dev --no-progress "phpstan/phpstan:^1" "flarum/phpstan-stub:*"
+          vendor/bin/phpstan analyse --level=5 --no-progress src/ extend.php
+
+  js:
+    name: JS (typecheck, format, build)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      # Composer + PHP necessários para resolver os typings do core
+      # (js/tsconfig usa flarum/* via node_modules ou vendor; precisamos do core).
+      - name: Setup PHP
+        uses: shivammathur/setup-php@accd6127cb78bee3e8082180cb391013d204ef9f  # v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+
+      - name: Cache do composer
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.json') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Instalar dependências PHP (para os typings do core)
+        run: composer update --no-interaction --no-progress --prefer-dist --no-scripts
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: js/package-lock.json
+
+      - name: Instalar dependências JS
+        working-directory: js
+        run: npm ci
+
+      - name: Verificar formatação (Prettier)
+        working-directory: js
+        run: npm run format-check
+
+      - name: Type-check (TypeScript)
+        working-directory: js
+        # continue-on-error porque os tipos do `flarum/*` ainda não estão
+        # resolvidos via shims neste projeto. Remover quando os shims forem
+        # adicionados (ver tags/js/src/@types/shims.d.ts como referência).
+        continue-on-error: true
+        run: npm run check-typings
+
+      - name: Build (webpack production)
+        working-directory: js
         run: npm run build
 
-      - name: Type-check
-        run: npm run check-typings || true
+      # npm advisories. --audit-level=high reduz ruído de transitivas dev;
+      # subir para moderate quando o baseline estabilizar.
+      - name: npm audit
+        working-directory: js
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+  # Bloqueia PRs/pushes que introduzam dependências com CVEs conhecidos.
+  # Em PR: o diff base..head é resolvido automaticamente pela action.
+  # Em push: comparamos o tip do branch contra `main`. Push direto em `main`
+  # é pulado (não há base para comparar).
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - name: Dependency Review
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294  # v5.0.0
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure
+          base-ref: ${{ github.event_name == 'pull_request' && github.base_ref || 'main' }}
+          head-ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.sha }}

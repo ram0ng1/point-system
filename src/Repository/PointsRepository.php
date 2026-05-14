@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ramon\PointSystem\Repository;
 
+use Flarum\Foundation\DispatchEventsTrait;
 use Flarum\Settings\SettingsRepositoryInterface;
 use Flarum\User\User;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -20,9 +21,15 @@ use Ramon\PointSystem\Model\UserPoints;
  * - deduct(): atomically removes balance points (does NOT reduce lifetime)
  * - revert(): reverses a prior credit (used when a like is undone, etc.)
  * - syncAutoGroups(): keeps user's groups in line with their lifetime points
+ *
+ * Events live on the UserPoints model (via EventGeneratorTrait). They are
+ * raised inside the same transaction as the state change and flushed once
+ * the row is saved, so a rolled-back transaction never leaks a stale event.
  */
 class PointsRepository
 {
+    use DispatchEventsTrait;
+
     public function __construct(
         protected SettingsRepositoryInterface $settings,
         protected Dispatcher $events,
@@ -55,10 +62,12 @@ class PointsRepository
             return null;
         }
 
-        return $this->db->transaction(function () use ($user, $amount, $reason, $referenceType, $referenceId, $meta) {
+        $tx = null;
+        $points = $this->db->transaction(function () use ($user, $amount, $reason, $referenceType, $referenceId, $meta, &$tx) {
             $points = $this->getOrCreate($user);
             $points->lifetime += $amount;
             $points->balance  += $amount;
+            $points->raise(new PointsAwarded($user, $amount, $reason));
             $points->save();
 
             $tx = PointTransaction::create([
@@ -67,15 +76,17 @@ class PointsRepository
                 'reason' => $reason,
                 'reference_type' => $referenceType,
                 'reference_id' => $referenceId,
-                'meta' => $meta ? json_encode($meta) : null,
+                'meta' => $meta,
             ]);
 
             $this->syncAutoGroups($user, $points);
 
-            $this->events->dispatch(new PointsAwarded($user, $amount, $reason));
-
-            return $tx;
+            return $points;
         });
+
+        $this->dispatchEventsFor($points);
+
+        return $tx;
     }
 
     /**
@@ -92,7 +103,7 @@ class PointsRepository
             return;
         }
 
-        $this->db->transaction(function () use ($user, $reason, $referenceType, $referenceId) {
+        $points = $this->db->transaction(function () use ($user, $reason, $referenceType, $referenceId) {
             $tx = PointTransaction::where('user_id', $user->id)
                 ->where('reason', $reason)
                 ->where('reference_type', $referenceType)
@@ -102,12 +113,13 @@ class PointsRepository
                 ->first();
 
             if (! $tx) {
-                return;
+                return null;
             }
 
             $points = $this->getOrCreate($user);
             $points->lifetime = max(0, $points->lifetime - $tx->amount);
             $points->balance  = max(0, $points->balance - $tx->amount);
+            $points->raise(new PointsAwarded($user, -$tx->amount, $reason.'.revert'));
             $points->save();
 
             PointTransaction::create([
@@ -119,7 +131,13 @@ class PointsRepository
             ]);
 
             $this->syncAutoGroups($user, $points);
+
+            return $points;
         });
+
+        if ($points) {
+            $this->dispatchEventsFor($points);
+        }
     }
 
     /**
@@ -137,22 +155,30 @@ class PointsRepository
             throw new \InvalidArgumentException('Amount must be positive');
         }
 
-        return $this->db->transaction(function () use ($user, $amount, $reason, $referenceType, $referenceId) {
+        $tx = null;
+        $points = $this->db->transaction(function () use ($user, $amount, $reason, $referenceType, $referenceId, &$tx) {
             $points = $this->getOrCreate($user);
             if ($points->balance < $amount) {
                 throw new \DomainException('Insufficient point balance');
             }
             $points->balance -= $amount;
+            $points->raise(new PointsAwarded($user, -$amount, $reason));
             $points->save();
 
-            return PointTransaction::create([
+            $tx = PointTransaction::create([
                 'user_id' => $user->id,
                 'amount' => -$amount,
                 'reason' => $reason,
                 'reference_type' => $referenceType,
                 'reference_id' => $referenceId,
             ]);
+
+            return $points;
         });
+
+        $this->dispatchEventsFor($points);
+
+        return $tx;
     }
 
     /**

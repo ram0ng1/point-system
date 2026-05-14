@@ -18,6 +18,7 @@ use Ramon\PointSystem\Repository\PointsRepository;
 
 class PointSystemServiceProvider extends AbstractServiceProvider
 {
+    #[\Override]
     public function register(): void
     {
         $this->container->singleton(PointsRepository::class);

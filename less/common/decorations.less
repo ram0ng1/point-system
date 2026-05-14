@@ -409,3 +409,84 @@ a.ps-name-wave .ps-letter,
   0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); }
   50%      { opacity: 1; transform: scale(1.2) rotate(180deg); }
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Title decoration — shared shell (used in admin live preview, shop card,
+// decorations page, and posts). Forum-specific positioning lives in
+// less/forum.less. Admin imports this file via admin.less.
+// ──────────────────────────────────────────────────────────────────────────────
+.ps-title-preview {
+  display: inline-block;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--ps-title-color, var(--primary-color, #6cc04a)) 14%, transparent);
+  color: var(--ps-title-color, var(--primary-color, #6cc04a));
+  border-radius: 999px;
+  line-height: 1.3;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Post highlight — shared preview shell + built-in presets. Same selectors
+// match the actual post in the forum (CommentPost root, see forum.less).
+// ──────────────────────────────────────────────────────────────────────────────
+.ps-posthl-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--body-bg, #fff);
+  min-width: 160px;
+  max-width: 220px;
+  border-radius: 14px;
+
+  &-avatar {
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--control-bg, #eee);
+  }
+  &-body { flex: 1; min-width: 0; }
+  &-line {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--control-bg, #eee);
+
+    & + & { margin-top: 6px; }
+    &.short { width: 60%; }
+  }
+}
+
+// Built-in highlight presets — applied to .ps-posthl-preview (admin/shop) AND
+// to .CommentPost.ps-posthl-{slug} (real posts, scoped in forum.less).
+.ps-posthl-preview[class*="ps-posthl-"],
+.CommentPost[class*="ps-posthl-"] {
+  outline: 2px solid var(--ps-posthl-color, color-mix(in srgb, var(--primary-color, #6cc04a) 50%, transparent));
+  outline-offset: 4px;
+}
+
+.ps-posthl-gold-border    { --ps-posthl-color: #d6a200; }
+.ps-posthl-silver-border  { --ps-posthl-color: #9da3ad; }
+.ps-posthl-glow-blue      { --ps-posthl-color: #2f81f7; animation: ps-posthl-glow 2.5s ease-in-out infinite alternate; }
+.ps-posthl-glow-purple    { --ps-posthl-color: #8b5cf6; animation: ps-posthl-glow 2.5s ease-in-out infinite alternate; }
+.ps-posthl-glow-green     { --ps-posthl-color: #16a34a; animation: ps-posthl-glow 2.5s ease-in-out infinite alternate; }
+.ps-posthl-ribbon-red     { --ps-posthl-color: #dc2626; outline-style: dashed !important; }
+.ps-posthl-ribbon-gold    { --ps-posthl-color: #d6a200; outline-style: dashed !important; }
+.ps-posthl-dashed-accent  { outline-style: dashed !important; }
+.ps-posthl-shadow-soft    { outline: none !important; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10); }
+.ps-posthl-gradient-edge  {
+  outline: none !important;
+  position: relative;
+  background-image:
+    linear-gradient(var(--body-bg, #fff), var(--body-bg, #fff)),
+    linear-gradient(135deg, #ff7e5f, #feb47b, #6dd5ed, #2193b0);
+  background-clip: padding-box, border-box;
+  background-origin: padding-box, border-box;
+  border: 2px solid transparent;
+}
+
+@keyframes ps-posthl-glow {
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ps-posthl-color, currentColor) 35%, transparent); }
+  to   { box-shadow: 0 0 0 8px color-mix(in srgb, var(--ps-posthl-color, currentColor)  0%, transparent); }
+}
