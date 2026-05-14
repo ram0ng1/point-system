@@ -37,7 +37,7 @@ jobs:
 
       - name: Verificar versão no composer.json
         id: check_version
-        uses: EndBug/version-check@v2
+        uses: EndBug/version-check@v3
         with:
           file-name: composer.json
           diff-search: true
