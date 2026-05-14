@@ -150,11 +150,14 @@ jobs:
         run: npm audit --audit-level=high
         continue-on-error: true
 
-  # Bloqueia PRs que introduzam dependências com CVEs conhecidos.
+  # Bloqueia PRs/pushes que introduzam dependências com CVEs conhecidos.
+  # Em PR: o diff base..head é resolvido automaticamente pela action.
+  # Em push: comparamos o tip do branch contra `main`. Push direto em `main`
+  # é pulado (não há base para comparar).
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
     permissions:
       contents: read
       pull-requests: write
@@ -166,3 +169,5 @@ jobs:
         with:
           fail-on-severity: high
           comment-summary-in-pr: on-failure
+          base-ref: ${{ github.event_name == 'pull_request' && github.base_ref || 'main' }}
+          head-ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.sha }}
