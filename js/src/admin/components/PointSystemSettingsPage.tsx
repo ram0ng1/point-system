@@ -8,7 +8,7 @@ import NameDecorationsPanel from './NameDecorationsPanel';
 import CoverDecorationsPanel from './CoverDecorationsPanel';
 import TitleDecorationsPanel from './TitleDecorationsPanel';
 import PostHighlightDecorationsPanel from './PostHighlightDecorationsPanel';
-import AutoGroupTiersPanel from './AutoGroupTiersPanel';
+import GroupOffersPanel from './GroupOffersPanel';
 import ManualAwardPanel from './ManualAwardPanel';
 
 export default class PointSystemSettingsPage extends ExtensionPage {
@@ -36,7 +36,7 @@ export default class PointSystemSettingsPage extends ExtensionPage {
         child = <PostHighlightDecorationsPanel />;
         break;
       case 'groups':
-        child = <AutoGroupTiersPanel />;
+        child = <GroupOffersPanel />;
         break;
       case 'manual':
         child = <ManualAwardPanel />;
