@@ -39,7 +39,14 @@ class GroupOffer extends AbstractModel
         'is_enabled'      => 'boolean',
     ];
 
-    protected $guarded = [];
+    protected $fillable = [
+        'group_id',
+        'points_required',
+        'price',
+        'is_auto',
+        'is_purchasable',
+        'is_enabled',
+    ];
 
     public function group(): BelongsTo
     {

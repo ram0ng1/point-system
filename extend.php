@@ -91,7 +91,6 @@ return [
 
     // ── Permissions ──────────────────────────────────────────────────────────
     (new Extend\Policy())
-        ->modelPolicy(Model\ShopItem::class, Access\ShopItemPolicy::class)
         ->modelPolicy(Model\AvatarDecoration::class, Access\AvatarDecorationPolicy::class),
 
     // ── Settings ─────────────────────────────────────────────────────────────

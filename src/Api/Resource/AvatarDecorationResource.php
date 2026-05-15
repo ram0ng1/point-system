@@ -55,6 +55,7 @@ class AvatarDecorationResource extends AbstractDatabaseResource
             Endpoint\Update::make()
                 ->can('manage')
                 ->action(function (Context $context) {
+                    resolve(FeatureGate::class)->assertEnabled(ShopClaim::TYPE_AVATAR);
                     /** @var AvatarDecoration $deco */
                     $deco = AvatarDecoration::query()->findOrFail($context->modelId);
                     $attrs = (array) ($context->body()['data']['attributes'] ?? []);
@@ -66,6 +67,7 @@ class AvatarDecorationResource extends AbstractDatabaseResource
             Endpoint\Delete::make()
                 ->can('manage')
                 ->action(function (Context $context) {
+                    resolve(FeatureGate::class)->assertEnabled(ShopClaim::TYPE_AVATAR);
                     /** @var AvatarDecoration $deco */
                     $deco = AvatarDecoration::query()->findOrFail($context->modelId);
                     $deco->delete();

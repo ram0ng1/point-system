@@ -55,6 +55,7 @@ class TitleDecorationResource extends AbstractDatabaseResource
 
             Endpoint\Create::make()
                 ->authenticated()
+                ->can('pointSystem.manage')
                 ->action(function (Context $context) {
                     $context->getActor()->assertCan('pointSystem.manage');
                     resolve(FeatureGate::class)->assertEnabled(ShopClaim::TYPE_TITLE);
@@ -66,6 +67,8 @@ class TitleDecorationResource extends AbstractDatabaseResource
                 }),
 
             Endpoint\Update::make()
+                ->authenticated()
+                ->can('pointSystem.manage')
                 ->action(function (Context $context) {
                     $context->getActor()->assertCan('pointSystem.manage');
                     resolve(FeatureGate::class)->assertEnabled(ShopClaim::TYPE_TITLE);
@@ -78,6 +81,8 @@ class TitleDecorationResource extends AbstractDatabaseResource
                 }),
 
             Endpoint\Delete::make()
+                ->authenticated()
+                ->can('pointSystem.manage')
                 ->action(function (Context $context) {
                     $context->getActor()->assertCan('pointSystem.manage');
                     resolve(FeatureGate::class)->assertEnabled(ShopClaim::TYPE_TITLE);

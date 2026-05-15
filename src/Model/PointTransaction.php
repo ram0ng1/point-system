@@ -31,7 +31,7 @@ class PointTransaction extends AbstractModel
         'meta' => 'array',
     ];
 
-    protected $guarded = [];
+    protected $fillable = ['user_id', 'amount', 'reason', 'reference_type', 'reference_id', 'meta'];
 
     public function user(): BelongsTo
     {

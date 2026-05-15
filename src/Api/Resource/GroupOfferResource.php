@@ -51,10 +51,11 @@ class GroupOfferResource extends AbstractDatabaseResource
     public function endpoints(): array
     {
         return [
-            Endpoint\Index::make()->paginate(100, 200),
-            Endpoint\Show::make(),
+            Endpoint\Index::make()->authenticated()->paginate(100, 200),
+            Endpoint\Show::make()->authenticated(),
             Endpoint\Create::make()
                 ->authenticated()
+                ->can('pointSystem.manage')
                 ->action(function (Context $context) {
                     $context->getActor()->assertCan('pointSystem.manage');
                     $attrs = (array) ($context->body()['data']['attributes'] ?? []);
@@ -64,6 +65,8 @@ class GroupOfferResource extends AbstractDatabaseResource
                     return $offer;
                 }),
             Endpoint\Update::make()
+                ->authenticated()
+                ->can('pointSystem.manage')
                 ->action(function (Context $context) {
                     $context->getActor()->assertCan('pointSystem.manage');
                     /** @var GroupOffer $offer */
@@ -74,6 +77,8 @@ class GroupOfferResource extends AbstractDatabaseResource
                     return $offer;
                 }),
             Endpoint\Delete::make()
+                ->authenticated()
+                ->can('pointSystem.manage')
                 ->action(function (Context $context) {
                     $context->getActor()->assertCan('pointSystem.manage');
                     /** @var GroupOffer $offer */
