@@ -8,8 +8,8 @@ use Flarum\Api\Context;
 use Flarum\Api\Schema;
 use Flarum\Settings\SettingsRepositoryInterface;
 use Ramon\PointSystem\FeatureGate;
-use Ramon\PointSystem\Model\AutoGroupTier;
 use Ramon\PointSystem\Model\AvatarDecoration;
+use Ramon\PointSystem\Model\GroupOffer;
 use Ramon\PointSystem\Model\CoverDecoration;
 use Ramon\PointSystem\Model\NameDecoration;
 use Ramon\PointSystem\Model\PostHighlightDecoration;
@@ -131,26 +131,30 @@ class ForumAttributes
                         ->toArray();
                 }),
 
-            // Auto-group tiers shown on the Rewards page so users know what
-            // they unlock at each lifetime threshold. Returns empty when the
-            // feature is disabled — frontend then hides the whole tab/section.
-            Schema\Arr::make('pointSystemAutoGroupTiers')
+            // Group offers shown on the Rewards page. Each offer can be
+            // unlocked via auto-attach (lifetime threshold), explicit purchase
+            // (balance deduction), or both — the UI uses the flags to render
+            // the right CTA per card. Returns empty when the feature is off.
+            Schema\Arr::make('pointSystemGroupOffers')
                 ->get(function () {
                     $settings = resolve(SettingsRepositoryInterface::class);
                     if (! (bool) $settings->get('point-system.auto_group_enabled', true)) {
                         return [];
                     }
-                    return AutoGroupTier::with('group')
+                    return GroupOffer::with('group')
                         ->where('is_enabled', true)
                         ->orderBy('points_required')
                         ->get()
-                        ->map(fn (AutoGroupTier $t) => [
-                            'id' => $t->id,
-                            'groupId' => $t->group_id,
-                            'groupName' => optional($t->group)->name_plural ?: optional($t->group)->name_singular,
-                            'groupColor' => optional($t->group)->color,
-                            'groupIcon' => optional($t->group)->icon,
-                            'pointsRequired' => (int) $t->points_required,
+                        ->map(fn (GroupOffer $o) => [
+                            'id' => $o->id,
+                            'groupId' => $o->group_id,
+                            'groupName' => optional($o->group)->name_plural ?: optional($o->group)->name_singular,
+                            'groupColor' => optional($o->group)->color,
+                            'groupIcon' => optional($o->group)->icon,
+                            'pointsRequired' => (int) $o->points_required,
+                            'price' => (int) $o->price,
+                            'isAuto' => (bool) $o->is_auto,
+                            'isPurchasable' => (bool) $o->is_purchasable,
                         ])
                         ->toArray();
                 }),

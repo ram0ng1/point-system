@@ -29,7 +29,12 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Sincronizar branches com main
+        # GITHUB_TOKEN não tem o escopo `workflow`, então pushes que tocam
+        # `.github/workflows/*` são rejeitados pelo GitHub. Tratamos a falha
+        # de push como skip (igual a conflito de merge) em vez de abortar o
+        # workflow inteiro, mantendo o sync best-effort por branch.
         run: |
+          set +e
           git fetch --all
 
           BRANCHES=$(git branch -r \
@@ -39,16 +44,32 @@ jobs:
             | sed 's|origin/||' \
             | tr -d ' ')
 
+          FAILED_BRANCHES=()
+
           for branch in $BRANCHES; do
             echo "▶ Sincronizando branch: $branch"
 
             git checkout -B "$branch" "origin/$branch"
 
             if git merge origin/main --no-edit -m "chore: sync with main"; then
-              git push origin "$branch"
-              echo "✅ Branch '$branch' sincronizada com sucesso"
+              if git push origin "$branch"; then
+                echo "✅ Branch '$branch' sincronizada com sucesso"
+              else
+                echo "⚠️  Push rejeitado para '$branch' (provável: alteração em .github/workflows/* exige token com escopo 'workflow') — pulando"
+                FAILED_BRANCHES+=("$branch")
+                git reset --hard "origin/$branch"
+              fi
             else
               echo "⚠️  Conflito ao sincronizar '$branch' com main — pulando"
+              FAILED_BRANCHES+=("$branch")
               git merge --abort
             fi
           done
+
+          if [ ${#FAILED_BRANCHES[@]} -gt 0 ]; then
+            echo ""
+            echo "=== Branches que precisam de sync manual ==="
+            printf '  - %s\n' "${FAILED_BRANCHES[@]}"
+          fi
+
+          exit 0

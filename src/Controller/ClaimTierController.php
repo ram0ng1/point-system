@@ -15,19 +15,24 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Ramon\PointSystem\Event\TierClaimed;
-use Ramon\PointSystem\Model\AutoGroupTier;
+use Ramon\PointSystem\Model\GroupOffer;
 use Ramon\PointSystem\Repository\PointsRepository;
 
 /**
  * POST /api/point-system/tier-claim
- * Body: { id: tier_id }
+ * Body: { id: offer_id, mode?: 'auto' | 'purchase' }
  *
- * Lets a user manually claim a specific group tier they've already earned by
- * accumulating enough lifetime points. The auto-sync that runs on every
- * `award()` should normally cover this, but a manual endpoint is handy for:
- *   - Users who already had points before the admin turned the feature on.
- *   - Users on legacy data where the auto-attach was skipped.
- *   - UX clarity (the user clicks "Claim" and sees the group attached).
+ * Resolves both unlock paths exposed by a {@see GroupOffer}:
+ *
+ *  - mode=auto (or omitted when only is_auto is set): free claim, requires the
+ *    user's lifetime points to be >= offer.points_required. Mirrors the
+ *    syncAutoGroups() background job for users whose auto-attach was skipped.
+ *  - mode=purchase (or omitted when only is_purchasable is set): paid claim,
+ *    spends offer.price from the user's balance regardless of lifetime totals.
+ *
+ * The two unlocks share an endpoint so the UI can present "Join (you already
+ * qualify)" and "Buy access" side by side on the same card without juggling
+ * two routes.
  */
 class ClaimTierController implements RequestHandlerInterface
 {
@@ -48,49 +53,75 @@ class ClaimTierController implements RequestHandlerInterface
 
         if (! (bool) $this->settings->get('point-system.auto_group_enabled', true)) {
             return new JsonResponse([
-                'errors' => [['code' => 'feature_disabled', 'detail' => 'Group tiers are disabled.']],
+                'errors' => [['code' => 'feature_disabled', 'detail' => 'Group offers are disabled.']],
             ], 422);
         }
 
         $body = (array) $request->getParsedBody();
         $id   = (int) ($body['id'] ?? 0);
+        $mode = (string) ($body['mode'] ?? '');
         if ($id <= 0) {
-            return new JsonResponse(['errors' => [['detail' => 'Invalid tier']]], 422);
+            return new JsonResponse(['errors' => [['detail' => 'Invalid offer']]], 422);
         }
 
-        /** @var AutoGroupTier|null $tier */
-        $tier = AutoGroupTier::where('id', $id)->where('is_enabled', true)->first();
-        if (! $tier) {
-            return new JsonResponse(['errors' => [['detail' => 'Tier not found']]], 404);
+        /** @var GroupOffer|null $offer */
+        $offer = GroupOffer::where('id', $id)->where('is_enabled', true)->first();
+        if (! $offer) {
+            return new JsonResponse(['errors' => [['detail' => 'Offer not found']]], 404);
         }
 
-        // Idempotent — already in the group means we just return success.
-        $alreadyMember = $actor->groups()->where('groups.id', $tier->group_id)->exists();
+        if (! $offer->is_auto && ! $offer->is_purchasable) {
+            return new JsonResponse([
+                'errors' => [['code' => 'offer_locked', 'detail' => 'This group offer is not currently obtainable.']],
+            ], 422);
+        }
+
+        $alreadyMember = $actor->groups()->where('groups.id', $offer->group_id)->exists();
         if ($alreadyMember) {
             $userPoints = $this->points->getOrCreate($actor);
             return new JsonResponse(['data' => [
-                'tierId' => $tier->id,
-                'groupId' => $tier->group_id,
-                'balance' => (int) $userPoints->balance,
-                'lifetime' => (int) $userPoints->lifetime,
+                'offerId'      => $offer->id,
+                'groupId'      => $offer->group_id,
+                'balance'      => (int) $userPoints->balance,
+                'lifetime'     => (int) $userPoints->lifetime,
                 'alreadyOwned' => true,
             ]], 200);
         }
 
-        $cost = max(0, (int) $tier->points_required);
+        $resolvedMode = $this->resolveMode($offer, $mode);
+        if ($resolvedMode === null) {
+            return new JsonResponse([
+                'errors' => [['code' => 'invalid_mode', 'detail' => 'Requested unlock mode is not available for this offer.']],
+            ], 422);
+        }
 
-        // Atomic: deduct + attach must both succeed or both roll back. The old
-        // code did the attach AFTER the deduct's own transaction committed, so
-        // a failed attach left the user paying for a tier they didn't get.
+        $userPoints = $this->points->getOrCreate($actor);
+
+        if ($resolvedMode === 'auto') {
+            if ((int) $userPoints->lifetime < (int) $offer->points_required) {
+                return new JsonResponse([
+                    'errors' => [['code' => 'threshold_not_met', 'detail' => 'You have not reached the lifetime threshold for this group yet.']],
+                ], 422);
+            }
+            $cost = 0;
+        } else {
+            $cost = max(0, (int) $offer->price);
+        }
+
         try {
-            $this->db->transaction(function () use ($actor, $tier, $cost) {
+            $this->db->transaction(function () use ($actor, $offer, $cost, $resolvedMode) {
                 if ($cost > 0) {
-                    $this->points->deduct($actor, $cost, 'tier.claim', 'auto_group_tier', $tier->id);
+                    $this->points->deduct(
+                        $actor,
+                        $cost,
+                        $resolvedMode === 'purchase' ? 'group.purchase' : 'tier.claim',
+                        'group_offer',
+                        $offer->id,
+                    );
                 }
-                // syncWithoutDetaching keeps any other groups the user is in.
-                $actor->groups()->syncWithoutDetaching([$tier->group_id]);
+                $actor->groups()->syncWithoutDetaching([$offer->group_id]);
 
-                $group = Group::find($tier->group_id);
+                $group = Group::find($offer->group_id);
                 if ($group) {
                     $actor->raise(new TierClaimed($actor, $group, $cost));
                 }
@@ -105,10 +136,31 @@ class ClaimTierController implements RequestHandlerInterface
 
         $userPoints = $this->points->getOrCreate($actor);
         return new JsonResponse(['data' => [
-            'tierId' => $tier->id,
-            'groupId' => $tier->group_id,
-            'balance' => (int) $userPoints->balance,
+            'offerId'  => $offer->id,
+            'groupId'  => $offer->group_id,
+            'mode'     => $resolvedMode,
+            'balance'  => (int) $userPoints->balance,
             'lifetime' => (int) $userPoints->lifetime,
         ]], 200);
+    }
+
+    /**
+     * @return 'auto'|'purchase'|null
+     */
+    protected function resolveMode(GroupOffer $offer, string $requested): ?string
+    {
+        if ($requested === 'auto') {
+            return $offer->is_auto ? 'auto' : null;
+        }
+        if ($requested === 'purchase') {
+            return $offer->is_purchasable ? 'purchase' : null;
+        }
+        if ($offer->is_purchasable && ! $offer->is_auto) {
+            return 'purchase';
+        }
+        if ($offer->is_auto && ! $offer->is_purchasable) {
+            return 'auto';
+        }
+        return 'purchase';
     }
 }

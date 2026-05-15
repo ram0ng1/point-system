@@ -11,28 +11,29 @@ use Flarum\Api\Schema;
 use Flarum\Foundation\ValidationException;
 use Flarum\Settings\SettingsRepositoryInterface;
 use Illuminate\Database\Eloquent\Builder;
-use Ramon\PointSystem\Model\AutoGroupTier;
+use Ramon\PointSystem\Model\GroupOffer;
 
 /**
- * @extends AbstractDatabaseResource<AutoGroupTier>
+ * @extends AbstractDatabaseResource<GroupOffer>
  */
-class AutoGroupTierResource extends AbstractDatabaseResource
+class GroupOfferResource extends AbstractDatabaseResource
 {
     #[\Override]
     public function type(): string
     {
-        return 'point-system-auto-group-tiers';
+        return 'point-system-group-offers';
     }
 
     #[\Override]
     public function model(): string
     {
-        return AutoGroupTier::class;
+        return GroupOffer::class;
     }
 
     /**
-     * Hide tiers from non-admin readers when the auto-group system is off.
-     * Admins keep access so they can still configure tiers before re-enabling.
+     * Non-admins only see offers when the auto-group feature is on. Admins keep
+     * read access in all cases so they can still configure offers ahead of an
+     * enable flip.
      */
     #[\Override]
     public function scope(Builder $query, \Tobyz\JsonApiServer\Context $context): void
@@ -42,7 +43,7 @@ class AutoGroupTierResource extends AbstractDatabaseResource
             return;
         }
         if (! $this->autoGroupEnabled()) {
-            $query->whereRaw('1 = 0'); // empty result set
+            $query->whereRaw('1 = 0');
         }
     }
 
@@ -50,34 +51,39 @@ class AutoGroupTierResource extends AbstractDatabaseResource
     public function endpoints(): array
     {
         return [
-            Endpoint\Index::make()->paginate(100, 200),
-            Endpoint\Show::make(),
+            Endpoint\Index::make()->authenticated()->paginate(100, 200),
+            Endpoint\Show::make()->authenticated(),
             Endpoint\Create::make()
                 ->authenticated()
+                ->can('pointSystem.manage')
                 ->action(function (Context $context) {
                     $context->getActor()->assertCan('pointSystem.manage');
                     $attrs = (array) ($context->body()['data']['attributes'] ?? []);
-                    $tier = new AutoGroupTier();
-                    $this->fill($tier, $attrs);
-                    $tier->save();
-                    return $tier;
+                    $offer = new GroupOffer();
+                    $this->fill($offer, $attrs);
+                    $offer->save();
+                    return $offer;
                 }),
             Endpoint\Update::make()
+                ->authenticated()
+                ->can('pointSystem.manage')
                 ->action(function (Context $context) {
                     $context->getActor()->assertCan('pointSystem.manage');
-                    /** @var AutoGroupTier $tier */
-                    $tier = AutoGroupTier::query()->findOrFail($context->modelId);
+                    /** @var GroupOffer $offer */
+                    $offer = GroupOffer::query()->findOrFail($context->modelId);
                     $attrs = (array) ($context->body()['data']['attributes'] ?? []);
-                    $this->fill($tier, $attrs);
-                    $tier->save();
-                    return $tier;
+                    $this->fill($offer, $attrs);
+                    $offer->save();
+                    return $offer;
                 }),
             Endpoint\Delete::make()
+                ->authenticated()
+                ->can('pointSystem.manage')
                 ->action(function (Context $context) {
                     $context->getActor()->assertCan('pointSystem.manage');
-                    /** @var AutoGroupTier $tier */
-                    $tier = AutoGroupTier::query()->findOrFail($context->modelId);
-                    $tier->delete();
+                    /** @var GroupOffer $offer */
+                    $offer = GroupOffer::query()->findOrFail($context->modelId);
+                    $offer->delete();
                     return null;
                 }),
         ];
@@ -95,6 +101,9 @@ class AutoGroupTierResource extends AbstractDatabaseResource
         return [
             Schema\Integer::make('groupId')->property('group_id'),
             Schema\Integer::make('pointsRequired')->property('points_required'),
+            Schema\Integer::make('price')->property('price'),
+            Schema\Boolean::make('isAuto')->property('is_auto'),
+            Schema\Boolean::make('isPurchasable')->property('is_purchasable'),
             Schema\Boolean::make('isEnabled')->property('is_enabled'),
             Schema\Relationship\ToOne::make('group')
                 ->type('groups')
@@ -102,19 +111,28 @@ class AutoGroupTierResource extends AbstractDatabaseResource
         ];
     }
 
-    protected function fill(AutoGroupTier $tier, array $attrs): void
+    protected function fill(GroupOffer $offer, array $attrs): void
     {
         if (isset($attrs['groupId'])) {
-            $tier->group_id = (int) $attrs['groupId'];
+            $offer->group_id = (int) $attrs['groupId'];
         }
-        if (! $tier->group_id) {
+        if (! $offer->group_id) {
             throw new ValidationException(['groupId' => 'Required']);
         }
         if (isset($attrs['pointsRequired'])) {
-            $tier->points_required = max(0, (int) $attrs['pointsRequired']);
+            $offer->points_required = max(0, (int) $attrs['pointsRequired']);
         }
-        if (isset($attrs['isEnabled'])) {
-            $tier->is_enabled = (bool) $attrs['isEnabled'];
+        if (isset($attrs['price'])) {
+            $offer->price = max(0, (int) $attrs['price']);
+        }
+        if (array_key_exists('isAuto', $attrs)) {
+            $offer->is_auto = (bool) $attrs['isAuto'];
+        }
+        if (array_key_exists('isPurchasable', $attrs)) {
+            $offer->is_purchasable = (bool) $attrs['isPurchasable'];
+        }
+        if (array_key_exists('isEnabled', $attrs)) {
+            $offer->is_enabled = (bool) $attrs['isEnabled'];
         }
     }
 }
