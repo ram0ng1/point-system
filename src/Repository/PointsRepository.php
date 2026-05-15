@@ -10,7 +10,7 @@ use Flarum\User\User;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\ConnectionInterface;
 use Ramon\PointSystem\Event\PointsAwarded;
-use Ramon\PointSystem\Model\AutoGroupTier;
+use Ramon\PointSystem\Model\GroupOffer;
 use Ramon\PointSystem\Model\PointTransaction;
 use Ramon\PointSystem\Model\UserPoints;
 
@@ -182,10 +182,11 @@ class PointsRepository
     }
 
     /**
-     * Walk the configured tiers (ordered by points_required asc) and attach the
-     * user to every tier they qualify for. Tiers below their lifetime balance
-     * remain attached even if they lose balance — only lifetime drops can
-     * actually remove a tier.
+     * Walk the auto-enabled group offers (ordered by points_required asc) and
+     * attach the user to every offer they qualify for. Only offers with
+     * is_auto=true participate: purchase-only offers are never auto-attached
+     * and never auto-detached. Lifetime drops below the threshold of an
+     * is_auto offer will detach the user from that group.
      */
     public function syncAutoGroups(User $user, ?UserPoints $points = null): void
     {
@@ -196,17 +197,18 @@ class PointsRepository
         $points ??= $this->getOrCreate($user);
         $lifetime = $points->lifetime;
 
-        $tiers = AutoGroupTier::where('is_enabled', true)
+        $offers = GroupOffer::where('is_enabled', true)
+            ->where('is_auto', true)
             ->orderBy('points_required')
             ->get();
 
-        $managedGroupIds = $tiers->pluck('group_id')->all();
+        $managedGroupIds = $offers->pluck('group_id')->all();
         if (empty($managedGroupIds)) {
             return;
         }
 
-        $qualifyingIds = $tiers
-            ->filter(fn ($t) => $lifetime >= $t->points_required)
+        $qualifyingIds = $offers
+            ->filter(fn ($o) => $lifetime >= $o->points_required)
             ->pluck('group_id')
             ->all();
 

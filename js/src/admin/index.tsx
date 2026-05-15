@@ -6,7 +6,7 @@ import NameDecoration from './models/NameDecoration';
 import CoverDecoration from './models/CoverDecoration';
 import TitleDecoration from './models/TitleDecoration';
 import PostHighlightDecoration from './models/PostHighlightDecoration';
-import AutoGroupTier from './models/AutoGroupTier';
+import GroupOffer from './models/GroupOffer';
 
 app.initializers.add('ramon/point-system', () => {
   // Register custom JSON:API resource types with the store so app.store.find()
@@ -16,7 +16,7 @@ app.initializers.add('ramon/point-system', () => {
   app.store.models['point-system-cover-decorations'] = CoverDecoration;
   app.store.models['point-system-title-decorations'] = TitleDecoration;
   app.store.models['point-system-post-highlight-decorations'] = PostHighlightDecoration;
-  app.store.models['point-system-auto-group-tiers'] = AutoGroupTier;
+  app.store.models['point-system-group-offers'] = GroupOffer;
 
   app.registry
     .for('ramon-point-system')
