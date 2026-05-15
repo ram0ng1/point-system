@@ -27,5 +27,5 @@ class CoverDecoration extends AbstractModel
         'sort' => 'integer',
     ];
 
-    protected $guarded = [];
+    protected $fillable = ['name', 'description', 'image_path', 'is_animated', 'price', 'is_enabled', 'sort'];
 }

@@ -28,6 +28,18 @@ interface ShopItem {
 
 type ShopTab = 'avatar' | 'name' | 'cover' | 'title' | 'post-hl' | 'tiers';
 
+// CSS-value sanitizer for admin-controlled `Group->color` strings, which are
+// rendered inside `style="background:..."` attributes. Without this, a value
+// like `red;background-image:url(//evil/x)` would inject arbitrary CSS into
+// every shop render. Allowlist mirrors what a CSS <color> token can hold
+// (hex, rgb()/rgba()/hsl()/hsla()/named tokens) — anything else returns empty.
+function sanitizeCssColor(raw: unknown): string {
+  if (typeof raw !== 'string') return '';
+  const s = raw.trim();
+  if (s.length === 0 || s.length > 64) return '';
+  return /^(#[0-9a-fA-F]{3,8}|(?:rgb|rgba|hsl|hsla)\([^)]*\)|[a-zA-Z]+)$/.test(s) ? s : '';
+}
+
 export default class ShopPage extends Page {
   loading = false;
   claiming = new Set<string>();
@@ -200,7 +212,10 @@ export default class ShopPage extends Page {
 
     return (
       <div className={`PointSystemShop-tier ${reached ? 'is-reached' : ''} ${owned ? 'is-owned' : ''}`} key={offer.id}>
-        <div className="PointSystemShop-tier-badge" style={offer.groupColor ? `background:${offer.groupColor}` : undefined}>
+        <div
+          className="PointSystemShop-tier-badge"
+          style={sanitizeCssColor(offer.groupColor) ? `background:${sanitizeCssColor(offer.groupColor)}` : undefined}
+        >
           <i className={offer.groupIcon || 'fas fa-medal'} />
         </div>
         <div className="PointSystemShop-tier-body">
@@ -444,7 +459,8 @@ export default class ShopPage extends Page {
   previewTitle(item: ShopItem) {
     const slug = String(item.slug || '').replace(/[^a-zA-Z0-9_-]/g, '');
     const text = String(item.titleText || item.name || '—');
-    const styleVar = item.color ? `--ps-title-color:${String(item.color).replace(/[<>"';]/g, '')};` : '';
+    const safeColor = sanitizeCssColor(item.color);
+    const styleVar = safeColor ? `--ps-title-color:${safeColor};` : '';
     return (
       <div className="PointSystemShop-titlePreview">
         <span className={`ps-title-preview ps-title-${slug}`} style={styleVar}>
@@ -515,7 +531,10 @@ export default class ShopPage extends Page {
     const cost = isAuto ? 0 : Number(offer.price || 0);
 
     const preview = (
-      <div className="PointSystemShop-tier-badge" style={offer.groupColor ? `background:${offer.groupColor}` : undefined}>
+      <div
+        className="PointSystemShop-tier-badge"
+        style={sanitizeCssColor(offer.groupColor) ? `background:${sanitizeCssColor(offer.groupColor)}` : undefined}
+      >
         <i className={offer.groupIcon || 'fas fa-medal'} />
       </div>
     );

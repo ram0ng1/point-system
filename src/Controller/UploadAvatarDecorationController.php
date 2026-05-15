@@ -14,6 +14,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Model\AvatarDecoration;
 use Ramon\PointSystem\Model\ShopClaim;
+use Ramon\PointSystem\Support\SafePath;
 
 /**
  * POST /api/point-system/avatar-decoration/upload (admin only)
@@ -29,6 +30,13 @@ class UploadAvatarDecorationController implements RequestHandlerInterface
     private const ALLOWED_EXT = ['png', 'gif', 'webp', 'apng'];
     private const MAX_BYTES   = 4_000_000; // 4MB
     private const DEST_DIR    = 'point-system/avatar-decorations';
+
+    private const ALLOWED_MIMES = [
+        'png'  => ['image/png'],
+        'apng' => ['image/png', 'image/apng'],
+        'gif'  => ['image/gif'],
+        'webp' => ['image/webp'],
+    ];
 
     public function __construct(
         protected Paths $paths,
@@ -104,6 +112,18 @@ class UploadAvatarDecorationController implements RequestHandlerInterface
 
         $file->moveTo($destPath);
 
+        // §11 defense-in-depth: re-detect the content MIME via finfo after the
+        // upload settled on disk. The earlier magic-byte sniff catches naive
+        // polyglots, but finfo is the canonical CLAUDE.md check — and running
+        // it on the persisted file (not the stream) closes the gap where a
+        // moveTo() implementation might fail silently on a corrupted upload.
+        $detected = @mime_content_type($destPath) ?: '';
+        $allowedMimes = self::ALLOWED_MIMES[$ext] ?? [];
+        if (! in_array($detected, $allowedMimes, true)) {
+            @unlink($destPath);
+            return new JsonResponse(['errors' => [['detail' => 'File MIME does not match its extension']]], 422);
+        }
+
         // Replace image on an existing decoration — only swap the file fields;
         // name/price/etc are managed via the JSON:API Update endpoint.
         if ($replaceId > 0) {
@@ -112,8 +132,12 @@ class UploadAvatarDecorationController implements RequestHandlerInterface
                 @unlink($destPath);
                 return new JsonResponse(['errors' => [['detail' => 'Decoration not found']]], 404);
             }
-            $oldPath = $this->paths->public.'/assets/'.$deco->image_path;
-            if (is_file($oldPath) && $oldPath !== $destPath) {
+            // §13: confine the unlink target inside the assets dir. If the DB
+            // somehow holds a `../config.php`-style path, SafePath returns
+            // null and we just skip the delete — never touching anything
+            // outside the configured base.
+            $oldPath = SafePath::confine($this->paths->public.'/assets', (string) $deco->image_path);
+            if ($oldPath !== null && $oldPath !== $destPath && is_file($oldPath)) {
                 @unlink($oldPath);
             }
             $deco->image_path = $relPath;
