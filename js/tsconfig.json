@@ -6,6 +6,7 @@
     "baseUrl": "./",
     "paths": {
       "flarum/*": ["node_modules/flarum/*"]
-    }
+    },
+    "ignoreDeprecations": "6.0"
   }
 }
