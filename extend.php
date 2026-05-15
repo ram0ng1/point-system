@@ -69,7 +69,7 @@ return [
     (new Extend\ApiResource(\Ramon\PointSystem\Api\Resource\CoverDecorationResource::class)),
     (new Extend\ApiResource(\Ramon\PointSystem\Api\Resource\TitleDecorationResource::class)),
     (new Extend\ApiResource(\Ramon\PointSystem\Api\Resource\PostHighlightDecorationResource::class)),
-    (new Extend\ApiResource(\Ramon\PointSystem\Api\Resource\AutoGroupTierResource::class)),
+    (new Extend\ApiResource(\Ramon\PointSystem\Api\Resource\GroupOfferResource::class)),
     (new Extend\ApiResource(\Ramon\PointSystem\Api\Resource\ShopClaimResource::class)),
 
     (new Extend\ApiResource(UserResource::class))
@@ -91,7 +91,6 @@ return [
 
     // ── Permissions ──────────────────────────────────────────────────────────
     (new Extend\Policy())
-        ->modelPolicy(Model\ShopItem::class, Access\ShopItemPolicy::class)
         ->modelPolicy(Model\AvatarDecoration::class, Access\AvatarDecorationPolicy::class),
 
     // ── Settings ─────────────────────────────────────────────────────────────
