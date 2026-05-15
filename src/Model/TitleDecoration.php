@@ -28,5 +28,5 @@ class TitleDecoration extends AbstractModel
         'sort' => 'integer',
     ];
 
-    protected $guarded = [];
+    protected $fillable = ['name', 'slug', 'description', 'title_text', 'color', 'custom_css', 'price', 'is_enabled', 'sort'];
 }

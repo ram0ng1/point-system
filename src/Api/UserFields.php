@@ -127,12 +127,15 @@ class UserFields
         ];
     }
 
+    /**
+     * Read-side accessor — never writes. The first-time row creation lives in
+     * the {@see \Ramon\PointSystem\Listener\InitUserPoints} listener that fires
+     * on {@see \Flarum\User\Event\Registered}, so a missing row here just means
+     * the user pre-dates the extension; callers treat null as "balance = 0".
+     */
     protected function points(User $user): ?UserPoints
     {
-        return UserPoints::firstOrCreate(
-            ['user_id' => $user->id],
-            ['balance' => 0, 'lifetime' => 0],
-        );
+        return UserPoints::where('user_id', $user->id)->first();
     }
 
     /**

@@ -28,6 +28,18 @@ interface ShopItem {
 
 type ShopTab = 'avatar' | 'name' | 'cover' | 'title' | 'post-hl' | 'tiers';
 
+// CSS-value sanitizer for admin-controlled `Group->color` strings, which are
+// rendered inside `style="background:..."` attributes. Without this, a value
+// like `red;background-image:url(//evil/x)` would inject arbitrary CSS into
+// every shop render. Allowlist mirrors what a CSS <color> token can hold
+// (hex, rgb()/rgba()/hsl()/hsla()/named tokens) — anything else returns empty.
+function sanitizeCssColor(raw: unknown): string {
+  if (typeof raw !== 'string') return '';
+  const s = raw.trim();
+  if (s.length === 0 || s.length > 64) return '';
+  return /^(#[0-9a-fA-F]{3,8}|(?:rgb|rgba|hsl|hsla)\([^)]*\)|[a-zA-Z]+)$/.test(s) ? s : '';
+}
+
 export default class ShopPage extends Page {
   loading = false;
   claiming = new Set<string>();
@@ -75,7 +87,7 @@ export default class ShopPage extends Page {
               : this.tab === 'post-hl'
                 ? this.postHlItems()
                 : [];
-    const tiers = (app.forum.attribute('pointSystemAutoGroupTiers') as any[]) || [];
+    const tiers = (app.forum.attribute('pointSystemGroupOffers') as any[]) || [];
     const coverEnabled = app.forum.attribute('pointSystem.cover_deco_enabled') !== false;
     const titleEnabled = app.forum.attribute('pointSystem.title_deco_enabled') !== false;
     const postHlEnabled = app.forum.attribute('pointSystem.post_hl_deco_enabled') !== false;
@@ -162,8 +174,8 @@ export default class ShopPage extends Page {
   }
 
   renderTiers(user: any) {
-    const tiers = (app.forum.attribute('pointSystemAutoGroupTiers') as any[]) || [];
-    if (!tiers.length) {
+    const offers = (app.forum.attribute('pointSystemGroupOffers') as any[]) || [];
+    if (!offers.length) {
       return (
         <div className="container">
           <div className="PointSystemShop-empty">{app.translator.trans('ramon-point-system.forum.shop.tiers_empty')}</div>
@@ -172,64 +184,94 @@ export default class ShopPage extends Page {
     }
 
     const balance = Number(user?.attribute('pointBalance') ?? 0);
+    const lifetime = Number(user?.attribute('pointLifetime') ?? 0);
     const userGroupIds = new Set(((user?.groups?.() || []) as any[]).filter(Boolean).map((g: any) => Number(g.id())));
 
     return (
       <div className="container PointSystemShop-tiers">
         <p className="PointSystemShop-subtitle">{app.translator.trans('ramon-point-system.forum.shop.tiers_help')}</p>
-        <div className="PointSystemShop-tiersGrid">
-          {tiers.map((t: any) => {
-            const cost = Number(t.pointsRequired || 0);
-            const canAfford = user && balance >= cost;
-            const owned = user && userGroupIds.has(Number(t.groupId));
-            const progress = user && cost > 0 ? Math.min(100, Math.max(0, Math.round((balance / cost) * 100))) : 0;
-            const claimKey = `tier:${t.id}`;
-            const isClaiming = this.claiming.has(claimKey);
+        <div className="PointSystemShop-tiersGrid">{offers.map((o: any) => this.renderOffer(o, user, balance, lifetime, userGroupIds))}</div>
+      </div>
+    );
+  }
 
-            return (
-              <div className={`PointSystemShop-tier ${canAfford ? 'is-reached' : ''} ${owned ? 'is-owned' : ''}`} key={t.id}>
-                <div className="PointSystemShop-tier-badge" style={t.groupColor ? `background:${t.groupColor}` : undefined}>
-                  <i className={t.groupIcon || 'fas fa-medal'} />
-                </div>
-                <div className="PointSystemShop-tier-body">
-                  <div className="PointSystemShop-tier-name">{t.groupName || '—'}</div>
-                  <div className="PointSystemShop-tier-points">
-                    <i className={(app.forum.attribute('pointSystem.currency_icon') as string) || 'fas fa-coins'} /> {Number(cost).toLocaleString()}{' '}
-                    {app.translator.trans('ramon-point-system.forum.shop.tier_cost')}
-                  </div>
-                  {user && !owned && cost > 0 && (
-                    <div className="PointSystemShop-tier-progressBar">
-                      <span style={`width:${progress}%`} />
-                    </div>
-                  )}
-                </div>
-                <div className="PointSystemShop-tier-action">
-                  {user && owned && (
-                    <Button className="Button Button--primary PointSystemShop-equippedBtn" disabled>
-                      <i className="fas fa-check" /> {app.translator.trans('ramon-point-system.forum.shop.tier_claimed')}
-                    </Button>
-                  )}
-                  {user && !owned && canAfford && (
-                    <Button className="Button Button--primary" loading={isClaiming} onclick={() => this.confirmClaimTier(t)}>
-                      {app.translator.trans('ramon-point-system.forum.shop.tier_claim')}
-                    </Button>
-                  )}
-                  {user && !owned && !canAfford && (
-                    <Button className="Button" disabled>
-                      {app.translator.trans('ramon-point-system.forum.shop.tier_not_enough')}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+  renderOffer(offer: any, user: any, balance: number, lifetime: number, userGroupIds: Set<number>) {
+    const isAuto = offer.isAuto !== false;
+    const isPurchasable = !!offer.isPurchasable;
+    const threshold = Number(offer.pointsRequired || 0);
+    const price = Number(offer.price || 0);
+    const owned = user && userGroupIds.has(Number(offer.groupId));
+    const qualifiedByLifetime = isAuto && lifetime >= threshold;
+    const canBuy = user && isPurchasable && balance >= price;
+    const claimKey = `tier:${offer.id}`;
+    const isClaiming = this.claiming.has(claimKey);
+    const currencyIcon = (app.forum.attribute('pointSystem.currency_icon') as string) || 'fas fa-coins';
+
+    const reached = qualifiedByLifetime || canBuy;
+    const progress = user && isAuto && threshold > 0 ? Math.min(100, Math.max(0, Math.round((lifetime / threshold) * 100))) : 0;
+
+    return (
+      <div className={`PointSystemShop-tier ${reached ? 'is-reached' : ''} ${owned ? 'is-owned' : ''}`} key={offer.id}>
+        <div
+          className="PointSystemShop-tier-badge"
+          style={sanitizeCssColor(offer.groupColor) ? `background:${sanitizeCssColor(offer.groupColor)}` : undefined}
+        >
+          <i className={offer.groupIcon || 'fas fa-medal'} />
+        </div>
+        <div className="PointSystemShop-tier-body">
+          <div className="PointSystemShop-tier-name">{offer.groupName || '—'}</div>
+
+          {isAuto && (
+            <div className="PointSystemShop-tier-points PointSystemShop-tier-points--threshold">
+              <i className="fas fa-bolt" /> {Number(threshold).toLocaleString()}{' '}
+              {app.translator.trans('ramon-point-system.forum.shop.tier_threshold')}
+            </div>
+          )}
+          {isPurchasable && (
+            <div className="PointSystemShop-tier-points PointSystemShop-tier-points--price">
+              <i className={currencyIcon} /> {Number(price).toLocaleString()} {app.translator.trans('ramon-point-system.forum.shop.tier_buy_cost')}
+            </div>
+          )}
+
+          {user && !owned && isAuto && threshold > 0 && !qualifiedByLifetime && (
+            <div className="PointSystemShop-tier-progressBar">
+              <span style={`width:${progress}%`} />
+            </div>
+          )}
+        </div>
+        <div className="PointSystemShop-tier-action">
+          {user && owned && (
+            <Button className="Button Button--primary PointSystemShop-equippedBtn" disabled>
+              <i className="fas fa-check" /> {app.translator.trans('ramon-point-system.forum.shop.tier_claimed')}
+            </Button>
+          )}
+
+          {user && !owned && qualifiedByLifetime && (
+            <Button className="Button Button--primary" loading={isClaiming} onclick={() => this.confirmClaimOffer(offer, 'auto')}>
+              <i className="fas fa-bolt" /> {app.translator.trans('ramon-point-system.forum.shop.tier_claim')}
+            </Button>
+          )}
+
+          {user && !owned && !qualifiedByLifetime && isPurchasable && canBuy && (
+            <Button className="Button Button--primary" loading={isClaiming} onclick={() => this.confirmClaimOffer(offer, 'purchase')}>
+              <i className="fas fa-coins" /> {app.translator.trans('ramon-point-system.forum.shop.tier_buy')}
+            </Button>
+          )}
+
+          {user && !owned && !qualifiedByLifetime && (!isPurchasable || !canBuy) && (
+            <Button className="Button" disabled>
+              {isPurchasable && !canBuy
+                ? app.translator.trans('ramon-point-system.forum.shop.tier_not_enough')
+                : app.translator.trans('ramon-point-system.forum.shop.tier_locked')}
+            </Button>
+          )}
         </div>
       </div>
     );
   }
 
-  async claimTier(tier: any) {
-    const key = `tier:${tier.id}`;
+  async claimTier(offer: any, mode: 'auto' | 'purchase' = 'purchase') {
+    const key = `tier:${offer.id}`;
     this.claiming.add(key);
     m.redraw();
 
@@ -238,26 +280,23 @@ export default class ShopPage extends Page {
       const res: any = await app.request({
         method: 'POST',
         url: `${apiUrl}/point-system/tier-claim`,
-        body: { id: tier.id },
+        body: { id: offer.id, mode },
       });
 
-      // Optimistic UI: update group membership AND the balance pill so the
-      // tier card flips to "Joined" and the new balance shows immediately.
       const user = app.session.user;
       if (user) {
         const existing = ((user as any).data?.relationships?.groups?.data || []).slice();
-        if (!existing.find((g: any) => String(g.id) === String(tier.groupId))) {
-          existing.push({ type: 'groups', id: String(tier.groupId) });
+        if (!existing.find((g: any) => String(g.id) === String(offer.groupId))) {
+          existing.push({ type: 'groups', id: String(offer.groupId) });
           (user as any).pushData({ relationships: { groups: { data: existing } } });
         }
-        // Server returns the fresh balance after deduction.
         const data = res?.data || res;
         if (data?.balance !== undefined) {
           user.pushAttributes({ pointBalance: Number(data.balance) });
         }
       }
 
-      app.alerts.show({ type: 'success' }, app.translator.trans('ramon-point-system.forum.shop.tier_claimed_alert', { name: tier.groupName }));
+      app.alerts.show({ type: 'success' }, app.translator.trans('ramon-point-system.forum.shop.tier_claimed_alert', { name: offer.groupName }));
     } catch (e: any) {
       const detail = e?.response?.errors?.[0]?.detail || app.translator.trans('ramon-point-system.forum.shop.tier_claim_failed');
       app.alerts.show({ type: 'error' }, detail);
@@ -420,7 +459,8 @@ export default class ShopPage extends Page {
   previewTitle(item: ShopItem) {
     const slug = String(item.slug || '').replace(/[^a-zA-Z0-9_-]/g, '');
     const text = String(item.titleText || item.name || '—');
-    const styleVar = item.color ? `--ps-title-color:${String(item.color).replace(/[<>"';]/g, '')};` : '';
+    const safeColor = sanitizeCssColor(item.color);
+    const styleVar = safeColor ? `--ps-title-color:${safeColor};` : '';
     return (
       <div className="PointSystemShop-titlePreview">
         <span className={`ps-title-preview ps-title-${slug}`} style={styleVar}>
@@ -483,25 +523,30 @@ export default class ShopPage extends Page {
     });
   }
 
-  confirmClaimTier(tier: any) {
+  confirmClaimOffer(offer: any, mode: 'auto' | 'purchase') {
     const user = app.session.user;
     if (!user) return;
     const balance = Number(user.attribute('pointBalance') ?? 0);
+    const isAuto = mode === 'auto';
+    const cost = isAuto ? 0 : Number(offer.price || 0);
 
     const preview = (
-      <div className="PointSystemShop-tier-badge" style={tier.groupColor ? `background:${tier.groupColor}` : undefined}>
-        <i className={tier.groupIcon || 'fas fa-medal'} />
+      <div
+        className="PointSystemShop-tier-badge"
+        style={sanitizeCssColor(offer.groupColor) ? `background:${sanitizeCssColor(offer.groupColor)}` : undefined}
+      >
+        <i className={offer.groupIcon || 'fas fa-medal'} />
       </div>
     );
 
     app.modal.show(ConfirmPurchaseModal, {
-      title: app.translator.trans('ramon-point-system.forum.confirm.title_tier'),
-      itemName: tier.groupName || '—',
-      itemPrice: Number(tier.pointsRequired || 0),
+      title: app.translator.trans(isAuto ? 'ramon-point-system.forum.confirm.title_tier' : 'ramon-point-system.forum.confirm.title_purchase'),
+      itemName: offer.groupName || '—',
+      itemPrice: cost,
       currentBalance: balance,
       preview,
-      confirmLabel: app.translator.trans('ramon-point-system.forum.shop.tier_claim'),
-      onConfirm: () => this.claimTier(tier),
+      confirmLabel: app.translator.trans(isAuto ? 'ramon-point-system.forum.shop.tier_claim' : 'ramon-point-system.forum.shop.tier_buy'),
+      onConfirm: () => this.claimTier(offer, mode),
     });
   }
 

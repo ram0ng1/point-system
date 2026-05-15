@@ -14,6 +14,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Model\CoverDecoration;
 use Ramon\PointSystem\Model\ShopClaim;
+use Ramon\PointSystem\Support\SafePath;
 
 /**
  * POST /api/point-system/cover-decoration/upload (admin only)
@@ -33,6 +34,15 @@ class UploadCoverDecorationController implements RequestHandlerInterface
     private const ALLOWED_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'apng'];
     private const MAX_BYTES   = 6_000_000; // 6MB — covers are larger than avatars
     private const DEST_DIR    = 'point-system/cover-decorations';
+
+    private const ALLOWED_MIMES = [
+        'png'  => ['image/png'],
+        'apng' => ['image/png', 'image/apng'],
+        'gif'  => ['image/gif'],
+        'webp' => ['image/webp'],
+        'jpg'  => ['image/jpeg'],
+        'jpeg' => ['image/jpeg'],
+    ];
 
     public function __construct(
         protected Paths $paths,
@@ -100,14 +110,23 @@ class UploadCoverDecorationController implements RequestHandlerInterface
 
         $file->moveTo($destPath);
 
+        // §11 defense-in-depth: re-detect MIME via finfo after persistence.
+        $detected = @mime_content_type($destPath) ?: '';
+        $allowedMimes = self::ALLOWED_MIMES[$ext] ?? [];
+        if (! in_array($detected, $allowedMimes, true)) {
+            @unlink($destPath);
+            return new JsonResponse(['errors' => [['detail' => 'File MIME does not match its extension']]], 422);
+        }
+
         if ($replaceId > 0) {
             $deco = CoverDecoration::find($replaceId);
             if (! $deco) {
                 @unlink($destPath);
                 return new JsonResponse(['errors' => [['detail' => 'Cover not found']]], 404);
             }
-            $oldPath = $this->paths->public.'/assets/'.$deco->image_path;
-            if (is_file($oldPath) && $oldPath !== $destPath) {
+            // §13: confine unlink target inside the assets dir.
+            $oldPath = SafePath::confine($this->paths->public.'/assets', (string) $deco->image_path);
+            if ($oldPath !== null && $oldPath !== $destPath && is_file($oldPath)) {
                 @unlink($oldPath);
             }
             $deco->image_path = $relPath;

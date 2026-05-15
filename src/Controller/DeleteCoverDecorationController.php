@@ -13,6 +13,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Model\CoverDecoration;
 use Ramon\PointSystem\Model\ShopClaim;
+use Ramon\PointSystem\Support\SafePath;
 
 class DeleteCoverDecorationController implements RequestHandlerInterface
 {
@@ -35,8 +36,8 @@ class DeleteCoverDecorationController implements RequestHandlerInterface
             return new EmptyResponse(204);
         }
 
-        $diskPath = $this->paths->public.'/assets/'.$deco->image_path;
-        if (is_file($diskPath)) {
+        $diskPath = SafePath::confine($this->paths->public.'/assets', (string) $deco->image_path);
+        if ($diskPath !== null && is_file($diskPath)) {
             @unlink($diskPath);
         }
 
