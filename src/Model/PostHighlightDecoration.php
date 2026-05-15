@@ -27,5 +27,5 @@ class PostHighlightDecoration extends AbstractModel
         'sort' => 'integer',
     ];
 
-    protected $guarded = [];
+    protected $fillable = ['name', 'slug', 'description', 'preset', 'custom_css', 'price', 'is_enabled', 'sort'];
 }

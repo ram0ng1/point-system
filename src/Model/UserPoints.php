@@ -38,7 +38,17 @@ class UserPoints extends AbstractModel
         'last_daily_bonus_at' => 'datetime',
     ];
 
-    protected $guarded = [];
+    protected $fillable = [
+        'user_id',
+        'balance',
+        'lifetime',
+        'current_avatar_decoration_id',
+        'current_name_decoration_id',
+        'current_cover_decoration_id',
+        'current_title_decoration_id',
+        'current_post_hl_decoration_id',
+        'last_daily_bonus_at',
+    ];
 
     public function user(): BelongsTo
     {

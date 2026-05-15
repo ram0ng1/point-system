@@ -34,7 +34,7 @@ class ShopClaim extends AbstractModel
         'claimed_at' => 'datetime',
     ];
 
-    protected $guarded = [];
+    protected $fillable = ['user_id', 'item_type', 'item_id', 'price_paid', 'claimed_at'];
 
     public function user(): BelongsTo
     {
