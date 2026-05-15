@@ -178,9 +178,7 @@ export default class ShopPage extends Page {
     return (
       <div className="container PointSystemShop-tiers">
         <p className="PointSystemShop-subtitle">{app.translator.trans('ramon-point-system.forum.shop.tiers_help')}</p>
-        <div className="PointSystemShop-tiersGrid">
-          {offers.map((o: any) => this.renderOffer(o, user, balance, lifetime, userGroupIds))}
-        </div>
+        <div className="PointSystemShop-tiersGrid">{offers.map((o: any) => this.renderOffer(o, user, balance, lifetime, userGroupIds))}</div>
       </div>
     );
   }
@@ -198,10 +196,7 @@ export default class ShopPage extends Page {
     const currencyIcon = (app.forum.attribute('pointSystem.currency_icon') as string) || 'fas fa-coins';
 
     const reached = qualifiedByLifetime || canBuy;
-    const progress =
-      user && isAuto && threshold > 0
-        ? Math.min(100, Math.max(0, Math.round((lifetime / threshold) * 100)))
-        : 0;
+    const progress = user && isAuto && threshold > 0 ? Math.min(100, Math.max(0, Math.round((lifetime / threshold) * 100))) : 0;
 
     return (
       <div className={`PointSystemShop-tier ${reached ? 'is-reached' : ''} ${owned ? 'is-owned' : ''}`} key={offer.id}>
@@ -219,8 +214,7 @@ export default class ShopPage extends Page {
           )}
           {isPurchasable && (
             <div className="PointSystemShop-tier-points PointSystemShop-tier-points--price">
-              <i className={currencyIcon} /> {Number(price).toLocaleString()}{' '}
-              {app.translator.trans('ramon-point-system.forum.shop.tier_buy_cost')}
+              <i className={currencyIcon} /> {Number(price).toLocaleString()} {app.translator.trans('ramon-point-system.forum.shop.tier_buy_cost')}
             </div>
           )}
 

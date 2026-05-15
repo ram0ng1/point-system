@@ -152,11 +152,7 @@ export default class GroupOffersPanel extends Component {
         </td>
         <td>
           <label className="checkbox" title={app.translator.trans('ramon-point-system.admin.groups.field_is_auto') as string}>
-            <input
-              type="checkbox"
-              checked={isAuto}
-              onchange={(e: Event) => offer.save({ isAuto: (e.target as HTMLInputElement).checked })}
-            />{' '}
+            <input type="checkbox" checked={isAuto} onchange={(e: Event) => offer.save({ isAuto: (e.target as HTMLInputElement).checked })} />{' '}
             <i className="fas fa-bolt" />
           </label>{' '}
           <label className="checkbox" title={app.translator.trans('ramon-point-system.admin.groups.field_is_purchasable') as string}>
