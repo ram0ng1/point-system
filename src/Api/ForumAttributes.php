@@ -9,27 +9,40 @@ use Flarum\Api\Schema;
 use Flarum\Settings\SettingsRepositoryInterface;
 use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Model\AvatarDecoration;
-use Ramon\PointSystem\Model\GroupOffer;
 use Ramon\PointSystem\Model\CoverDecoration;
+use Ramon\PointSystem\Model\GroupOffer;
 use Ramon\PointSystem\Model\NameDecoration;
 use Ramon\PointSystem\Model\PostHighlightDecoration;
 use Ramon\PointSystem\Model\ShopClaim;
 use Ramon\PointSystem\Model\TitleDecoration;
+use Ramon\PointSystem\Support\CssSanitizer;
 
 /**
  * Adds the full catalog of enabled decorations to the forum payload so they can
  * be rendered on any page (post stream, user card, etc.) without an extra
  * round-trip. The catalog is small (admin-curated) so eagerly loading it is
  * cheaper than lazy fetches on every page.
+ *
+ * Note on customCss fields: although these strings are sanitized on WRITE
+ * inside each decoration resource, we re-run {@see CssSanitizer::sanitize}
+ * on EMIT here as defense-in-depth (CLAUDE.md §21). Rationale: admin-account
+ * compromise is part of the threat model, and rows that pre-date the write
+ * sanitizer (or that come from a direct DB edit) are normalized to the same
+ * allowlist before being serialized into the forum payload.
  */
 class ForumAttributes
 {
+    public function __construct(
+        protected SettingsRepositoryInterface $settings,
+        protected FeatureGate $features,
+    ) {}
+
     public function __invoke(): array
     {
         return [
             Schema\Arr::make('pointSystemAvatarDecorations')
                 ->get(function () {
-                    if (! resolve(FeatureGate::class)->isEnabled(ShopClaim::TYPE_AVATAR)) {
+                    if (! $this->features->isEnabled(ShopClaim::TYPE_AVATAR)) {
                         return [];
                     }
                     return AvatarDecoration::where('is_enabled', true)
@@ -49,7 +62,7 @@ class ForumAttributes
 
             Schema\Arr::make('pointSystemNameDecorations')
                 ->get(function () {
-                    if (! resolve(FeatureGate::class)->isEnabled(ShopClaim::TYPE_NAME)) {
+                    if (! $this->features->isEnabled(ShopClaim::TYPE_NAME)) {
                         return [];
                     }
                     return NameDecoration::where('is_enabled', true)
@@ -62,7 +75,7 @@ class ForumAttributes
                             'slug' => $d->slug,
                             'description' => $d->description,
                             'preset' => $d->preset,
-                            'customCss' => $d->custom_css,
+                            'customCss' => CssSanitizer::sanitize($d->custom_css),
                             'price' => (int) $d->price,
                         ])
                         ->toArray();
@@ -70,7 +83,7 @@ class ForumAttributes
 
             Schema\Arr::make('pointSystemCoverDecorations')
                 ->get(function () {
-                    if (! resolve(FeatureGate::class)->isEnabled(ShopClaim::TYPE_COVER)) {
+                    if (! $this->features->isEnabled(ShopClaim::TYPE_COVER)) {
                         return [];
                     }
                     return CoverDecoration::where('is_enabled', true)
@@ -90,7 +103,7 @@ class ForumAttributes
 
             Schema\Arr::make('pointSystemTitleDecorations')
                 ->get(function () {
-                    if (! resolve(FeatureGate::class)->isEnabled(ShopClaim::TYPE_TITLE)) {
+                    if (! $this->features->isEnabled(ShopClaim::TYPE_TITLE)) {
                         return [];
                     }
                     return TitleDecoration::where('is_enabled', true)
@@ -104,7 +117,7 @@ class ForumAttributes
                             'description' => $d->description,
                             'titleText' => $d->title_text,
                             'color' => $d->color,
-                            'customCss' => $d->custom_css,
+                            'customCss' => CssSanitizer::sanitize($d->custom_css),
                             'price' => (int) $d->price,
                         ])
                         ->toArray();
@@ -112,7 +125,7 @@ class ForumAttributes
 
             Schema\Arr::make('pointSystemPostHighlightDecorations')
                 ->get(function () {
-                    if (! resolve(FeatureGate::class)->isEnabled(ShopClaim::TYPE_POST_HL)) {
+                    if (! $this->features->isEnabled(ShopClaim::TYPE_POST_HL)) {
                         return [];
                     }
                     return PostHighlightDecoration::where('is_enabled', true)
@@ -125,7 +138,7 @@ class ForumAttributes
                             'slug' => $d->slug,
                             'description' => $d->description,
                             'preset' => $d->preset,
-                            'customCss' => $d->custom_css,
+                            'customCss' => CssSanitizer::sanitize($d->custom_css),
                             'price' => (int) $d->price,
                         ])
                         ->toArray();
@@ -137,8 +150,7 @@ class ForumAttributes
             // the right CTA per card. Returns empty when the feature is off.
             Schema\Arr::make('pointSystemGroupOffers')
                 ->get(function () {
-                    $settings = resolve(SettingsRepositoryInterface::class);
-                    if (! (bool) $settings->get('point-system.auto_group_enabled', true)) {
+                    if (! (bool) $this->settings->get('point-system.auto_group_enabled', true)) {
                         return [];
                     }
                     return GroupOffer::with('group')

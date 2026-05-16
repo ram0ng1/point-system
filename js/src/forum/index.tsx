@@ -1,4 +1,3 @@
-// @ts-nocheck — bootstrap file; typed incrementally
 import app from 'flarum/forum/app';
 import { extend } from 'flarum/common/extend';
 import IndexSidebar from 'flarum/forum/components/IndexSidebar';
@@ -10,6 +9,8 @@ import PostUser from 'flarum/forum/components/PostUser';
 import LinkButton from 'flarum/common/components/LinkButton';
 import Button from 'flarum/common/components/Button';
 import UserControls from 'flarum/forum/utils/UserControls';
+import type User from 'flarum/common/models/User';
+import type Mithril from 'mithril';
 import ShopPage from './components/ShopPage';
 import DecorationsPage from './components/DecorationsPage';
 import AwardPointsModal from './components/AwardPointsModal';
@@ -17,6 +18,8 @@ import PointsManualNotification from './components/PointsManualNotification';
 import TierClaimedNotification from './components/TierClaimedNotification';
 import { applyAvatarDecoration } from './utils/applyAvatarDecoration';
 import { applyNameDecorationClass } from './utils/applyNameDecoration';
+
+declare const m: Mithril.Static;
 
 const setting = (key: string, fallback = true): boolean => {
   const v = app.forum.attribute(key);
@@ -45,11 +48,7 @@ app.initializers.add('ramon/point-system', () => {
     injectNameDecorationStyles();
     injectTitleDecorationStyles();
     injectPostHighlightDecorationStyles();
-    setupPerLetterRewriter();
-    setupAvocadoProfilePoints();
-    setupThemeUsernameTagger();
-    setupUsernameSpanTagger();
-    setupUserTitleRenderer();
+    installDomObservers();
     // Hide-badges-with-avatar-deco setting: just toggle a body class. The
     // actual hiding is done by CSS rules in forum.less which use `:has()` to
     // scope to user-containers that wrap a decorated avatar. We deliberately
@@ -89,10 +88,10 @@ app.initializers.add('ramon/point-system', () => {
 
   // ── Avatar decoration — applies wherever <Avatar user={...}/> is rendered
   // (covers Flarum core + every theme that uses the standard component).
-  extend(Avatar.prototype, 'view', function (vnode) {
+  extend(Avatar.prototype, 'view', function (this: any, vnode: any) {
     if (!setting('pointSystem.avatar_deco_enabled')) return;
-    const user = this.attrs.user;
-    const url = user?.attribute?.('equippedAvatarDecorationUrl');
+    const user = this.attrs.user as User | undefined;
+    const url = user?.attribute?.('equippedAvatarDecorationUrl') as string | undefined;
     if (!url) return;
     applyAvatarDecoration(vnode, resolveAssetUrl(url));
   });
@@ -102,7 +101,7 @@ app.initializers.add('ramon/point-system', () => {
   // path: classes() runs BEFORE the className string is joined into attrs,
   // so the class participates in the normal flow instead of being mutated
   // onto an already-built vnode (which is brittle for class components).
-  extend(CommentPost.prototype, 'classes', function (classes) {
+  extend(CommentPost.prototype, 'classes', function (this: any, classes: string[]) {
     const user = this.attrs.post?.user?.();
     if (setting('pointSystem.name_deco_enabled') && setting('pointSystem.deco_in_posts')) {
       pushDecoClass(classes, user);
@@ -116,7 +115,7 @@ app.initializers.add('ramon/point-system', () => {
       pushPostHlClass(classes, user);
     }
   });
-  extend(UserCard.prototype, 'view', function (vnode) {
+  extend(UserCard.prototype, 'view', function (this: any, vnode: any) {
     // UserCard doesn't have a classes() method, so fall back to vnode mutation.
     if (setting('pointSystem.name_deco_enabled') && setting('pointSystem.deco_in_user_card')) {
       applyNameDecorationClass(vnode, this.attrs.user);
@@ -127,8 +126,8 @@ app.initializers.add('ramon/point-system', () => {
     // setting `background-image` directly so the cover sits in its own
     // stacking context (clean rounded corners, no overlay bleed on text).
     if (setting('pointSystem.cover_deco_enabled')) {
-      const user = this.attrs.user;
-      const coverPath = user?.attribute?.('equippedCoverDecorationUrl');
+      const user = this.attrs.user as User | undefined;
+      const coverPath = user?.attribute?.('equippedCoverDecorationUrl') as string | undefined;
       if (coverPath) {
         const url = resolveAssetUrl(String(coverPath));
         vnode.attrs = vnode.attrs || {};
@@ -145,7 +144,7 @@ app.initializers.add('ramon/point-system', () => {
       }
     }
   });
-  extend(DiscussionListItem.prototype, 'elementAttrs', function (attrs) {
+  extend(DiscussionListItem.prototype, 'elementAttrs', function (this: any, attrs: Record<string, unknown>) {
     if (!setting('pointSystem.name_deco_enabled') || !setting('pointSystem.deco_in_lists')) return;
     const slug = this.attrs.discussion?.user?.()?.attribute?.('equippedNameDecorationSlug');
     if (!slug) return;
@@ -177,7 +176,7 @@ app.initializers.add('ramon/point-system', () => {
   // the current breakpoint. CSS in less/forum.less hides whichever copy
   // doesn't belong to the active layout — Post-side on @phone, PostUser on
   // @tablet-up — so only one is ever visible at a time.
-  extend(PostUser.prototype, 'userViewItems', function (items) {
+  extend(PostUser.prototype, 'userViewItems', function (this: any, items) {
     const user = this.attrs.post?.user?.();
     if (!user) return;
 
@@ -196,7 +195,7 @@ app.initializers.add('ramon/point-system', () => {
   // the avatar in `.Post-side`. Works on both Flarum core (avatar-only column)
   // and Avocado (which already overrides this ItemList to add `.Post-side-inner`).
   // Adding with priority 50 places the title after the avatar(=100) in both.
-  extend(CommentPost.prototype, 'sideItems', function (items) {
+  extend(CommentPost.prototype, 'sideItems', function (this: any, items) {
     if (!setting('pointSystem.title_deco_enabled') || !setting('pointSystem.deco_in_posts')) return;
     const user = this.attrs.post?.user?.();
     if (!user) return;
@@ -205,15 +204,15 @@ app.initializers.add('ramon/point-system', () => {
   });
 
   // ── Points badge on the user profile card ──────────────────────────────
-  extend(UserCard.prototype, 'infoItems', function (items) {
+  extend(UserCard.prototype, 'infoItems', function (this: any, items) {
     if (!setting('pointSystem.show_in_user_profile')) return;
-    const user = this.attrs.user;
+    const user = this.attrs.user as User | undefined;
     if (!user) return;
     items.add('pointSystem-profileBadge', pointsBadge(user), 50);
   });
 });
 
-function pointsBadge(user: any) {
+function pointsBadge(user: User): Mithril.Children {
   const balance = Number(user.attribute?.('pointBalance') ?? 0);
   const icon = (app.forum.attribute('pointSystem.currency_icon') as string) || 'fas fa-coins';
   return (
@@ -223,9 +222,9 @@ function pointsBadge(user: any) {
   );
 }
 
-function userTitleBadge(user: any, variantClass: string = ''): any | null {
-  const slug = user?.attribute?.('equippedTitleDecorationSlug');
-  const text = user?.attribute?.('equippedTitleDecorationText');
+function userTitleBadge(user: User, variantClass: string = ''): Mithril.Children {
+  const slug = user?.attribute?.('equippedTitleDecorationSlug') as string | undefined;
+  const text = user?.attribute?.('equippedTitleDecorationText') as string | undefined;
   if (!slug || !text) return null;
   const cleanSlug = String(slug).replace(/[^a-zA-Z0-9_-]/g, '');
   if (!cleanSlug) return null;
@@ -247,7 +246,7 @@ function injectTitleDecorationStyles(): void {
   const id = 'ps-title-deco-runtime';
   document.getElementById(id)?.remove();
 
-  const decos = app.forum.attribute('pointSystemTitleDecorations') || [];
+  const decos = (app.forum.attribute('pointSystemTitleDecorations') as any[]) || [];
   if (!Array.isArray(decos) || decos.length === 0) return;
 
   const out: string[] = [];
@@ -265,9 +264,6 @@ function injectTitleDecorationStyles(): void {
     const css = String(d.customCss || '').trim();
     if (!css) continue;
 
-    const bangify = (s: string) =>
-      s.replace(/([\w\-]+\s*:\s*[^;{}]+?)(\s*;)/g, (m, decl, semi) => (/!\s*important/i.test(decl) ? m : decl + ' !important' + semi));
-
     if (css.includes('{')) {
       out.push(bangify(css.replace(/&/g, sel)));
     } else {
@@ -276,17 +272,14 @@ function injectTitleDecorationStyles(): void {
   }
   if (out.length === 0) return;
 
-  const style = document.createElement('style');
-  style.id = id;
-  style.textContent = out.join('\n');
-  document.head.appendChild(style);
+  appendStyle(id, out.join('\n'));
 }
 
 function injectPostHighlightDecorationStyles(): void {
   const id = 'ps-posthl-deco-runtime';
   document.getElementById(id)?.remove();
 
-  const decos = app.forum.attribute('pointSystemPostHighlightDecorations') || [];
+  const decos = (app.forum.attribute('pointSystemPostHighlightDecorations') as any[]) || [];
   if (!Array.isArray(decos) || decos.length === 0) return;
 
   const out: string[] = [];
@@ -299,9 +292,6 @@ function injectPostHighlightDecorationStyles(): void {
     const sel = `.CommentPost.ps-posthl-${cls},` + `.Post.ps-posthl-${cls},` + `.ps-posthl-preview.ps-posthl-${cls}`;
     const css = String(d.customCss).trim();
 
-    const bangify = (s: string) =>
-      s.replace(/([\w\-]+\s*:\s*[^;{}]+?)(\s*;)/g, (m, decl, semi) => (/!\s*important/i.test(decl) ? m : decl + ' !important' + semi));
-
     if (css.includes('{')) {
       out.push(bangify(css.replace(/&/g, sel)));
     } else {
@@ -310,25 +300,14 @@ function injectPostHighlightDecorationStyles(): void {
   }
   if (out.length === 0) return;
 
-  const style = document.createElement('style');
-  style.id = id;
-  style.textContent = out.join('\n');
-  document.head.appendChild(style);
-}
-
-// Stub kept for symmetry with the rest of the setup* family — the actual
-// title rendering now happens declaratively via PostUser.userViewItems. If
-// future themes render usernames in a way the extender doesn't catch, this
-// is where we'd add a MutationObserver tagger.
-function setupUserTitleRenderer(): void {
-  /* no-op for now */
+  appendStyle(id, out.join('\n'));
 }
 
 function injectNameDecorationStyles(): void {
   const id = 'ps-name-deco-runtime';
   document.getElementById(id)?.remove();
 
-  const decos = app.forum.attribute('pointSystemNameDecorations') || [];
+  const decos = (app.forum.attribute('pointSystemNameDecorations') as any[]) || [];
   if (!Array.isArray(decos) || decos.length === 0) return;
 
   const out: string[] = [];
@@ -343,11 +322,6 @@ function injectNameDecorationStyles(): void {
     // `!important` to every property of the raw input below.
     const selectors = `.ps-name-preview.ps-name-${cls},` + `.ps-name-${cls} .username,` + `.username.ps-name-${cls},` + `a.ps-name-${cls}`;
     const css = String(d.customCss).trim();
-    // Append `!important` to every property declaration so user-authored
-    // decorations win the cascade against theme rules (avocado, etc.).
-    // Skip declarations that already include `!important`.
-    const bangify = (s: string) =>
-      s.replace(/([\w\-]+\s*:\s*[^;{}]+?)(\s*;)/g, (m, decl, semi) => (/!\s*important/i.test(decl) ? m : decl + ' !important' + semi));
 
     if (css.includes('{')) {
       out.push(bangify(css.replace(/&/g, selectors)));
@@ -357,10 +331,90 @@ function injectNameDecorationStyles(): void {
   }
   if (out.length === 0) return;
 
+  appendStyle(id, out.join('\n'));
+}
+
+// Append `!important` to every property declaration so user-authored
+// decorations win the cascade against theme rules (avocado, etc.).
+// Skip declarations that already include `!important`.
+function bangify(s: string): string {
+  return s.replace(/([\w\-]+\s*:\s*[^;{}]+?)(\s*;)/g, (m, decl, semi) => (/!\s*important/i.test(decl) ? m : decl + ' !important' + semi));
+}
+
+function appendStyle(id: string, textContent: string): void {
   const style = document.createElement('style');
   style.id = id;
-  style.textContent = out.join('\n');
+  style.textContent = textContent;
   document.head.appendChild(style);
+}
+
+// ─── DOM observation (single MutationObserver) ────────────────────────────
+// All theme-level taggers we install (per-letter rewriter, theme username
+// tagger, `.username` span tagger, Avocado profile hooks) need to react to
+// the same DOM mutations. We collect their per-node and per-attribute
+// callbacks once and run all of them against each batched mutation list,
+// so the page only pays for ONE `document.body` subtree observer instead of
+// the four we used to install side-by-side. The cost was visible on long
+// discussion pages where every Mithril redraw fired four parallel scans.
+
+const PER_LETTER_SLUGS = new Set(['wave']);
+
+type AddedNodeHandler = {
+  selector: string;
+  run: (el: Element) => void;
+  scan: (root: ParentNode) => void;
+};
+
+type AttributeHandler = (target: Element, attributeName: string) => void;
+
+const addedHandlers: AddedNodeHandler[] = [];
+const attributeHandlers: AttributeHandler[] = [];
+
+function onAdded(selector: string, run: (el: Element) => void): void {
+  addedHandlers.push({
+    selector,
+    run,
+    scan: (root) => root.querySelectorAll?.(selector).forEach(run),
+  });
+}
+
+function onAttributeChange(handler: AttributeHandler): void {
+  attributeHandlers.push(handler);
+}
+
+function installDomObservers(): void {
+  if ((window as any).__psObserverInstalled) return;
+  (window as any).__psObserverInstalled = true;
+
+  registerPerLetterRewriter();
+  registerThemeUsernameTagger();
+  registerUsernameSpanTagger();
+  registerAvocadoProfileHooks();
+
+  // Initial scan of the document for handlers that registered above.
+  for (const h of addedHandlers) h.scan(document);
+
+  new MutationObserver((muts) => {
+    for (const mu of muts) {
+      if (mu.type === 'attributes' && mu.attributeName) {
+        const target = mu.target as Element;
+        for (const ah of attributeHandlers) ah(target, mu.attributeName);
+        continue;
+      }
+      mu.addedNodes.forEach((node) => {
+        if (!(node instanceof Element)) return;
+        for (const h of addedHandlers) {
+          if (node.matches?.(h.selector)) h.run(node);
+          else h.scan(node);
+        }
+      });
+    }
+  }).observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['class'],
+  });
 }
 
 // ─── Per-letter rewriter ─────────────────────────────────────────────────
@@ -369,12 +423,7 @@ function injectNameDecorationStyles(): void {
 // can't do that on its own, so we walk new `.username` elements at runtime
 // and rewrite their text into per-character spans — but ONLY when their
 // closest `ps-name-{slug}` ancestor matches a slug in PER_LETTER_SLUGS.
-const PER_LETTER_SLUGS = new Set(['wave']);
-
-function setupPerLetterRewriter(): void {
-  if ((window as any).__psPerLetter) return;
-  (window as any).__psPerLetter = true;
-
+function registerPerLetterRewriter(): void {
   // Find the active deco slug. Look at the element's OWN classes first
   // (covers `.ps-name-preview.ps-name-X` used by the shop/admin live preview),
   // then walk up to find an ancestor wrapper class (`.ps-name-X` on
@@ -431,24 +480,9 @@ function setupPerLetterRewriter(): void {
   //   - `.ps-name-preview`      shop/admin live preview
   //   - `.ps-name-text`         our wrapper span for theme contexts that mix
   //                             username text with sibling badges (avocado h1)
-  //   - `a[data-ps-name-deco]`  anchors tagged by setupThemeUsernameTagger
+  //   - `a[data-ps-name-deco]`  anchors tagged by registerThemeUsernameTagger
   //                             (avocado thread cards, mentions, etc.)
-  const SELECTOR = '.username, .ps-name-preview, .ps-name-text, a[data-ps-name-deco]';
-  const scan = (root: ParentNode) => {
-    root.querySelectorAll?.(SELECTOR).forEach(rewrite);
-  };
-
-  scan(document);
-  new MutationObserver((muts) => {
-    for (const mu of muts) {
-      mu.addedNodes.forEach((node) => {
-        if (node instanceof Element) {
-          if (node.matches?.(SELECTOR)) rewrite(node);
-          else scan(node);
-        }
-      });
-    }
-  }).observe(document.body, { childList: true, subtree: true });
+  onAdded('.username, .ps-name-preview, .ps-name-text, a[data-ps-name-deco]', rewrite);
 }
 
 // ─── Theme username decoration tagger ───────────────────────────────────
@@ -459,12 +493,11 @@ function setupPerLetterRewriter(): void {
 // at runtime with `ps-name-{slug}`. Critically, we SKIP anchors that wrap an
 // `<img>` / `.Avatar` — those are avatar links, NOT name links, and tagging
 // them would apply the decoration to the avatar.
-function setupThemeUsernameTagger(): void {
-  if ((window as any).__psThemeNameTagger) return;
-  (window as any).__psThemeNameTagger = true;
+function registerThemeUsernameTagger(): void {
   if (!setting('pointSystem.name_deco_enabled') || !setting('pointSystem.deco_in_lists')) return;
 
-  const decorate = (a: HTMLAnchorElement) => {
+  const decorate = (el: Element) => {
+    const a = el as HTMLAnchorElement;
     if (a.dataset.psNameDeco) return;
     // Skip avatar-wrapping anchors — the username link is text-only.
     if (a.querySelector('img, .Avatar, .ps-avatar-deco-wrap')) return;
@@ -473,8 +506,8 @@ function setupThemeUsernameTagger(): void {
     a.dataset.psNameDeco = '1';
 
     const username = decodeURIComponent(m[1]).toLowerCase();
-    const users = app.store.all('users') as any[];
-    const user = users.find((u: any) => String(u.username?.() ?? '').toLowerCase() === username);
+    const users = app.store.all('users') as User[];
+    const user = users.find((u) => String(u.username?.() ?? '').toLowerCase() === username);
     if (!user) return;
 
     // Only decorate if the anchor's visible text actually IS the user's name.
@@ -496,26 +529,13 @@ function setupThemeUsernameTagger(): void {
       (un && text.startsWith(un));
     if (!isName) return;
 
-    const slug = user.attribute?.('equippedNameDecorationSlug');
+    const slug = user.attribute?.('equippedNameDecorationSlug') as string | undefined;
     if (!slug) return;
     const safe = String(slug).replace(/[^a-zA-Z0-9_-]/g, '');
     if (safe) a.classList.add(`ps-name-${safe}`);
   };
 
-  const scan = (root: ParentNode) => {
-    root.querySelectorAll?.('a[href*="/u/"]').forEach(decorate);
-  };
-
-  scan(document);
-  new MutationObserver((muts) => {
-    for (const mu of muts) {
-      mu.addedNodes.forEach((node) => {
-        if (!(node instanceof Element)) return;
-        if (node.matches?.('a[href*="/u/"]')) decorate(node as HTMLAnchorElement);
-        else scan(node);
-      });
-    }
-  }).observe(document.body, { childList: true, subtree: true });
+  onAdded('a[href*="/u/"]', decorate);
 }
 
 // ─── Universal `.username` tagger ────────────────────────────────────────
@@ -529,9 +549,7 @@ function setupThemeUsernameTagger(): void {
 // rendering or our `CommentPost.classes()` extension misses an early render
 // (subtree.check skipping diff before the user model loads), this scanner
 // still applies the decoration once the DOM is in place.
-function setupUsernameSpanTagger(): void {
-  if ((window as any).__psUsernameSpan) return;
-  (window as any).__psUsernameSpan = true;
+function registerUsernameSpanTagger(): void {
   if (!setting('pointSystem.name_deco_enabled')) return;
 
   const decorate = (span: Element) => {
@@ -553,11 +571,11 @@ function setupUsernameSpanTagger(): void {
     const m = /\/u\/([^/?#]+)/.exec(anchor.getAttribute('href') || '');
     if (!m) return;
     const username = decodeURIComponent(m[1]).toLowerCase();
-    const users = app.store.all('users') as any[];
-    const user = users.find((u: any) => String(u.username?.() ?? '').toLowerCase() === username);
+    const users = app.store.all('users') as User[];
+    const user = users.find((u) => String(u.username?.() ?? '').toLowerCase() === username);
     if (!user) return;
 
-    const slug = user.attribute?.('equippedNameDecorationSlug');
+    const slug = user.attribute?.('equippedNameDecorationSlug') as string | undefined;
     if (!slug) return;
     const safe = String(slug).replace(/[^a-zA-Z0-9_-]/g, '');
     if (!safe) return;
@@ -569,38 +587,18 @@ function setupUsernameSpanTagger(): void {
     span.classList.add('ps-name-' + safe);
   };
 
-  const scan = (root: ParentNode) => {
-    root.querySelectorAll?.('.username').forEach(decorate);
-  };
-
-  scan(document);
+  onAdded('.username', decorate);
 
   // Re-apply the class whenever Mithril rewrites the className on a tagged
   // `.username`. The vnode for `username()` is just `<span class="username">`,
   // so any redraw of the post stream resets the class to just "username" and
   // strips our `ps-name-X`. Watch for that and put it back.
-  new MutationObserver((muts) => {
-    for (const mu of muts) {
-      // Re-apply our class on attribute changes that wiped it.
-      if (mu.type === 'attributes' && mu.attributeName === 'class') {
-        const target = mu.target as HTMLElement;
-        if (target.dataset?.psNameDeco === '1' && target.dataset?.psSlug && !target.classList.contains('ps-name-' + target.dataset.psSlug)) {
-          target.classList.add('ps-name-' + target.dataset.psSlug);
-        }
-        continue;
-      }
-      // Scan newly-added subtrees.
-      mu.addedNodes.forEach((node) => {
-        if (!(node instanceof Element)) return;
-        if (node.matches?.('.username')) decorate(node);
-        else scan(node);
-      });
+  onAttributeChange((target, name) => {
+    if (name !== 'class') return;
+    const el = target as HTMLElement;
+    if (el.dataset?.psNameDeco === '1' && el.dataset?.psSlug && !el.classList.contains('ps-name-' + el.dataset.psSlug)) {
+      el.classList.add('ps-name-' + el.dataset.psSlug);
     }
-  }).observe(document.body, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: ['class'],
   });
 
   // The user model is sometimes loaded AFTER the `.username` DOM mounts (when
@@ -610,7 +608,7 @@ function setupUsernameSpanTagger(): void {
   // times in the first seconds to pick those up.
   let retries = 10;
   const interval = setInterval(() => {
-    scan(document);
+    document.querySelectorAll('.username').forEach(decorate);
     if (--retries <= 0) clearInterval(interval);
   }, 400);
 }
@@ -622,23 +620,22 @@ function setupUsernameSpanTagger(): void {
 //   1. Inject a points pill into `.AvocadoUserPage-hero-stats`.
 //   2. Tag `.AvocadoUserPage-hero-name` (the H1 with the displayName) with
 //      `ps-name-{slug}` so the user's equipped name decoration applies.
-function setupAvocadoProfilePoints(): void {
-  if ((window as any).__psAvocadoProfile) return;
-  (window as any).__psAvocadoProfile = true;
-
+function registerAvocadoProfileHooks(): void {
   const showPoints = setting('pointSystem.show_in_user_profile');
   const showName = setting('pointSystem.name_deco_enabled') && setting('pointSystem.deco_in_user_card');
-  if (!showPoints && !showName) return;
+  const showCover = setting('pointSystem.cover_deco_enabled');
+  if (!showPoints && !showName && !showCover) return;
 
-  const resolveUser = (): any | null => {
+  const resolveUser = (): User | null => {
     const match = /\/u\/([^/?#]+)/.exec(window.location.pathname);
     if (!match) return null;
     const username = decodeURIComponent(match[1]).toLowerCase();
-    const users = app.store.all('users') as any[];
-    return users.find((u: any) => String(u.username?.() ?? '').toLowerCase() === username) || null;
+    const users = app.store.all('users') as User[];
+    return users.find((u) => String(u.username?.() ?? '').toLowerCase() === username) || null;
   };
 
-  const injectPoints = (statsEl: HTMLElement) => {
+  const injectPoints = (el: Element) => {
+    const statsEl = el as HTMLElement;
     if (!showPoints || statsEl.dataset.psPoints === '1') return;
     const user = resolveUser();
     if (!user) return;
@@ -659,12 +656,13 @@ function setupAvocadoProfilePoints(): void {
     statsEl.appendChild(pill);
   };
 
-  const injectCover = (heroEl: HTMLElement) => {
-    if (!setting('pointSystem.cover_deco_enabled')) return;
+  const injectCover = (el: Element) => {
+    if (!showCover) return;
+    const heroEl = el as HTMLElement;
     if (heroEl.dataset.psCover === '1') return;
     const user = resolveUser();
     if (!user) return;
-    const coverPath = user.attribute?.('equippedCoverDecorationUrl');
+    const coverPath = user.attribute?.('equippedCoverDecorationUrl') as string | undefined;
     if (!coverPath) return;
     const url = resolveAssetUrl(String(coverPath));
     heroEl.dataset.psCover = '1';
@@ -672,11 +670,13 @@ function setupAvocadoProfilePoints(): void {
     heroEl.style.setProperty('--ps-cover-url', `url("${url.replace(/"/g, '%22')}")`);
   };
 
-  const tagName = (nameEl: HTMLElement) => {
-    if (!showName || nameEl.dataset.psNameDeco === '1') return;
+  const tagName = (el: Element) => {
+    if (!showName) return;
+    const nameEl = el as HTMLElement;
+    if (nameEl.dataset.psNameDeco === '1') return;
     const user = resolveUser();
     if (!user) return;
-    const slug = user.attribute?.('equippedNameDecorationSlug');
+    const slug = user.attribute?.('equippedNameDecorationSlug') as string | undefined;
     if (!slug) return;
     const cleanSlug = String(slug).replace(/[^a-zA-Z0-9_-]/g, '');
     if (!cleanSlug) return;
@@ -701,35 +701,21 @@ function setupAvocadoProfilePoints(): void {
     textNode.replaceWith(wrapper);
   };
 
-  const scan = (root: ParentNode) => {
-    root.querySelectorAll?.('.AvocadoUserPage-hero-stats').forEach((el) => injectPoints(el as HTMLElement));
-    root.querySelectorAll?.('.AvocadoUserPage-hero-name').forEach((el) => tagName(el as HTMLElement));
-    root.querySelectorAll?.('.AvocadoUserPage-hero').forEach((el) => injectCover(el as HTMLElement));
+  if (showPoints) onAdded('.AvocadoUserPage-hero-stats', injectPoints);
+  if (showName) onAdded('.AvocadoUserPage-hero-name', tagName);
+  if (showCover) {
+    onAdded('.AvocadoUserPage-hero', injectCover);
     // Also cover Flarum core's UserPage hero (used on default theme + many
     // other themes). UserCard is handled by our `extend(UserCard, 'view')`.
-    root.querySelectorAll?.('.UserPage .Hero, .UserHero').forEach((el) => injectCover(el as HTMLElement));
-  };
-
-  scan(document);
-  new MutationObserver((muts) => {
-    for (const mu of muts) {
-      mu.addedNodes.forEach((node) => {
-        if (!(node instanceof Element)) return;
-        if (node.matches?.('.AvocadoUserPage-hero-stats')) injectPoints(node as HTMLElement);
-        else if (node.matches?.('.AvocadoUserPage-hero-name')) tagName(node as HTMLElement);
-        else if (node.matches?.('.AvocadoUserPage-hero')) injectCover(node as HTMLElement);
-        else if (node.matches?.('.UserPage .Hero, .UserHero')) injectCover(node as HTMLElement);
-        else scan(node);
-      });
-    }
-  }).observe(document.body, { childList: true, subtree: true });
+    onAdded('.UserPage .Hero, .UserHero', injectCover);
+  }
 }
 
 // Push `ps-name-{slug}` onto an array of CSS classes if the user has a
 // decoration equipped. Used by the CommentPost.classes() extension where the
 // component exposes its class list as an array.
-function pushDecoClass(classes: string[], user: any): void {
-  const slug = user?.attribute?.('equippedNameDecorationSlug');
+function pushDecoClass(classes: string[], user: User | undefined): void {
+  const slug = user?.attribute?.('equippedNameDecorationSlug') as string | undefined;
   if (!slug) return;
   const cleanSlug = String(slug).replace(/[^a-zA-Z0-9_-]/g, '');
   if (!cleanSlug) return;
@@ -737,8 +723,8 @@ function pushDecoClass(classes: string[], user: any): void {
   if (!classes.includes(target)) classes.push(target);
 }
 
-function pushPostHlClass(classes: string[], user: any): void {
-  const slug = user?.attribute?.('equippedPostHighlightDecorationSlug');
+function pushPostHlClass(classes: string[], user: User | undefined): void {
+  const slug = user?.attribute?.('equippedPostHighlightDecorationSlug') as string | undefined;
   if (!slug) return;
   const cleanSlug = String(slug).replace(/[^a-zA-Z0-9_-]/g, '');
   if (!cleanSlug) return;

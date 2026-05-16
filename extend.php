@@ -16,6 +16,7 @@ use Flarum\Api\Resource\UserResource;
 use Flarum\Discussion\Event\Started as DiscussionStarted;
 use Flarum\Extend;
 use Flarum\Post\Event\Posted as PostPosted;
+use Flarum\User\Event\LoggedIn as UserLoggedIn;
 use Flarum\User\Event\Registered as UserRegistered;
 
 return [
@@ -45,6 +46,7 @@ return [
         ->listen(DiscussionStarted::class, Listener\AwardDiscussionPoints::class)
         ->listen(PostPosted::class, Listener\AwardPostPoints::class)
         ->listen(UserRegistered::class, Listener\InitUserPoints::class)
+        ->listen(UserLoggedIn::class, Listener\AwardDailyLoginBonus::class)
         // ── Notification dispatch (mirrors verified's event→listener pattern;
         //    NotificationSyncer fans out to all drivers incl. kyrne/websocket) ──
         ->listen(\Ramon\PointSystem\Event\PointsManuallyChanged::class, Listener\SendNotificationWhenPointsChanged::class)
@@ -90,8 +92,12 @@ return [
         ->post('/point-system/award', 'pointSystem.award', Controller\ManualAwardController::class),
 
     // ── Permissions ──────────────────────────────────────────────────────────
+    // ShopItemPolicy is registered as a global policy (it has no `$model`)
+    // so any `assertCan('manage')` against the shop family routes through it.
+    // AvatarDecorationPolicy is the per-row policy invoked by Endpoint->can().
     (new Extend\Policy())
-        ->modelPolicy(Model\AvatarDecoration::class, Access\AvatarDecorationPolicy::class),
+        ->modelPolicy(Model\AvatarDecoration::class, Access\AvatarDecorationPolicy::class)
+        ->globalPolicy(Access\ShopItemPolicy::class),
 
     // ── Settings ─────────────────────────────────────────────────────────────
     (new Extend\Settings())
