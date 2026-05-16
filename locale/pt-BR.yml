@@ -59,6 +59,7 @@ ramon-point-system:
       start_username_label: "Usuário"
       start_username_placeholder: "ex.: ramon"
       start_submit: "Abrir janela de troca"
+      start_cancel: "Cancelar"
       start_not_found: "Nenhum usuário encontrado com esse nome."
     confirm:
       title: "Confirmar compra"
@@ -160,6 +161,7 @@ ramon-point-system:
       accept: "Aceitar"
       unaccept: "Cancelar aceitação"
       close_keep: "Fechar (manter troca)"
+      close_final: "Fechar"
       persist_hint: "Sua oferta é salva automaticamente. Pode fechar a qualquer momento — a troca fica na sua lista de trocas e reabre exatamente como você deixou."
       cancel: "Cancelar troca"
       confirm_cancel: "Cancelar esta troca?"

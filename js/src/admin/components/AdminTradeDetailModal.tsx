@@ -58,16 +58,32 @@ export default class AdminTradeDetailModal extends Modal {
     return (
       <div className="Modal-body AdminTradeDetailModal-body">
         <div className="AdminTradeDetailModal-meta">
-          <span><strong>#{tr.id}</strong></span>
+          <span>
+            <strong>#{tr.id}</strong>
+          </span>
           <span className={`PointSystemAdmin-pill is-${tr.status}`}>{t('status_' + tr.status)}</span>
-          {tr.updatedAt && <span className="muted">{t('updated_at')}: {new Date(tr.updatedAt).toLocaleString()}</span>}
-          {tr.completedAt && <span className="muted">{t('completed_at')}: {new Date(tr.completedAt).toLocaleString()}</span>}
-          {tr.cancelledAt && <span className="muted">{t('cancelled_at')}: {new Date(tr.cancelledAt).toLocaleString()}</span>}
+          {tr.updatedAt && (
+            <span className="muted">
+              {t('updated_at')}: {new Date(tr.updatedAt).toLocaleString()}
+            </span>
+          )}
+          {tr.completedAt && (
+            <span className="muted">
+              {t('completed_at')}: {new Date(tr.completedAt).toLocaleString()}
+            </span>
+          )}
+          {tr.cancelledAt && (
+            <span className="muted">
+              {t('cancelled_at')}: {new Date(tr.cancelledAt).toLocaleString()}
+            </span>
+          )}
         </div>
 
         <div className="AdminTradeDetailModal-grid">
           {this.renderParty(t('initiator'), tr.initiator, tr.initiatorPoints, initiatorItems, t)}
-          <div className="AdminTradeDetailModal-arrow"><i className="fas fa-exchange-alt" /></div>
+          <div className="AdminTradeDetailModal-arrow">
+            <i className="fas fa-exchange-alt" />
+          </div>
           {this.renderParty(t('recipient'), tr.recipient, tr.recipientPoints, recipientItems, t)}
         </div>
 
@@ -79,12 +95,7 @@ export default class AdminTradeDetailModal extends Modal {
 
         <div className="AdminTradeDetailModal-footer">
           {canRevert ? (
-            <Button
-              className="Button Button--danger"
-              loading={this.busy}
-              disabled={this.busy}
-              onclick={() => this.revert()}
-            >
+            <Button className="Button Button--danger" loading={this.busy} disabled={this.busy} onclick={() => this.revert()}>
               <i className="fas fa-undo" /> {t('revert')}
             </Button>
           ) : (

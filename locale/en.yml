@@ -59,6 +59,7 @@ ramon-point-system:
       start_username_label: "Username"
       start_username_placeholder: "e.g. ramon"
       start_submit: "Open trade window"
+      start_cancel: "Cancel"
       start_not_found: "No user matches that name."
     confirm:
       title: "Confirm purchase"
@@ -160,6 +161,7 @@ ramon-point-system:
       accept: "Accept"
       unaccept: "Cancel acceptance"
       close_keep: "Close (keep trade)"
+      close_final: "Close"
       persist_hint: "Your offer is saved automatically. Close anytime — the trade waits in your trades list and reopens with everything intact."
       cancel: "Cancel trade"
       confirm_cancel: "Cancel this trade?"

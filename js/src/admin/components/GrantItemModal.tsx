@@ -56,23 +56,14 @@ export default class GrantItemModal extends Modal {
 
         <div className="Form-group">
           <label>
-            <input
-              type="checkbox"
-              checked={this.ignoreLimit}
-              onchange={(e: Event) => (this.ignoreLimit = (e.target as HTMLInputElement).checked)}
-            />{' '}
+            <input type="checkbox" checked={this.ignoreLimit} onchange={(e: Event) => (this.ignoreLimit = (e.target as HTMLInputElement).checked)} />{' '}
             {t('ignore_limit')}
           </label>
           <p className="helpText">{t('ignore_limit_help')}</p>
         </div>
 
         <div className="Form-group">
-          <Button
-            className="Button Button--primary"
-            loading={this.busy}
-            disabled={!this.username.trim() || this.busy}
-            onclick={() => this.submit()}
-          >
+          <Button className="Button Button--primary" loading={this.busy} disabled={!this.username.trim() || this.busy} onclick={() => this.submit()}>
             <i className="fas fa-gift" /> {t('submit')}
           </Button>
         </div>
@@ -90,12 +81,13 @@ export default class GrantItemModal extends Modal {
       // Resolve username → id via the standard users JSON:API filter.
       const found = await app.store.find('users', { filter: { q: username }, page: { limit: 5 } });
       const list = Array.isArray(found) ? found : [];
-      const match = list.find((u: any) => {
-        const un = String(u.username?.() ?? '').toLowerCase();
-        const dn = String(u.displayName?.() ?? '').toLowerCase();
-        const q = username.toLowerCase();
-        return un === q || dn === q;
-      }) || list[0];
+      const match =
+        list.find((u: any) => {
+          const un = String(u.username?.() ?? '').toLowerCase();
+          const dn = String(u.displayName?.() ?? '').toLowerCase();
+          const q = username.toLowerCase();
+          return un === q || dn === q;
+        }) || list[0];
       if (!match) {
         app.alerts.show({ type: 'error' }, app.translator.trans('ramon-point-system.admin.grant.user_not_found'));
         return;

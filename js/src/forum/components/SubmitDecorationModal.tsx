@@ -136,7 +136,11 @@ export default class SubmitDecorationModal extends Modal {
                 <input
                   type="file"
                   className="FormControl"
-                  accept={type === 'avatar_decoration' ? 'image/png,image/gif,image/webp,image/apng' : 'image/png,image/jpeg,image/gif,image/webp,image/apng'}
+                  accept={
+                    type === 'avatar_decoration'
+                      ? 'image/png,image/gif,image/webp,image/apng'
+                      : 'image/png,image/jpeg,image/gif,image/webp,image/apng'
+                  }
                   onchange={(e: Event) => {
                     const f = (e.target as HTMLInputElement).files?.[0] ?? null;
                     this.imageFile = f;
@@ -222,12 +226,7 @@ export default class SubmitDecorationModal extends Modal {
           <p className="helpText">
             <i className="fas fa-info-circle" /> {t('moderation_notice')}
           </p>
-          <Button
-            className="Button Button--primary"
-            loading={this.busy}
-            disabled={!this.canSubmit() || this.busy}
-            onclick={() => this.submit()}
-          >
+          <Button className="Button Button--primary" loading={this.busy} disabled={!this.canSubmit() || this.busy} onclick={() => this.submit()}>
             <i className="fas fa-paper-plane" /> {t('submit')}
           </Button>
         </div>
@@ -250,13 +249,15 @@ export default class SubmitDecorationModal extends Modal {
   async submit() {
     const type = String(this.attrs.type || '');
     const isImage = type === 'avatar_decoration' || type === 'cover_decoration';
-    const apiType = ({
-      avatar_decoration: 'point-system-avatar-decorations',
-      name_decoration: 'point-system-name-decorations',
-      cover_decoration: 'point-system-cover-decorations',
-      title_decoration: 'point-system-title-decorations',
-      post_highlight_decoration: 'point-system-post-highlight-decorations',
-    } as Record<string, string>)[type];
+    const apiType = (
+      {
+        avatar_decoration: 'point-system-avatar-decorations',
+        name_decoration: 'point-system-name-decorations',
+        cover_decoration: 'point-system-cover-decorations',
+        title_decoration: 'point-system-title-decorations',
+        post_highlight_decoration: 'point-system-post-highlight-decorations',
+      } as Record<string, string>
+    )[type];
     if (!apiType) return;
 
     this.busy = true;

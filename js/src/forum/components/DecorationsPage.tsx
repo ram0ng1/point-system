@@ -65,7 +65,17 @@ export default class DecorationsPage extends Page {
     const postHls = (app.forum.attribute('pointSystemPostHighlightDecorations') as any[]) || [];
     const owned = (app.session.user.attribute('ownedDecorationIds') as any[]) || [];
 
-    const ownedOf = (type: string, source: any[]) => source.filter((d) => owned.some((o: any) => o.type === type && Number(o.id) === Number(d.id)));
+    // Attach `_quantity` from the owned array so the render layer can show
+    // a stack-count badge (×N) without a second lookup. Claims are now
+    // stackable — a user may own multiple copies of the same decoration
+    // via repeat shop purchases, admin grants, or accumulated trades.
+    const ownedOf = (type: string, source: any[]) =>
+      source
+        .filter((d) => owned.some((o: any) => o.type === type && Number(o.id) === Number(d.id)))
+        .map((d) => {
+          const o = owned.find((o: any) => o.type === type && Number(o.id) === Number(d.id));
+          return { ...d, _quantity: Math.max(1, Number(o?.quantity ?? 1)) };
+        });
 
     const ownedAvatars = ownedOf('avatar_decoration', avatars);
     const ownedNames = ownedOf('name_decoration', names);
@@ -88,7 +98,8 @@ export default class DecorationsPage extends Page {
     const postHlEnabled = app.forum.attribute('pointSystem.post_hl_deco_enabled') !== false;
 
     const submitType = this.currentSubmitType();
-    const userSubmissionsEnabled = app.forum.attribute('pointSystemUserSubmissionsEnabled') !== false && app.forum.attribute('pointSystemUserSubmissionsEnabled') !== undefined;
+    const userSubmissionsEnabled =
+      app.forum.attribute('pointSystemUserSubmissionsEnabled') !== false && app.forum.attribute('pointSystemUserSubmissionsEnabled') !== undefined;
     const canSubmit = userSubmissionsEnabled && submitType !== null;
 
     return (
@@ -96,7 +107,10 @@ export default class DecorationsPage extends Page {
         <div className="PointSystemDecorations-pageHeader">
           <h1>{app.translator.trans('ramon-point-system.forum.my_decorations.title')}</h1>
           {canSubmit && (
-            <Button className="Button Button--primary" onclick={() => app.modal.show(SubmitDecorationModal, { type: submitType, onSubmitted: () => m.redraw() })}>
+            <Button
+              className="Button Button--primary"
+              onclick={() => app.modal.show(SubmitDecorationModal, { type: submitType, onSubmitted: () => m.redraw() })}
+            >
               <i className="fas fa-paper-plane" /> {app.translator.trans('ramon-point-system.forum.my_decorations.submit_cta')}
             </Button>
           )}
@@ -136,7 +150,10 @@ export default class DecorationsPage extends Page {
                   {ownedAvatars.map((d) => (
                     <div className={`PointSystemDecorations-item ${equippedAvatarId === d.id ? 'is-equipped' : ''}`} key={`all-av-${d.id}`}>
                       {this.avatarPreview(d)}
-                      <div className="PointSystemDecorations-item-name">{d.name}</div>
+                      <div className="PointSystemDecorations-item-name">
+                        {d.name}
+                        {d._quantity > 1 && <span className="PointSystemDecorations-item-quantity">×{d._quantity}</span>}
+                      </div>
                       <div className="PointSystemDecorations-item-actions">
                         {equippedAvatarId === d.id ? (
                           <Button
@@ -176,7 +193,10 @@ export default class DecorationsPage extends Page {
                     return (
                       <div className={`PointSystemDecorations-item ${equippedNameId === d.id ? 'is-equipped' : ''}`} key={`all-na-${d.id}`}>
                         <span className={`ps-name-preview ps-name-${slug}`}>{app.session.user.username()}</span>
-                        <div className="PointSystemDecorations-item-name">{d.name}</div>
+                        <div className="PointSystemDecorations-item-name">
+                          {d.name}
+                          {d._quantity > 1 && <span className="PointSystemDecorations-item-quantity">×{d._quantity}</span>}
+                        </div>
                         <div className="PointSystemDecorations-item-actions">
                           {equippedNameId === d.id ? (
                             <Button
@@ -214,7 +234,10 @@ export default class DecorationsPage extends Page {
                       <div className="PointSystemDecorations-coverItem-preview">
                         <img src={this.resolveAsset(d.imagePath || d.imageUrl)} alt={d.name} />
                       </div>
-                      <div className="PointSystemDecorations-item-name">{d.name}</div>
+                      <div className="PointSystemDecorations-item-name">
+                        {d.name}
+                        {d._quantity > 1 && <span className="PointSystemDecorations-item-quantity">×{d._quantity}</span>}
+                      </div>
                       <div className="PointSystemDecorations-item-actions">
                         {equippedCoverId === d.id ? (
                           <Button
@@ -258,7 +281,10 @@ export default class DecorationsPage extends Page {
                         <span className={`ps-title-preview ps-title-${slug}`} style={styleVar}>
                           {d.titleText}
                         </span>
-                        <div className="PointSystemDecorations-item-name">{d.name}</div>
+                        <div className="PointSystemDecorations-item-name">
+                          {d.name}
+                          {d._quantity > 1 && <span className="PointSystemDecorations-item-quantity">×{d._quantity}</span>}
+                        </div>
                         <div className="PointSystemDecorations-item-actions">
                           {isEq ? (
                             <Button
@@ -307,7 +333,10 @@ export default class DecorationsPage extends Page {
                             <div className="ps-posthl-preview-line short" />
                           </div>
                         </div>
-                        <div className="PointSystemDecorations-item-name">{d.name}</div>
+                        <div className="PointSystemDecorations-item-name">
+                          {d.name}
+                          {d._quantity > 1 && <span className="PointSystemDecorations-item-quantity">×{d._quantity}</span>}
+                        </div>
                         <div className="PointSystemDecorations-item-actions">
                           {isEq ? (
                             <Button
@@ -351,7 +380,10 @@ export default class DecorationsPage extends Page {
               {ownedAvatars.map((d) => (
                 <div className={`PointSystemDecorations-item ${equippedAvatarId === d.id ? 'is-equipped' : ''}`} key={`av-${d.id}`}>
                   {this.avatarPreview(d)}
-                  <div className="PointSystemDecorations-item-name">{d.name}</div>
+                  <div className="PointSystemDecorations-item-name">
+                    {d.name}
+                    {d._quantity > 1 && <span className="PointSystemDecorations-item-quantity">×{d._quantity}</span>}
+                  </div>
                   <div className="PointSystemDecorations-item-actions">
                     {equippedAvatarId === d.id ? (
                       <Button
@@ -394,7 +426,10 @@ export default class DecorationsPage extends Page {
                 return (
                   <div className={`PointSystemDecorations-item ${equippedNameId === d.id ? 'is-equipped' : ''}`} key={`na-${d.id}`}>
                     <span className={`ps-name-preview ps-name-${slug}`}>{app.session.user.username()}</span>
-                    <div className="PointSystemDecorations-item-name">{d.name}</div>
+                    <div className="PointSystemDecorations-item-name">
+                      {d.name}
+                      {d._quantity > 1 && <span className="PointSystemDecorations-item-quantity">×{d._quantity}</span>}
+                    </div>
                     <div className="PointSystemDecorations-item-actions">
                       {equippedNameId === d.id ? (
                         <Button
@@ -437,7 +472,10 @@ export default class DecorationsPage extends Page {
                     <span className={`ps-title-preview ps-title-${slug}`} style={styleVar}>
                       {d.titleText}
                     </span>
-                    <div className="PointSystemDecorations-item-name">{d.name}</div>
+                    <div className="PointSystemDecorations-item-name">
+                      {d.name}
+                      {d._quantity > 1 && <span className="PointSystemDecorations-item-quantity">×{d._quantity}</span>}
+                    </div>
                     <div className="PointSystemDecorations-item-actions">
                       {isEq ? (
                         <Button
@@ -489,7 +527,10 @@ export default class DecorationsPage extends Page {
                         <div className="ps-posthl-preview-line short" />
                       </div>
                     </div>
-                    <div className="PointSystemDecorations-item-name">{d.name}</div>
+                    <div className="PointSystemDecorations-item-name">
+                      {d.name}
+                      {d._quantity > 1 && <span className="PointSystemDecorations-item-quantity">×{d._quantity}</span>}
+                    </div>
                     <div className="PointSystemDecorations-item-actions">
                       {isEq ? (
                         <Button
@@ -533,7 +574,10 @@ export default class DecorationsPage extends Page {
                   <div className="PointSystemDecorations-coverItem-preview">
                     <img src={this.resolveAsset(d.imageUrl || d.imagePath)} alt={d.name} />
                   </div>
-                  <div className="PointSystemDecorations-item-name">{d.name}</div>
+                  <div className="PointSystemDecorations-item-name">
+                    {d.name}
+                    {d._quantity > 1 && <span className="PointSystemDecorations-item-quantity">×{d._quantity}</span>}
+                  </div>
                   <div className="PointSystemDecorations-item-actions">
                     {equippedCoverId === d.id ? (
                       <Button

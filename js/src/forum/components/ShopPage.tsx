@@ -351,9 +351,7 @@ export default class ShopPage extends Page {
   //   "Equip" CTAs) so they can reach the equip flow from the shop tab.
   private shoppable(attribute: string, type: ShopItem['type']): ShopItem[] {
     const raw = (app.forum.attribute(attribute) as any[]) || [];
-    return raw
-      .filter((d) => d.isAvailable !== false || this.userOwnsId(type, d.id))
-      .map((d) => ({ ...d, type }));
+    return raw.filter((d) => d.isAvailable !== false || this.userOwnsId(type, d.id)).map((d) => ({ ...d, type }));
   }
 
   private userOwnsId(type: string, id: number | string): boolean {
@@ -409,7 +407,11 @@ export default class ShopPage extends Page {
             <a
               className="PointSystemShop-card-creator"
               href={app.route.user({ slug: (item as any).creatorUsername })}
-              title={app.translator.trans('ramon-point-system.forum.shop.creator_tooltip', { name: (item as any).creatorDisplayName || (item as any).creatorUsername }) as string}
+              title={
+                app.translator.trans('ramon-point-system.forum.shop.creator_tooltip', {
+                  name: (item as any).creatorDisplayName || (item as any).creatorUsername,
+                }) as string
+              }
             >
               {(item as any).creatorAvatarUrl ? (
                 <img className="PointSystemShop-card-creatorAvatar" src={(item as any).creatorAvatarUrl} alt="" />

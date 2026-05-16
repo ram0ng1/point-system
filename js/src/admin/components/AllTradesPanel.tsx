@@ -67,7 +67,10 @@ export default class AllTradesPanel extends Component {
         </div>
 
         <div className="PointSystemAdmin-card">
-          <div className="PointSystemAdmin-card-header" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+          <div
+            className="PointSystemAdmin-card-header"
+            style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;"
+          >
             <div>
               <h3>{t('list_heading')}</h3>
               <p className="helpText">{t('list_help')}</p>
@@ -113,11 +116,25 @@ export default class AllTradesPanel extends Component {
 
           {totalPages > 1 && (
             <div className="PointSystemAdmin-pagination">
-              <Button className="Button" disabled={this.offset <= 0} onclick={() => { this.offset = Math.max(0, this.offset - PAGE_SIZE); this.load(); }}>
+              <Button
+                className="Button"
+                disabled={this.offset <= 0}
+                onclick={() => {
+                  this.offset = Math.max(0, this.offset - PAGE_SIZE);
+                  this.load();
+                }}
+              >
                 <i className="fas fa-chevron-left" /> {t('prev')}
               </Button>
               <span className="PointSystemAdmin-pageInfo">{t('page_x_of_y', { x: currentPage, y: totalPages })}</span>
-              <Button className="Button" disabled={currentPage >= totalPages} onclick={() => { this.offset = this.offset + PAGE_SIZE; this.load(); }}>
+              <Button
+                className="Button"
+                disabled={currentPage >= totalPages}
+                onclick={() => {
+                  this.offset = this.offset + PAGE_SIZE;
+                  this.load();
+                }}
+              >
                 {t('next')} <i className="fas fa-chevron-right" />
               </Button>
             </div>
@@ -140,13 +157,10 @@ export default class AllTradesPanel extends Component {
     const initiatorItems = (tr.items || []).filter((it: any) => Number(it.ownerId) === Number(tr.initiator?.id));
     const recipientItems = (tr.items || []).filter((it: any) => Number(it.ownerId) === Number(tr.recipient?.id));
     return (
-      <tr
-        key={`tr-${tr.id}`}
-        className="PointSystemAdmin-tradesTable-row"
-        onclick={() => this.openDetail(tr)}
-        style="cursor: pointer;"
-      >
-        <td><code>#{tr.id}</code></td>
+      <tr key={`tr-${tr.id}`} className="PointSystemAdmin-tradesTable-row" onclick={() => this.openDetail(tr)} style="cursor: pointer;">
+        <td>
+          <code>#{tr.id}</code>
+        </td>
         <td>
           <div className="PointSystemAdmin-tradeParty">
             {tr.initiator?.avatarUrl && <img src={tr.initiator.avatarUrl} alt="" />}
@@ -169,12 +183,20 @@ export default class AllTradesPanel extends Component {
           <div>
             <span className="muted">{t('initiator_offer')}:</span>{' '}
             {tr.initiatorPoints > 0 ? `${Number(tr.initiatorPoints).toLocaleString()} pts` : '—'}
-            {initiatorItems.length > 0 && <span className="PointSystemAdmin-tag" style="margin-left:6px">{initiatorItems.length} {t('items_short')}</span>}
+            {initiatorItems.length > 0 && (
+              <span className="PointSystemAdmin-tag" style="margin-left:6px">
+                {initiatorItems.length} {t('items_short')}
+              </span>
+            )}
           </div>
           <div>
             <span className="muted">{t('recipient_offer')}:</span>{' '}
             {tr.recipientPoints > 0 ? `${Number(tr.recipientPoints).toLocaleString()} pts` : '—'}
-            {recipientItems.length > 0 && <span className="PointSystemAdmin-tag" style="margin-left:6px">{recipientItems.length} {t('items_short')}</span>}
+            {recipientItems.length > 0 && (
+              <span className="PointSystemAdmin-tag" style="margin-left:6px">
+                {recipientItems.length} {t('items_short')}
+              </span>
+            )}
           </div>
         </td>
         <td>

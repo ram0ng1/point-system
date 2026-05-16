@@ -292,10 +292,7 @@ export default class TradeModal extends Modal {
       this.applyState(res?.data);
       if (this.trade?.status === 'completed') {
         this.reconcileLocalOwnership();
-        app.alerts.show(
-          { type: 'success' },
-          app.translator.trans('ramon-point-system.forum.trade.completed_alert')
-        );
+        app.alerts.show({ type: 'success' }, app.translator.trans('ramon-point-system.forum.trade.completed_alert'));
       }
     } catch (e: any) {
       // Inspect the response payload — `errors[0].detail` is the
@@ -375,19 +372,22 @@ export default class TradeModal extends Modal {
               <i className="fas fa-times-circle" /> {t('status_cancelled')}
             </span>
           )}
-          {this.trade.status === 'pending' && yourAccept && theirAccept && (() => {
-            const remaining = this.countdownRemainingSeconds();
-            return remaining !== null && remaining > 0 ? (
-              <span className="PointSystemTradeModal-countdown">
-                <span className="PointSystemTradeModal-countdown-digit">{remaining}</span>
-                <span className="PointSystemTradeModal-countdown-text">{t('finalizing_in')}</span>
-              </span>
-            ) : (
-              <span>
-                <i className="fas fa-hourglass" /> {t('status_both_accepted')}
-              </span>
-            );
-          })()}
+          {this.trade.status === 'pending' &&
+            yourAccept &&
+            theirAccept &&
+            (() => {
+              const remaining = this.countdownRemainingSeconds();
+              return remaining !== null && remaining > 0 ? (
+                <span className="PointSystemTradeModal-countdown">
+                  <span className="PointSystemTradeModal-countdown-digit">{remaining}</span>
+                  <span className="PointSystemTradeModal-countdown-text">{t('finalizing_in')}</span>
+                </span>
+              ) : (
+                <span>
+                  <i className="fas fa-hourglass" /> {t('status_both_accepted')}
+                </span>
+              );
+            })()}
           {this.trade.status === 'pending' && (!yourAccept || !theirAccept) && (
             <span>
               <i className="fas fa-handshake" /> {t('status_pending')}
@@ -401,7 +401,7 @@ export default class TradeModal extends Modal {
             <div className="PointSystemTradeModal-items">
               {yourItems.map((it) => (
                 <div className="PointSystemTradeModal-itemChip" key={`y-${it.itemType}-${it.itemId}`}>
-                  {this.renderItemThumb(it)}
+                  {this.renderItemThumb(it, me)}
                   <span className="PointSystemTradeModal-itemChip-name">{it.name || `${it.itemType}#${it.itemId}`}</span>
                   {!isFinal && (
                     <button
@@ -422,7 +422,7 @@ export default class TradeModal extends Modal {
                 <i className="fas fa-plus" /> {t('add_item')}
               </Button>
             )}
-            {this.pickerOpen && !isFinal && this.renderItemPicker(yourItems)}
+            {this.pickerOpen && !isFinal && this.renderItemPicker(yourItems, me)}
 
             <div className="PointSystemTradeModal-points">
               <label>{t('your_points')}</label>
@@ -447,7 +447,7 @@ export default class TradeModal extends Modal {
             <div className="PointSystemTradeModal-items">
               {theirItems.map((it) => (
                 <div className="PointSystemTradeModal-itemChip is-readonly" key={`t-${it.itemType}-${it.itemId}`}>
-                  {this.renderItemThumb(it)}
+                  {this.renderItemThumb(it, them)}
                   <span className="PointSystemTradeModal-itemChip-name">{it.name || `${it.itemType}#${it.itemId}`}</span>
                 </div>
               ))}
@@ -464,11 +464,7 @@ export default class TradeModal extends Modal {
 
         {!isFinal && (
           <div className="PointSystemTradeModal-actions">
-            <Button
-              className={`Button ${yourAccept ? 'Button--primary' : ''}`}
-              loading={this.busy === 'accept'}
-              onclick={() => this.toggleAccept()}
-            >
+            <Button className={`Button ${yourAccept ? 'Button--primary' : ''}`} loading={this.busy === 'accept'} onclick={() => this.toggleAccept()}>
               <i className={`fas ${yourAccept ? 'fa-check-double' : 'fa-check'}`} /> {yourAccept ? t('unaccept') : t('accept')}
             </Button>
             {/*
@@ -514,6 +510,35 @@ export default class TradeModal extends Modal {
           </p>
         )}
 
+        {/*
+          Post-completion / post-cancellation actions. The accept / close /
+          cancel row only renders while the trade is still mutable; once
+          it transitions to a final status (completed or cancelled) there
+          is no edit affordance and the user previously had to find the X
+          in the modal header to close. Surface an explicit "Done" button
+          so the dismissal is obvious — same `app.modal.close()` plumbing
+          as the in-progress close button above.
+        */}
+        {isFinal && (
+          <div className="PointSystemTradeModal-actions PointSystemTradeModal-actions--final">
+            <Button
+              className="Button Button--primary"
+              onclick={(e: MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.stopCountdown();
+                if (this.pollHandle) {
+                  clearInterval(this.pollHandle);
+                  this.pollHandle = null;
+                }
+                app.modal.close();
+              }}
+            >
+              <i className="fas fa-check" /> {t('close_final')}
+            </Button>
+          </div>
+        )}
+
         {this.err && this.err !== 'no_target' && (
           <p className="PointSystemTradeModal-error">
             <i className="fas fa-exclamation-triangle" /> {t('error_' + this.err) || this.err}
@@ -523,7 +548,7 @@ export default class TradeModal extends Modal {
     );
   }
 
-  renderItemPicker(yourItems: OfferItem[]) {
+  renderItemPicker(yourItems: OfferItem[], owner?: { id?: number; username?: string; displayName?: string; avatarUrl?: string | null }) {
     const owned = (app.session.user?.attribute('ownedDecorationIds') as any[]) || [];
     const onTable = new Set(yourItems.map((i) => `${i.itemType}:${i.itemId}`));
     const candidates = owned
@@ -542,7 +567,7 @@ export default class TradeModal extends Modal {
               key={`pick-${it.itemType}-${it.itemId}`}
               onclick={() => this.addItem(it)}
             >
-              {this.renderItemThumb(it)}
+              {this.renderItemThumb(it, owner)}
               <span>{it.name}</span>
             </button>
           ))
@@ -551,15 +576,62 @@ export default class TradeModal extends Modal {
     );
   }
 
-  renderItemThumb(it: OfferItem) {
-    const src = it.imageUrl || it.imagePath || '';
-    if (src && (it.itemType === 'avatar_decoration' || it.itemType === 'cover_decoration')) {
-      return <img className="PointSystemTradeModal-itemThumb" src={this.resolveAsset(src)} alt="" />;
+  /**
+   * Render a realistic preview of the item using the OWNER's actual
+   * profile (avatar URL, display name). This way the user sees exactly
+   * how the decoration will look on the party that owns it:
+   *
+   *   - avatar_decoration: owner's avatar with the decoration frame
+   *     overlaid (same `.ps-avatar-deco-wrap` / `.ps-avatar-deco`
+   *     classes the real post avatar uses).
+   *   - cover_decoration: the banner image with the owner's avatar
+   *     overlaid as a small profile pic (mini-hero shape).
+   *   - name_decoration: the owner's display name rendered with the
+   *     decoration's CSS class.
+   *   - title_decoration: the title text (already preview-correct;
+   *     title text is fixed at the decoration level, not per-user).
+   *   - post_highlight_decoration: the owner's display name inside a
+   *     post-hl-styled box to suggest the post-border treatment.
+   */
+  renderItemThumb(it: OfferItem, owner?: { id?: number; username?: string; displayName?: string; avatarUrl?: string | null }) {
+    const ownerName = (owner?.displayName || owner?.username || 'Aa').slice(0, 32);
+    const avatarUrl = owner?.avatarUrl ?? null;
+
+    if (it.itemType === 'avatar_decoration') {
+      const frameSrc = it.imageUrl || it.imagePath || '';
+      const frameUrl = frameSrc ? this.resolveAsset(frameSrc) : '';
+      const safeFrameUrl = frameUrl.replace(/"/g, '%22');
+      return (
+        <span className="ps-avatar-deco-wrap PointSystemTradeModal-itemThumb PointSystemTradeModal-itemThumb--avatar">
+          {avatarUrl ? (
+            <img className="Avatar" src={avatarUrl} alt="" />
+          ) : (
+            <span className="Avatar PointSystemTradeModal-itemThumb-avatarFallback">{ownerName.charAt(0).toUpperCase()}</span>
+          )}
+          {frameUrl && <span aria-hidden="true" className="ps-avatar-deco" style={`background-image: url("${safeFrameUrl}");`} />}
+        </span>
+      );
     }
+
+    if (it.itemType === 'cover_decoration') {
+      const coverSrc = it.imageUrl || it.imagePath || '';
+      const coverUrl = coverSrc ? this.resolveAsset(coverSrc) : '';
+      const safeCoverUrl = coverUrl.replace(/"/g, '%22');
+      const coverStyle = coverUrl ? `background-image: url("${safeCoverUrl}"); background-size: cover; background-position: center;` : '';
+      return (
+        <span className="PointSystemTradeModal-itemThumb PointSystemTradeModal-itemThumb--cover" style={coverStyle}>
+          {avatarUrl && <img className="PointSystemTradeModal-itemThumb-coverAvatar Avatar" src={avatarUrl} alt="" />}
+        </span>
+      );
+    }
+
     if (it.itemType === 'name_decoration' && it.slug) {
       const slug = String(it.slug).replace(/[^a-zA-Z0-9_-]/g, '');
-      return <span className={`ps-name-preview ps-name-${slug} PointSystemTradeModal-itemThumb`}>Aa</span>;
+      return (
+        <span className={`ps-name-preview ps-name-${slug} PointSystemTradeModal-itemThumb PointSystemTradeModal-itemThumb--name`}>{ownerName}</span>
+      );
     }
+
     if (it.itemType === 'title_decoration' && it.titleText) {
       const slug = String(it.slug || '').replace(/[^a-zA-Z0-9_-]/g, '');
       const safe = String(it.color || '').replace(/[<>"';]/g, '');
@@ -570,10 +642,16 @@ export default class TradeModal extends Modal {
         </span>
       );
     }
+
     if (it.itemType === 'post_highlight_decoration' && it.slug) {
       const slug = String(it.slug).replace(/[^a-zA-Z0-9_-]/g, '');
-      return <span className={`ps-posthl-preview ps-posthl-${slug} PointSystemTradeModal-itemThumb`}>Aa</span>;
+      return (
+        <span className={`ps-posthl-preview ps-posthl-${slug} PointSystemTradeModal-itemThumb PointSystemTradeModal-itemThumb--postHl`}>
+          {ownerName}
+        </span>
+      );
     }
+
     return <i className="fas fa-cube PointSystemTradeModal-itemThumb" />;
   }
 
@@ -683,10 +761,7 @@ export default class TradeModal extends Modal {
       // user, we reconcile locally below.
       if (this.trade.status === 'completed') {
         this.reconcileLocalOwnership();
-        app.alerts.show(
-          { type: 'success' },
-          app.translator.trans('ramon-point-system.forum.trade.completed_alert')
-        );
+        app.alerts.show({ type: 'success' }, app.translator.trans('ramon-point-system.forum.trade.completed_alert'));
         return;
       }
 
@@ -700,10 +775,7 @@ export default class TradeModal extends Modal {
       const nowAccepted = youAre === 'initiator' ? this.trade.initiatorAccepted : this.trade.recipientAccepted;
       const theirAccept = youAre === 'initiator' ? this.trade.recipientAccepted : this.trade.initiatorAccepted;
       if (!wasAccepted && nowAccepted && !theirAccept) {
-        app.alerts.show(
-          { type: 'success' },
-          app.translator.trans('ramon-point-system.forum.trade.accepted_waiting_alert')
-        );
+        app.alerts.show({ type: 'success' }, app.translator.trans('ramon-point-system.forum.trade.accepted_waiting_alert'));
         this.hide();
       }
     } catch (e: any) {
@@ -749,9 +821,7 @@ export default class TradeModal extends Modal {
     const givenAway = this.trade.items.filter((it: any) => Number(it.ownerId) === meId);
     const received = this.trade.items.filter((it: any) => Number(it.ownerId) !== meId);
 
-    const filtered = owned.filter(
-      (o: any) => !givenAway.some((g: any) => g.itemType === o.type && Number(g.itemId) === Number(o.id))
-    );
+    const filtered = owned.filter((o: any) => !givenAway.some((g: any) => g.itemType === o.type && Number(g.itemId) === Number(o.id)));
     for (const r of received) {
       filtered.push({ type: r.itemType, id: r.itemId });
     }

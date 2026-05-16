@@ -111,7 +111,9 @@ export default class TradesPage extends Page {
     const t = (k: string, v?: any) => app.translator.trans('ramon-point-system.forum.trades_page.' + k, v);
     const youAre = trade.youAre;
     const other = youAre === 'initiator' ? trade.recipient : trade.initiator;
-    const yourItems = trade.items.filter((it: any) => Number(it.ownerId) === Number(youAre === 'initiator' ? trade.initiator.id : trade.recipient.id));
+    const yourItems = trade.items.filter(
+      (it: any) => Number(it.ownerId) === Number(youAre === 'initiator' ? trade.initiator.id : trade.recipient.id)
+    );
     const theirItems = trade.items.filter((it: any) => Number(it.ownerId) === Number(other?.id));
     const yourPoints = youAre === 'initiator' ? trade.initiatorPoints : trade.recipientPoints;
     const theirPoints = youAre === 'initiator' ? trade.recipientPoints : trade.initiatorPoints;

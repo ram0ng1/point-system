@@ -131,12 +131,7 @@ export default class CoverDecorationsPanel extends Component {
 
           <AvailabilityInputs state={this.newAvailability} onchange={(s: any) => (this.newAvailability = s)} />
 
-          <Button
-            className="Button Button--primary"
-            loading={this.uploading}
-            disabled={!this.canSubmitNew()}
-            onclick={() => this.create()}
-          >
+          <Button className="Button Button--primary" loading={this.uploading} disabled={!this.canSubmitNew()} onclick={() => this.create()}>
             {t('upload')}
           </Button>
         </div>

@@ -52,11 +52,7 @@ export default class AvailabilityInputs extends Component {
 
         <div className="Form-group">
           <label>
-            <input
-              type="checkbox"
-              checked={s.isListed !== false}
-              onchange={(e: Event) => set('isListed', (e.target as HTMLInputElement).checked)}
-            />{' '}
+            <input type="checkbox" checked={s.isListed !== false} onchange={(e: Event) => set('isListed', (e.target as HTMLInputElement).checked)} />{' '}
             {t('is_listed')}
           </label>
           <p className="helpText">{t('is_listed_help')}</p>
@@ -134,12 +130,7 @@ export default class AvailabilityInputs extends Component {
                   const label = g.nameSingular?.() || g.namePlural?.() || `Group ${id}`;
                   return (
                     <label className="PointSystemAdmin-groupPicker-row" key={id}>
-                      <input
-                        type="checkbox"
-                        checked={allowed.includes(id)}
-                        onchange={() => toggleGroup(id)}
-                      />{' '}
-                      {label}
+                      <input type="checkbox" checked={allowed.includes(id)} onchange={() => toggleGroup(id)} /> {label}
                     </label>
                   );
                 })}

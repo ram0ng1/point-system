@@ -71,10 +71,13 @@ export default class UserTradesPage extends UserPage {
               <i className="fas fa-handshake" /> {t('title')}
             </h1>
             {canTrade && (
-              <Button className="Button Button--primary" onclick={() => {
-                const StartTradeModal = require('./StartTradeModal').default;
-                app.modal.show(StartTradeModal);
-              }}>
+              <Button
+                className="Button Button--primary"
+                onclick={() => {
+                  const StartTradeModal = require('./StartTradeModal').default;
+                  app.modal.show(StartTradeModal);
+                }}
+              >
                 <i className="fas fa-plus" /> {t('start_new')}
               </Button>
             )}
@@ -107,8 +110,8 @@ export default class UserTradesPage extends UserPage {
     const t = (k: string, v?: any) => app.translator.trans('ramon-point-system.forum.trades_page.' + k, v);
     const youAre = trade.youAre;
     const other = youAre === 'initiator' ? trade.recipient : trade.initiator;
-    const yourItems = trade.items.filter((it: any) =>
-      Number(it.ownerId) === Number(youAre === 'initiator' ? trade.initiator.id : trade.recipient.id)
+    const yourItems = trade.items.filter(
+      (it: any) => Number(it.ownerId) === Number(youAre === 'initiator' ? trade.initiator.id : trade.recipient.id)
     );
     const theirItems = trade.items.filter((it: any) => Number(it.ownerId) === Number(other?.id));
     const yourPoints = youAre === 'initiator' ? trade.initiatorPoints : trade.recipientPoints;
@@ -166,6 +169,10 @@ export default class UserTradesPage extends UserPage {
 
   formatTime(iso?: string | null): string {
     if (!iso) return '';
-    try { return new Date(iso).toLocaleString(); } catch { return ''; }
+    try {
+      return new Date(iso).toLocaleString();
+    } catch {
+      return '';
+    }
   }
 }

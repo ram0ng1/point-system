@@ -147,20 +147,10 @@ export default class PendingSubmissionsPanel extends Component {
                 oninput={(e: Event) => (this.priceDrafts[key] = (e.target as HTMLInputElement).value)}
               />
             </div>
-            <Button
-              className="Button Button--primary"
-              loading={busy === 'approve'}
-              disabled={busy !== null}
-              onclick={() => this.act(it, 'approve')}
-            >
+            <Button className="Button Button--primary" loading={busy === 'approve'} disabled={busy !== null} onclick={() => this.act(it, 'approve')}>
               <i className="fas fa-check" /> {t('approve')}
             </Button>
-            <Button
-              className="Button Button--danger"
-              loading={busy === 'reject'}
-              disabled={busy !== null}
-              onclick={() => this.act(it, 'reject')}
-            >
+            <Button className="Button Button--danger" loading={busy === 'reject'} disabled={busy !== null} onclick={() => this.act(it, 'reject')}>
               <i className="fas fa-times" /> {t('reject')}
             </Button>
           </div>

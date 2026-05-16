@@ -325,7 +325,9 @@ body.ps-hide-badges-with-deco {
 // tablet+, centred trigger button + rounded bottom-sheet on phone.
 .PointSystemShop-nav,
 .PointSystemDecorations-nav {
-  margin: 0 auto 20px;
+  // Breathing room above the nav so the live-preview hero (rendered just
+  // above) doesn't sit flush against the dropdown / pill row.
+  margin: 20px auto;
 
   // ─── Tablet+ : tabs expanded inline (horizontal pill row) ────────────────
   @media @tablet-up {
@@ -784,22 +786,30 @@ body.ps-hide-badges-with-deco {
 // .Post-side` (specificity 0,4,0); we match it here with the same chain
 // (plus the `--fixedAvatar` variant) so `!important` doesn't have to fight
 // source-order ties.
-.Post-side,
-.Post-side--online,
-.CommentPost .Post-side,
-.CommentPost .Post-side--online,
-.CommentPost.CommentPost--fixedAvatar .Post-side,
-.CommentPost.CommentPost--fixedAvatar .Post-side--online,
-.Page.DiscussionPage .CommentPost .Post-side,
-.Page.DiscussionPage .CommentPost .Post-side--online,
-.Page.DiscussionPage .CommentPost.CommentPost--fixedAvatar .Post-side,
-.Page.DiscussionPage .CommentPost.CommentPost--fixedAvatar .Post-side--online {
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: flex-start !important;
-  align-items: center !important;
-  text-align: center;
-  overflow: visible;
+// Scoped to `@tablet-up` ONLY. At phone width, both Avocado and our own
+// mobile rule (below) hide `.Post-side` entirely with `display: none`.
+// If we kept this `display: flex !important` ungated, its higher
+// specificity selector (`.Page.DiscussionPage .CommentPost--fixedAvatar
+// .Post-side`, 0,4,0) would beat the mobile hide (0,3,0) and force the
+// side column visible on phones — the floating duplicate-avatar bug.
+@media (min-width: 768px) {
+  .Post-side,
+  .Post-side--online,
+  .CommentPost .Post-side,
+  .CommentPost .Post-side--online,
+  .CommentPost.CommentPost--fixedAvatar .Post-side,
+  .CommentPost.CommentPost--fixedAvatar .Post-side--online,
+  .Page.DiscussionPage .CommentPost .Post-side,
+  .Page.DiscussionPage .CommentPost .Post-side--online,
+  .Page.DiscussionPage .CommentPost.CommentPost--fixedAvatar .Post-side,
+  .Page.DiscussionPage .CommentPost.CommentPost--fixedAvatar .Post-side--online {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    text-align: center;
+    overflow: visible;
+  }
 }
 
 // The Post-side-inner wrapper Avocado creates as a row holding avatar +
@@ -870,15 +880,51 @@ body.ps-hide-badges-with-deco {
   z-index: 1;
 }
 
-// Avocado wraps the avatar + inline badges in `.Post-side-inner`, then
-// places our title as a sibling below. The default 8px gap reads as
-// "stuck-to-the-avatar" because Avocado already adds its own visual
-// space inside the inner wrapper. Bump to 12-14px specifically when the
-// `.Post-side-inner` sibling is present — i.e., we're inside an Avocado
-// post layout — so the title clearly reads as a separate element.
+// Avocado-specific positioning. Avocado lays `.Post-side` out as a
+// HORIZONTAL byline (e.g. 337×38) — a wide-thin header strip, NOT the
+// 64-wide column default Flarum uses. With our title chip in normal
+// flex flow + `align-items: center`, the chip squeezes into the right
+// edge of that thin strip instead of centering under the avatar.
+//
+// When `.Post-side-inner` is the previous sibling, we KNOW we're inside
+// an Avocado-style layout. Switch the chip to absolute positioning
+// pinned 50% from the left edge of `.Post-side`, then nudge back by
+// half its own width via `translateX(-50%)`. The chip then sits below
+// (or beside) the avatar regardless of how Avocado measures the parent.
+//
+// Requires `.Post-side` to be a positioning context. Avocado already
+// makes it one (position: absolute / sticky), so no override needed.
+// On default Flarum's vertical column layout, `.Post-side-inner` is
+// NOT a sibling and this rule does not match — the default flex flow
+// up above continues to win there.
 .Post-side > .Post-side-inner + .PointSystemUserTitle--inSide,
 .Post-side-inner ~ .PointSystemUserTitle--inSide {
-  margin-top: 14px !important;
+  position: absolute !important;
+  left: 50% !important;
+  // Sit below the inner row. Avocado's byline is roughly `--disc-avatar`
+  // tall; 12px breathing room separates the title from the avatar/badges.
+  top: calc(var(--disc-avatar, 64px) + 12px) !important;
+  transform: translateX(-50%) !important;
+  margin: 0 !important;
+  width: max-content;
+  max-width: 220px;
+  z-index: 5;
+  align-self: auto !important;
+  flex: initial !important;
+}
+
+// Avocado's `.Post-side` collapses to its inner-row height (~38px) — if
+// our absolutely positioned chip lands BELOW that 38px boundary it gets
+// clipped when the parent isn't `overflow: visible`. Re-affirm visibility
+// on the Avocado variants specifically (the earlier rule sets it but we
+// override `position: relative` chain here too).
+.Post-side:has(.Post-side-inner),
+.Post-side--online:has(.Post-side-inner) {
+  overflow: visible !important;
+  // Reserve enough vertical space below the inner row so the chip is
+  // visible without overlapping the next post's content. The chip is
+  // ~22px tall + 12px gap.
+  padding-bottom: 34px;
 }
 
 // ── Header variant (phone) ──────────────────────────────────────────────────
@@ -892,9 +938,10 @@ body.ps-hide-badges-with-deco {
 }
 
 // ── Breakpoint swap ─────────────────────────────────────────────────────────
-// Default: side variant visible, header variant hidden. Below tablet width,
-// the side avatar is hidden by core CSS so the side variant is meaningless;
-// flip visibility there and force the header chip onto its own line.
+// Default: side variant visible (sits below the side-column avatar), header
+// variant hidden. Below tablet width, Avocado/core hide the side avatar so
+// the side variant has no anchor — flip visibility there and force the
+// header chip onto its own line.
 .PointSystemUserTitle--inHeader { display: none; }
 
 @media (max-width: 767px) {
@@ -1013,6 +1060,24 @@ body.ps-hide-badges-with-deco {
 }
 
 // ─── My decorations page ─────────────────────────────────────────────────────
+// Quantity badge appended to the item name when the user owns more than
+// one copy. Claims are stackable since the 2026_05_16_000005 migration —
+// repeat shop purchases, admin grants, or accumulated trades pile units
+// onto a single claim row instead of erroring on the UNIQUE key.
+.PointSystemDecorations-item-quantity {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--ps-surface-muted, rgba(0, 0, 0, 0.06));
+  color: var(--ps-text-muted, #6b7280);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
 .PointSystemDecorations {
   padding: 24px 0;
 
@@ -1396,15 +1461,22 @@ body.ps-hide-badges-with-deco {
   &-itemChip {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     background: var(--ps-surface-muted);
-    border-radius: 999px;
-    padding: 4px 10px 4px 4px;
+    border-radius: 14px;
+    // Generous vertical padding so the avatar-decoration frame (extending
+    // ~10% above and below the avatar disc) is fully contained within the
+    // chip bounds — no clipped Coffee-mug handle escaping the bottom edge.
+    padding: 10px 14px 10px 10px;
     font-size: 12.5px;
     line-height: 1.2;
+    // Don't lock to one row — let the preview's natural width breathe.
+    // Chips wrap to the next row when they exceed the panel width.
+    flex: 0 0 auto;
+    max-width: 100%;
 
     &-name {
-      max-width: 120px;
+      max-width: 160px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -1426,18 +1498,10 @@ body.ps-hide-badges-with-deco {
     }
   }
 
-  &-itemThumb {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    object-fit: cover;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    flex: 0 0 28px;
-    background: var(--body-bg);
-  }
+  // (legacy 28×28 circle rule removed — the new per-type preview shapes
+  // in `.PointSystemTradeModal-itemThumb--avatar/-cover/-name/-postHl`
+  // below would otherwise be clamped here. Each shape carries its own
+  // sizing so the preview renders at its natural realistic size.)
 
   &-addItem {
     margin: 8px 0;
@@ -2145,6 +2209,119 @@ body.ps-hide-badges-with-deco {
   }
 }
 
+// Trade-item thumbnail previews. Each preview renders the decoration with
+// the actual owner's profile data (avatar URL, display name) so the user
+// sees exactly how the item will look once it's on the recipient's
+// account. Shapes:
+//
+//   --avatar : circular avatar with decoration frame overlay
+//   --cover  : wide banner with a small avatar inset (mini-hero)
+//   --name   : inline-flex pill carrying the owner's display name
+//              styled with the decoration's CSS class
+//   --postHl : owner's display name in a small post-highlight-styled box
+//
+// All variants share a baseline 36px height so the chips align cleanly
+// in the items row.
+.PointSystemTradeModal-itemThumb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  height: 36px;
+  min-width: 36px;
+  max-width: 160px;
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+
+  &--avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    position: relative;
+    overflow: visible; // let the frame overflow the avatar disc
+
+    > .Avatar {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      display: block;
+    }
+
+    // Reset the BASE rule's `width: 132%; top: -16%` (less/forum.less:305)
+    // — without `width: auto; height: auto`, CSS picks the explicit `width`
+    // over our `inset` and the deco renders at its default oversized
+    // size, visibly overflowing the chip's bottom edge. With width/height
+    // forced to `auto` the inset values become authoritative and the
+    // deco fits the chip's padding allowance.
+    > .ps-avatar-deco {
+      position: absolute !important;
+      top: -10% !important;
+      left: -10% !important;
+      right: -10% !important;
+      bottom: -10% !important;
+      width: auto !important;
+      height: auto !important;
+      background-size: contain;
+      background-position: center;
+      background-repeat: no-repeat;
+      pointer-events: none;
+      border-radius: inherit;
+    }
+  }
+
+  &-avatarFallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: var(--ps-surface-muted, rgba(0, 0, 0, 0.08));
+    color: var(--ps-text, #111827);
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  &--cover {
+    width: 72px;
+    height: 36px;
+    border-radius: 6px;
+    background-color: var(--ps-surface-muted, rgba(0, 0, 0, 0.08));
+    position: relative;
+  }
+
+  &-coverAvatar {
+    position: absolute;
+    left: 4px;
+    bottom: 4px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    object-fit: cover;
+  }
+
+  &--name {
+    padding: 4px 10px;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &--postHl {
+    padding: 4px 10px;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: var(--ps-surface-muted, rgba(0, 0, 0, 0.04));
+  }
+}
+
 .PointSystemTradeModal-banner {
   font-weight: 600;
   letter-spacing: -0.005em;
@@ -2377,6 +2554,86 @@ body.ps-hide-badges-with-deco {
   font-size: 13px;
 }
 
+// Autocomplete typeahead for the new-trade username picker. Mirrors the
+// `@`-mention typeahead UX: a list of avatar + name candidates appears
+// below the input as the actor types, click or arrow-keys + Enter to pick.
+//
+// The list is rendered in NORMAL FLOW (not `position: absolute`) so the
+// modal-body grows / scrolls to fit instead of clipping the list at its
+// bottom edge. Core's `.Modal-content` has `overflow: hidden` (for the
+// open/close transform animation), and our previously-absolute dropdown
+// was getting cropped against that boundary on small modals.
+.PointSystemStartTradeModal-search {
+  position: relative;
+}
+
+.PointSystemStartTradeModal-suggestions {
+  margin-top: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--ps-surface, #fff);
+  border: 1px solid var(--ps-border, #e6e6e9);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  padding: 4px;
+}
+
+.PointSystemStartTradeModal-suggestionEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  color: var(--ps-text-muted, #6b7280);
+  font-size: 13px;
+}
+
+.PointSystemStartTradeModal-suggestion {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: background-color 80ms ease;
+
+  &:hover,
+  &.is-highlight {
+    background: var(--ps-surface-muted, rgba(0, 0, 0, 0.04));
+  }
+}
+
+.PointSystemStartTradeModal-suggestionAvatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex: 0 0 28px;
+}
+
+.PointSystemStartTradeModal-suggestionText {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+
+  strong { font-size: 14px; }
+  small {
+    color: var(--ps-text-muted, #6b7280);
+    font-size: 12px;
+  }
+}
+
+.PointSystemStartTradeModal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Live profile preview on /decorations
@@ -2535,17 +2792,22 @@ body.ps-hide-badges-with-deco {
 //    breathable.
 // ──────────────────────────────────────────────────────────────────────────────
 @media (max-width: 767px) {
-  // Hiding .Post-side-inner alone leaves the parent `.Post-side` with its
-  // `display: flex !important; flex-direction: column` rule still reserving
-  // a full row of vertical space (the empty 515×82 box visible in DevTools).
-  // Collapse the whole side column on phone — the inline avatar inside
-  // `PostUser-name` is the single representation we want.
-  .Post-side,
-  .Post-side--online,
+  // Collapse the side column entirely on phone — the inline avatar inside
+  // `.PostUser-name` is the single representation we want. Specificity
+  // matches the highest selector in the flex-column rule above
+  // (`.Page.DiscussionPage .CommentPost.CommentPost--fixedAvatar .Post-side`
+  // = 0,4,0) so source order decides the tie: this rule lives later in
+  // the file, so the hide wins regardless of cascade weight.
+  .Page.DiscussionPage .CommentPost .Post-side,
+  .Page.DiscussionPage .CommentPost .Post-side--online,
+  .Page.DiscussionPage .CommentPost.CommentPost--fixedAvatar .Post-side,
+  .Page.DiscussionPage .CommentPost.CommentPost--fixedAvatar .Post-side--online,
   .CommentPost .Post-side,
   .CommentPost .Post-side--online,
   .CommentPost.CommentPost--fixedAvatar .Post-side,
-  .CommentPost.CommentPost--fixedAvatar .Post-side--online {
+  .CommentPost.CommentPost--fixedAvatar .Post-side--online,
+  .Post-side,
+  .Post-side--online {
     display: none !important;
   }
 
@@ -2575,14 +2837,17 @@ body.ps-hide-badges-with-deco {
 // Mobile is already covered (we collapse `.Post-side` entirely below 768px),
 // so we scope this rule to >=768px to keep mobile rendering untouched.
 // ──────────────────────────────────────────────────────────────────────────────
-@media (min-width: 768px) {
-  .CommentPost:has(.Post-side) .PostUser-name > .Avatar,
-  .CommentPost:has(.Post-side) > .Post-header .PostUser > .Avatar,
-  .CommentPost:has(.Post-side) > .Post-header .PostUser-name .Avatar:not(.Post-avatar),
-  .CommentPost:has(.Post-side) .PostUser-badges:not(.PointSystemPostBadge):not(.PostUser-badges--inSide) {
-    display: none !important;
-  }
-}
+// Avocado's own `.Page.DiscussionPage .PostUser-name .Avatar
+// { display: none !important }` rule (DiscussionPage.less:638-644 at
+// `@tablet-up`) is the source of truth for the inline-byline-vs-Post-side
+// duplicate avatar question. We deliberately do NOT add competing rules
+// here — every previous override I tried (hiding inline, hiding Post-side,
+// inverting selectors) ended up fighting Avocado's cascade instead of
+// letting it do its job.
+//
+// All we do for the inline `.PostUser-badges` is keep the non-`--inSide`
+// modifier hidden so a non-Avocado-aware theme still doesn't render the
+// row twice. Avocado already handles this for its own layout.
 
 
 // ──────────────────────────────────────────────────────────────────────────────

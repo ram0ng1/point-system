@@ -426,7 +426,15 @@ function injectNameDecorationStyles(): void {
     // the wrapper, avatar or badges). User-authored custom CSS for these
     // selectors should win the cascade against theme rules, so we append
     // `!important` to every property of the raw input below.
-    const selectors = `.ps-name-preview.ps-name-${cls},` + `.ps-name-${cls} .username,` + `.username.ps-name-${cls},` + `a.ps-name-${cls}`;
+    //
+    // The descendant selector `.ps-name-${cls} .username` would normally
+    // also match usernames of OTHER users rendered inside the post —
+    // notably `.Post-likedBy .username` ("Ramon liked this") and quoted
+    // content. Exclude those via `:not(.Post-likedBy *)` etc. so the
+    // current actor's name decoration doesn't bleed onto unrelated
+    // usernames embedded in the post body.
+    const inDescendant = `.ps-name-${cls} .username:not(.Post-likedBy *):not(.Post-mentionedBy *):not(blockquote *):not(.UserMention *)`;
+    const selectors = `.ps-name-preview.ps-name-${cls},` + `${inDescendant},` + `.username.ps-name-${cls},` + `a.ps-name-${cls}`;
     const css = String(d.customCss).trim();
 
     if (css.includes('{')) {

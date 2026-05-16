@@ -69,21 +69,11 @@ export default class AvatarDecorationsPanel extends Component {
             <label>{t('source_label')}</label>
             <div className="PointSystemAdmin-sourceTabs">
               <label>
-                <input
-                  type="radio"
-                  name="ps-avatar-source"
-                  checked={this.source === SOURCE_FILE}
-                  onchange={() => (this.source = SOURCE_FILE)}
-                />{' '}
+                <input type="radio" name="ps-avatar-source" checked={this.source === SOURCE_FILE} onchange={() => (this.source = SOURCE_FILE)} />{' '}
                 {t('source_file')}
               </label>
               <label>
-                <input
-                  type="radio"
-                  name="ps-avatar-source"
-                  checked={this.source === SOURCE_URL}
-                  onchange={() => (this.source = SOURCE_URL)}
-                />{' '}
+                <input type="radio" name="ps-avatar-source" checked={this.source === SOURCE_URL} onchange={() => (this.source = SOURCE_URL)} />{' '}
                 {t('source_url')}
               </label>
             </div>
@@ -141,12 +131,7 @@ export default class AvatarDecorationsPanel extends Component {
 
           <AvailabilityInputs state={this.newAvailability} onchange={(s: any) => (this.newAvailability = s)} />
 
-          <Button
-            className="Button Button--primary"
-            loading={this.uploading}
-            disabled={!this.canSubmitNew()}
-            onclick={() => this.create()}
-          >
+          <Button className="Button Button--primary" loading={this.uploading} disabled={!this.canSubmitNew()} onclick={() => this.create()}>
             {t('upload')}
           </Button>
         </div>

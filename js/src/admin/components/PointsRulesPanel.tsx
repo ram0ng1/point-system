@@ -100,7 +100,8 @@ export default class PointsRulesPanel extends Component {
           </Button>
           {Object.keys(this.dirty).length > 0 && (
             <span className="PointSystemAdmin-dirty">
-              <i className="fas fa-circle" /> {app.translator.trans('ramon-point-system.admin.rules.unsaved', { count: Object.keys(this.dirty).length })}
+              <i className="fas fa-circle" />{' '}
+              {app.translator.trans('ramon-point-system.admin.rules.unsaved', { count: Object.keys(this.dirty).length })}
             </span>
           )}
         </div>
