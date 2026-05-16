@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
 use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Model\PostHighlightDecoration;
 use Ramon\PointSystem\Model\ShopClaim;
+use Ramon\PointSystem\Support\CssSanitizer;
 
 /**
  * @extends AbstractDatabaseResource<PostHighlightDecoration>
@@ -158,7 +159,7 @@ class PostHighlightDecorationResource extends AbstractDatabaseResource
 
         if (array_key_exists('customCss', $attrs)) {
             $deco->custom_css = $attrs['customCss'] !== null
-                ? $this->sanitizeCss((string) $attrs['customCss'])
+                ? CssSanitizer::sanitize((string) $attrs['customCss'])
                 : null;
         }
 
@@ -171,39 +172,6 @@ class PostHighlightDecorationResource extends AbstractDatabaseResource
         if (isset($attrs['sort'])) {
             $deco->sort = (int) $attrs['sort'];
         }
-    }
-
-    /**
-     * Same sanitization profile as NameDecorationResource::sanitizeCss.
-     * See that method for the rationale on each pass.
-     */
-    protected function sanitizeCss(string $css): string
-    {
-        $css = mb_substr($css, 0, 4000);
-        $css = preg_replace_callback(
-            '/\\\\([0-9a-fA-F]{1,6})\s?/',
-            fn ($m) => chr(hexdec($m[1]) & 0x7f),
-            $css,
-        );
-        $css = preg_replace('#</\s*style#i', '', $css);
-        $css = preg_replace('#<\s*script#i', '', $css);
-        $css = preg_replace('#expression\s*\(#i', '', $css);
-        $css = preg_replace('#behavior\s*:#i', '', $css);
-        $css = preg_replace('#-moz-binding\s*:#i', '', $css);
-        $css = preg_replace('#url\s*\(\s*[\'"]?\s*javascript:#i', 'url(', $css);
-        $css = preg_replace('#url\s*\(\s*[\'"]?\s*data:#i', 'url(', $css);
-        $css = preg_replace('#position\s*:\s*fixed#i', 'position:static', $css);
-        $css = preg_replace('#position\s*:\s*sticky#i', 'position:static', $css);
-        $css = preg_replace('#display\s*:\s*none#i', '', $css);
-        $css = preg_replace_callback(
-            '/@-?(?:webkit-|moz-|ms-|o-)?([a-zA-Z][a-zA-Z0-9_-]*)/i',
-            function ($m) {
-                $name = strtolower($m[1]);
-                return $name === 'keyframes' ? $m[0] : '';
-            },
-            $css,
-        );
-        return (string) $css;
     }
 
     protected function uniqueSlug(string $name): string

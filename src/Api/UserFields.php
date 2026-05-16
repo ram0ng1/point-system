@@ -14,9 +14,37 @@ use Ramon\PointSystem\Model\PostHighlightDecoration;
 use Ramon\PointSystem\Model\ShopClaim;
 use Ramon\PointSystem\Model\TitleDecoration;
 use Ramon\PointSystem\Model\UserPoints;
+use WeakMap;
 
 class UserFields
 {
+    /**
+     * Per-User memoization of the points row. Each user serialized triggers up
+     * to 14 field getters and another batch of decoration lookups; without
+     * this cache every getter would hit the DB independently. WeakMap drops
+     * entries as soon as the User instance is garbage-collected, so it doesn't
+     * leak across requests in long-running workers (queue, octane).
+     *
+     * @var WeakMap<User, ?UserPoints>
+     */
+    protected WeakMap $pointsCache;
+
+    /**
+     * Per-User memoization for the four single-decoration lookups (avatar,
+     * name, title, cover, post-highlight) keyed by `{type}:{id}`. Most users
+     * have at most one equipped item per type, so each user contributes ~0-5
+     * entries.
+     *
+     * @var WeakMap<User, array<string, AvatarDecoration|NameDecoration|CoverDecoration|TitleDecoration|PostHighlightDecoration|null>>
+     */
+    protected WeakMap $decorationCache;
+
+    public function __construct()
+    {
+        $this->pointsCache = new WeakMap();
+        $this->decorationCache = new WeakMap();
+    }
+
     public function __invoke(): array
     {
         return [
@@ -35,15 +63,12 @@ class UserFields
             Schema\Str::make('equippedAvatarDecorationUrl')
                 ->nullable()
                 ->get(function (User $user): ?string {
-                    $p = $this->points($user);
-                    if (! $p || ! $p->current_avatar_decoration_id) {
+                    $id = $this->points($user)?->current_avatar_decoration_id;
+                    if (! $id) {
                         return null;
                     }
-                    $deco = AvatarDecoration::find($p->current_avatar_decoration_id);
-                    if (! $deco) {
-                        return null;
-                    }
-                    return $deco->image_path;
+                    $deco = $this->decoration($user, AvatarDecoration::class, $id);
+                    return $deco?->image_path;
                 }),
 
             Schema\Integer::make('equippedNameDecorationId')
@@ -53,12 +78,11 @@ class UserFields
             Schema\Str::make('equippedNameDecorationSlug')
                 ->nullable()
                 ->get(function (User $user): ?string {
-                    $p = $this->points($user);
-                    if (! $p || ! $p->current_name_decoration_id) {
+                    $id = $this->points($user)?->current_name_decoration_id;
+                    if (! $id) {
                         return null;
                     }
-                    $deco = NameDecoration::find($p->current_name_decoration_id);
-                    return $deco?->slug;
+                    return $this->decoration($user, NameDecoration::class, $id)?->slug;
                 }),
 
             Schema\Integer::make('equippedCoverDecorationId')
@@ -68,12 +92,11 @@ class UserFields
             Schema\Str::make('equippedCoverDecorationUrl')
                 ->nullable()
                 ->get(function (User $user): ?string {
-                    $p = $this->points($user);
-                    if (! $p || ! $p->current_cover_decoration_id) {
+                    $id = $this->points($user)?->current_cover_decoration_id;
+                    if (! $id) {
                         return null;
                     }
-                    $deco = CoverDecoration::find($p->current_cover_decoration_id);
-                    return $deco?->image_path;
+                    return $this->decoration($user, CoverDecoration::class, $id)?->image_path;
                 }),
 
             Schema\Integer::make('equippedTitleDecorationId')
@@ -83,21 +106,21 @@ class UserFields
             Schema\Str::make('equippedTitleDecorationSlug')
                 ->nullable()
                 ->get(function (User $user): ?string {
-                    $p = $this->points($user);
-                    if (! $p || ! $p->current_title_decoration_id) {
+                    $id = $this->points($user)?->current_title_decoration_id;
+                    if (! $id) {
                         return null;
                     }
-                    return TitleDecoration::find($p->current_title_decoration_id)?->slug;
+                    return $this->decoration($user, TitleDecoration::class, $id)?->slug;
                 }),
 
             Schema\Str::make('equippedTitleDecorationText')
                 ->nullable()
                 ->get(function (User $user): ?string {
-                    $p = $this->points($user);
-                    if (! $p || ! $p->current_title_decoration_id) {
+                    $id = $this->points($user)?->current_title_decoration_id;
+                    if (! $id) {
                         return null;
                     }
-                    return TitleDecoration::find($p->current_title_decoration_id)?->title_text;
+                    return $this->decoration($user, TitleDecoration::class, $id)?->title_text;
                 }),
 
             Schema\Integer::make('equippedPostHighlightDecorationId')
@@ -107,11 +130,11 @@ class UserFields
             Schema\Str::make('equippedPostHighlightDecorationSlug')
                 ->nullable()
                 ->get(function (User $user): ?string {
-                    $p = $this->points($user);
-                    if (! $p || ! $p->current_post_hl_decoration_id) {
+                    $id = $this->points($user)?->current_post_hl_decoration_id;
+                    if (! $id) {
                         return null;
                     }
-                    return PostHighlightDecoration::find($p->current_post_hl_decoration_id)?->slug;
+                    return $this->decoration($user, PostHighlightDecoration::class, $id)?->slug;
                 }),
 
             Schema\Arr::make('ownedDecorationIds')
@@ -128,14 +151,45 @@ class UserFields
     }
 
     /**
-     * Read-side accessor — never writes. The first-time row creation lives in
-     * the {@see \Ramon\PointSystem\Listener\InitUserPoints} listener that fires
-     * on {@see \Flarum\User\Event\Registered}, so a missing row here just means
-     * the user pre-dates the extension; callers treat null as "balance = 0".
+     * Read-side accessor — never writes. Memoized per-User via WeakMap so the
+     * 14 field getters serialized per user fire a single SELECT instead of
+     * 14. The first-time row creation lives in {@see \Ramon\PointSystem\Listener\InitUserPoints}
+     * that fires on {@see \Flarum\User\Event\Registered}, so a missing row
+     * here just means the user pre-dates the extension; callers treat null
+     * as "balance = 0".
      */
     protected function points(User $user): ?UserPoints
     {
-        return UserPoints::where('user_id', $user->id)->first();
+        // Use offsetExists (not isset) — isset returns false for stored nulls,
+        // and users that pre-date the extension legitimately have a null row,
+        // which we must cache to avoid hitting the DB on every field getter.
+        if (! $this->pointsCache->offsetExists($user)) {
+            $this->pointsCache[$user] = UserPoints::where('user_id', $user->id)->first();
+        }
+        return $this->pointsCache[$user];
+    }
+
+    /**
+     * Memoized single-decoration lookup. The five equipped-decoration fields
+     * resolve their FK to either a slug, title text, or image path; the same
+     * row is reused across multiple getters (slug + title text on TitleDeco).
+     * Cache scope is per-User instance so concurrent serializations don't
+     * cross-pollute, but two getters touching the same row on the same user
+     * collapse to one SELECT.
+     *
+     * @template T of \Flarum\Database\AbstractModel
+     * @param  class-string<T>  $class
+     * @return T|null
+     */
+    protected function decoration(User $user, string $class, int $id)
+    {
+        $key = $class.':'.$id;
+        $entries = $this->decorationCache[$user] ?? [];
+        if (! array_key_exists($key, $entries)) {
+            $entries[$key] = $class::find($id);
+            $this->decorationCache[$user] = $entries;
+        }
+        return $entries[$key];
     }
 
     /**

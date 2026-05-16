@@ -1,12 +1,14 @@
-// @ts-nocheck
 import app from 'flarum/forum/app';
 import Page from 'flarum/common/components/Page';
-import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import Button from 'flarum/common/components/Button';
 import Tooltip from 'flarum/common/components/Tooltip';
 import LinkButton from 'flarum/common/components/LinkButton';
 import SelectDropdown from 'flarum/common/components/SelectDropdown';
+import type Mithril from 'mithril';
+import type User from 'flarum/common/models/User';
 import ConfirmPurchaseModal from './ConfirmPurchaseModal';
+
+declare const m: Mithril.Static;
 
 interface ShopItem {
   id: number;

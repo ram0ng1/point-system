@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
 use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Model\NameDecoration;
 use Ramon\PointSystem\Model\ShopClaim;
+use Ramon\PointSystem\Support\CssSanitizer;
 
 /**
  * @extends AbstractDatabaseResource<NameDecoration>
@@ -171,7 +172,7 @@ class NameDecorationResource extends AbstractDatabaseResource
 
         if (array_key_exists('customCss', $attrs)) {
             $deco->custom_css = $attrs['customCss'] !== null
-                ? $this->sanitizeCss((string) $attrs['customCss'])
+                ? CssSanitizer::sanitize((string) $attrs['customCss'])
                 : null;
         }
 
@@ -184,63 +185,6 @@ class NameDecorationResource extends AbstractDatabaseResource
         if (isset($attrs['sort'])) {
             $deco->sort = (int) $attrs['sort'];
         }
-    }
-
-    /**
-     * Strip anything that could escape the CSS context or weaponize the
-     * stylesheet for social-engineering (full-page overlays, hiding chrome).
-     * This content is injected into a <style> block on every page — a single
-     * `</style><script>...` bypass would be RCE-grade.
-     *
-     * Strategy:
-     *   1. Cap length.
-     *   2. Normalize CSS hex escapes (`\69mport` → `import`) so the rest of
-     *      the regex blocklist can't be bypassed by escape encoding.
-     *   3. Strip the obvious markup-break and script-eval primitives.
-     *   4. Block `position: fixed/sticky` and `display: none` on broad
-     *      selectors — those are the building blocks of overlay phishing.
-     *   5. Drop @-rules other than the explicitly-allowed `@keyframes` /
-     *      `@-webkit-keyframes`. Kills `@import`, `@charset`, `@namespace`,
-     *      `@font-face` (which can leak via download URL), etc.
-     */
-    protected function sanitizeCss(string $css): string
-    {
-        $css = mb_substr($css, 0, 4000);
-
-        // Decode CSS hex escapes (`\69`, `\0069`, etc.) so the blocklist below
-        // sees the literal characters and can't be bypassed by encoding.
-        $css = preg_replace_callback(
-            '/\\\\([0-9a-fA-F]{1,6})\s?/',
-            fn ($m) => chr(hexdec($m[1]) & 0x7f),
-            $css,
-        );
-
-        // Markup escape + JS-eval primitives.
-        $css = preg_replace('#</\s*style#i', '', $css);
-        $css = preg_replace('#<\s*script#i', '', $css);
-        $css = preg_replace('#expression\s*\(#i', '', $css);
-        $css = preg_replace('#behavior\s*:#i', '', $css);
-        $css = preg_replace('#-moz-binding\s*:#i', '', $css);
-        $css = preg_replace('#url\s*\(\s*[\'"]?\s*javascript:#i', 'url(', $css);
-        $css = preg_replace('#url\s*\(\s*[\'"]?\s*data:#i', 'url(', $css);
-
-        // Block overlay primitives (full-page positioning + display:none).
-        // These can hide the forum UI behind a fake login form, etc.
-        $css = preg_replace('#position\s*:\s*fixed#i', 'position:static', $css);
-        $css = preg_replace('#position\s*:\s*sticky#i', 'position:static', $css);
-        $css = preg_replace('#display\s*:\s*none#i', '', $css);
-
-        // Drop any @-rule that isn't @keyframes / @-webkit-keyframes.
-        $css = preg_replace_callback(
-            '/@-?(?:webkit-|moz-|ms-|o-)?([a-zA-Z][a-zA-Z0-9_-]*)/i',
-            function ($m) {
-                $name = strtolower($m[1]);
-                return $name === 'keyframes' ? $m[0] : '';
-            },
-            $css,
-        );
-
-        return (string) $css;
     }
 
     protected function uniqueSlug(string $name): string
