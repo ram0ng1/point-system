@@ -18,6 +18,7 @@ interface ShopItem {
   price: number;
   // avatar / cover specific
   imagePath?: string;
+  imageUrl?: string;
   isAnimated?: boolean;
   // name / title / post-hl specific
   slug?: string;
@@ -26,6 +27,14 @@ interface ShopItem {
   // title specific
   titleText?: string;
   color?: string | null;
+  // availability (added 2026-05-16)
+  isEnabled?: boolean;
+  isAvailable?: boolean;
+  maxClaims?: number | null;
+  claimCount?: number;
+  availableFrom?: string | null;
+  availableUntil?: string | null;
+  isListed?: boolean;
 }
 
 type ShopTab = 'avatar' | 'name' | 'cover' | 'title' | 'post-hl' | 'tiers';
@@ -52,7 +61,18 @@ export default class ShopPage extends Page {
   get tab(): ShopTab {
     const raw = m.route.param('tab');
     const valid: ShopTab[] = ['avatar', 'name', 'cover', 'title', 'post-hl', 'tiers'];
-    return (valid as string[]).includes(raw) ? (raw as ShopTab) : 'avatar';
+    if ((valid as string[]).includes(raw)) return raw as ShopTab;
+
+    // Bare /rewards → pick the first enabled family so the user lands on
+    // a populated tab instead of an empty "avatar" page that admins
+    // disabled. Master toggles flip each family on/off independently.
+    const attr = (k: string) => app.forum.attribute(k) !== false;
+    if (attr('pointSystem.avatar_deco_enabled')) return 'avatar';
+    if (attr('pointSystem.name_deco_enabled')) return 'name';
+    if (attr('pointSystem.cover_deco_enabled')) return 'cover';
+    if (attr('pointSystem.title_deco_enabled')) return 'title';
+    if (attr('pointSystem.post_hl_deco_enabled')) return 'post-hl';
+    return 'tiers';
   }
 
   oninit(vnode: any) {
@@ -90,6 +110,8 @@ export default class ShopPage extends Page {
                 ? this.postHlItems()
                 : [];
     const tiers = (app.forum.attribute('pointSystemGroupOffers') as any[]) || [];
+    const avatarEnabled = app.forum.attribute('pointSystem.avatar_deco_enabled') !== false;
+    const nameEnabled = app.forum.attribute('pointSystem.name_deco_enabled') !== false;
     const coverEnabled = app.forum.attribute('pointSystem.cover_deco_enabled') !== false;
     const titleEnabled = app.forum.attribute('pointSystem.title_deco_enabled') !== false;
     const postHlEnabled = app.forum.attribute('pointSystem.post_hl_deco_enabled') !== false;
@@ -126,11 +148,11 @@ export default class ShopPage extends Page {
 
         <nav className="PointSystemShop-nav container">
           <SelectDropdown
-            className="PointSystemShop-nav-select App-titleControl"
+            className="PointSystemShop-nav-select"
             buttonClassName="Button"
             accessibleToggleLabel={app.translator.trans('ramon-point-system.forum.shop.toggle_nav_label')}
           >
-            {this.navItems(coverEnabled, titleEnabled, postHlEnabled, tiers.length > 0)}
+            {this.navItems(avatarEnabled, nameEnabled, coverEnabled, titleEnabled, postHlEnabled, tiers.length > 0)}
           </SelectDropdown>
         </nav>
 
@@ -149,7 +171,7 @@ export default class ShopPage extends Page {
     );
   }
 
-  navItems(coverEnabled: boolean, titleEnabled: boolean, postHlEnabled: boolean, hasTiers: boolean) {
+  navItems(avatarEnabled: boolean, nameEnabled: boolean, coverEnabled: boolean, titleEnabled: boolean, postHlEnabled: boolean, hasTiers: boolean) {
     // Bind explicitly — destructuring `app.translator.trans` loses the `this`
     // reference and trips `preprocessTranslation` on the default theme.
     const t = app.translator.trans.bind(app.translator);
@@ -166,8 +188,8 @@ export default class ShopPage extends Page {
     };
 
     return [
-      item('avatar', 'fas fa-user-circle', t('ramon-point-system.forum.shop.tab_avatar') as string),
-      item('name', 'fas fa-font', t('ramon-point-system.forum.shop.tab_name') as string),
+      avatarEnabled ? item('avatar', 'fas fa-user-circle', t('ramon-point-system.forum.shop.tab_avatar') as string) : null,
+      nameEnabled ? item('name', 'fas fa-font', t('ramon-point-system.forum.shop.tab_name') as string) : null,
       coverEnabled ? item('cover', 'fas fa-image', t('ramon-point-system.forum.shop.tab_cover') as string) : null,
       titleEnabled ? item('title', 'fas fa-id-badge', t('ramon-point-system.forum.shop.tab_title') as string) : null,
       postHlEnabled ? item('post-hl', 'fas fa-highlighter', t('ramon-point-system.forum.shop.tab_post_hl') as string) : null,
@@ -309,18 +331,34 @@ export default class ShopPage extends Page {
   }
 
   coverItems(): ShopItem[] {
-    const raw = (app.forum.attribute('pointSystemCoverDecorations') as any[]) || [];
-    return raw.map((d) => ({ ...d, type: 'cover_decoration' as const }));
+    return this.shoppable('pointSystemCoverDecorations', 'cover_decoration');
   }
 
   titleItems(): ShopItem[] {
-    const raw = (app.forum.attribute('pointSystemTitleDecorations') as any[]) || [];
-    return raw.map((d) => ({ ...d, type: 'title_decoration' as const }));
+    return this.shoppable('pointSystemTitleDecorations', 'title_decoration');
   }
 
   postHlItems(): ShopItem[] {
-    const raw = (app.forum.attribute('pointSystemPostHighlightDecorations') as any[]) || [];
-    return raw.map((d) => ({ ...d, type: 'post_highlight_decoration' as const }));
+    return this.shoppable('pointSystemPostHighlightDecorations', 'post_highlight_decoration');
+  }
+
+  // Shop tabs only render items the user could conceivably buy right now:
+  // - isAvailable === false items (disabled / expired / sold-out / wrong group)
+  //   stay in the payload because the user MIGHT own them and need them on
+  //   the My Decorations page — but the shop grid filters them out so they
+  //   don't appear as "buyable".
+  // - Items the user already owns DO stay visible (rendered as "Equipped" or
+  //   "Equip" CTAs) so they can reach the equip flow from the shop tab.
+  private shoppable(attribute: string, type: ShopItem['type']): ShopItem[] {
+    const raw = (app.forum.attribute(attribute) as any[]) || [];
+    return raw
+      .filter((d) => d.isAvailable !== false || this.userOwnsId(type, d.id))
+      .map((d) => ({ ...d, type }));
+  }
+
+  private userOwnsId(type: string, id: number | string): boolean {
+    const list = (app.session.user?.attribute('ownedDecorationIds') as any[]) || [];
+    return list.some((o) => o.type === type && Number(o.id) === Number(id));
   }
 
   renderCard(item: ShopItem) {
@@ -331,6 +369,7 @@ export default class ShopPage extends Page {
     const canAfford = balance >= item.price;
     const claimKey = `${item.type}:${item.id}`;
     const isClaiming = this.claiming.has(claimKey);
+    const badges = this.availabilityBadges(item);
 
     const cardCls = [
       'PointSystemShop-card',
@@ -349,6 +388,7 @@ export default class ShopPage extends Page {
             <i className="fas fa-check-circle" /> {app.translator.trans('ramon-point-system.forum.shop.equipped_label')}
           </div>
         )}
+        {badges.length > 0 && <div className="PointSystemShop-card-badges">{badges}</div>}
 
         <div className="PointSystemShop-card-preview">
           {item.type === 'avatar_decoration'
@@ -365,6 +405,26 @@ export default class ShopPage extends Page {
         <div className="PointSystemShop-card-body">
           <h3 className="PointSystemShop-card-title">{item.name}</h3>
           {item.description && <p className="PointSystemShop-card-desc">{item.description}</p>}
+          {(item as any).creatorUsername && (
+            <a
+              className="PointSystemShop-card-creator"
+              href={app.route.user({ slug: (item as any).creatorUsername })}
+              title={app.translator.trans('ramon-point-system.forum.shop.creator_tooltip', { name: (item as any).creatorDisplayName || (item as any).creatorUsername }) as string}
+            >
+              {(item as any).creatorAvatarUrl ? (
+                <img className="PointSystemShop-card-creatorAvatar" src={(item as any).creatorAvatarUrl} alt="" />
+              ) : (
+                <span className="PointSystemShop-card-creatorAvatar PointSystemShop-card-creatorAvatar--placeholder">
+                  <i className="fas fa-user" />
+                </span>
+              )}
+              <span>
+                {app.translator.trans('ramon-point-system.forum.shop.by_creator', {
+                  name: (item as any).creatorDisplayName || (item as any).creatorUsername,
+                })}
+              </span>
+            </a>
+          )}
           <div className="PointSystemShop-card-price">
             <i className={(app.forum.attribute('pointSystem.currency_icon') as string) || 'fas fa-coins'} />
             <strong>{item.price.toLocaleString()}</strong>
@@ -423,7 +483,8 @@ export default class ShopPage extends Page {
   }
 
   previewAvatar(item: ShopItem) {
-    const url = item.imagePath ? this.resolveAsset(item.imagePath) : '';
+    const src = item.imageUrl || item.imagePath || '';
+    const url = src ? this.resolveAsset(src) : '';
     const userAvatarUrl = app.session.user?.avatarUrl?.();
     return (
       <div className="PointSystemShop-avatarPreview">
@@ -440,7 +501,8 @@ export default class ShopPage extends Page {
   }
 
   previewCover(item: ShopItem) {
-    const url = item.imagePath ? this.resolveAsset(item.imagePath) : '';
+    const src = item.imageUrl || item.imagePath || '';
+    const url = src ? this.resolveAsset(src) : '';
     return (
       <div className="PointSystemShop-coverPreview">
         {url ? <img src={url} alt={item.name} /> : <div className="PointSystemShop-coverPreview-empty" />}
@@ -488,18 +550,67 @@ export default class ShopPage extends Page {
   }
 
   avatarItems(): ShopItem[] {
-    const raw = (app.forum.attribute('pointSystemAvatarDecorations') as any[]) || [];
-    return raw.map((d) => ({ ...d, type: 'avatar_decoration' as const }));
+    return this.shoppable('pointSystemAvatarDecorations', 'avatar_decoration');
   }
 
   nameItems(): ShopItem[] {
-    const raw = (app.forum.attribute('pointSystemNameDecorations') as any[]) || [];
-    return raw.map((d) => ({ ...d, type: 'name_decoration' as const }));
+    return this.shoppable('pointSystemNameDecorations', 'name_decoration');
   }
 
   userOwns(item: ShopItem): boolean {
     const list = (app.session.user?.attribute('ownedDecorationIds') as any[]) || [];
     return list.some((o) => o.type === item.type && Number(o.id) === Number(item.id));
+  }
+
+  // Build "limited stock" + "time-limited" badges for a shop card. Items the
+  // user already owns skip these — the badges are buyer-facing context, not
+  // owner-facing. Disabled items also skip (the card is rendered for the
+  // equip flow, not for purchase context).
+  availabilityBadges(item: ShopItem): any[] {
+    if (item.isAvailable === false) return [];
+    if (this.userOwns(item)) return [];
+
+    const badges: any[] = [];
+    const t = app.translator.trans.bind(app.translator);
+
+    if (item.maxClaims != null && item.maxClaims > 0) {
+      const remaining = Math.max(0, Number(item.maxClaims) - Number(item.claimCount || 0));
+      const cls = remaining <= Math.max(5, Math.floor(item.maxClaims * 0.1)) ? 'is-warning' : '';
+      badges.push(
+        <span className={`PointSystemShop-card-badge ${cls}`}>
+          <i className="fas fa-box" /> {t('ramon-point-system.forum.shop.badge_remaining', { count: remaining })}
+        </span>
+      );
+    }
+
+    if (item.availableUntil) {
+      const remainingMs = new Date(item.availableUntil).getTime() - Date.now();
+      if (remainingMs > 0) {
+        const days = Math.ceil(remainingMs / (24 * 60 * 60 * 1000));
+        const hours = Math.ceil(remainingMs / (60 * 60 * 1000));
+        const label =
+          days >= 2
+            ? t('ramon-point-system.forum.shop.badge_ends_in_days', { count: days })
+            : t('ramon-point-system.forum.shop.badge_ends_in_hours', { count: Math.max(1, hours) });
+        const cls = days <= 1 ? 'is-warning' : '';
+        badges.push(
+          <span className={`PointSystemShop-card-badge ${cls}`}>
+            <i className="fas fa-hourglass-half" /> {label}
+          </span>
+        );
+      }
+    }
+
+    if (item.availableFrom && new Date(item.availableFrom).getTime() > Date.now()) {
+      const dateLabel = new Date(item.availableFrom).toLocaleDateString();
+      badges.push(
+        <span className="PointSystemShop-card-badge is-future">
+          <i className="fas fa-calendar" /> {t('ramon-point-system.forum.shop.badge_starts_on', { date: dateLabel })}
+        </span>
+      );
+    }
+
+    return badges;
   }
 
   confirmClaim(item: ShopItem) {

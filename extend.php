@@ -29,7 +29,8 @@ return [
         ->route('/rewards', 'pointSystem.shop')
         ->route('/rewards/{tab}', 'pointSystem.shop.tab')
         ->route('/decorations', 'pointSystem.decorations')
-        ->route('/decorations/{tab}', 'pointSystem.decorations.tab'),
+        ->route('/decorations/{tab}', 'pointSystem.decorations.tab')
+        ->route('/trades', 'pointSystem.trades'),
 
     (new Extend\Frontend('admin'))
         ->js(__DIR__.'/js/dist/admin.js')
@@ -50,7 +51,11 @@ return [
         // ── Notification dispatch (mirrors verified's event→listener pattern;
         //    NotificationSyncer fans out to all drivers incl. kyrne/websocket) ──
         ->listen(\Ramon\PointSystem\Event\PointsManuallyChanged::class, Listener\SendNotificationWhenPointsChanged::class)
-        ->listen(\Ramon\PointSystem\Event\TierClaimed::class, Listener\SendNotificationWhenTierClaimed::class),
+        ->listen(\Ramon\PointSystem\Event\TierClaimed::class, Listener\SendNotificationWhenTierClaimed::class)
+        ->listen(\Ramon\PointSystem\Event\ItemGranted::class, Listener\SendNotificationWhenItemGranted::class)
+        ->listen(\Ramon\PointSystem\Event\TradeRequested::class, Listener\SendNotificationWhenTradeRequested::class)
+        ->listen(\Ramon\PointSystem\Event\TradeAccepted::class, Listener\SendNotificationWhenTradeAccepted::class)
+        ->listen(\Ramon\PointSystem\Event\TradeCompleted::class, Listener\SendNotificationWhenTradeCompleted::class),
 
     // Conditional: flarum/likes ─ award points to author + liker
     (new Extend\Conditional())
@@ -63,7 +68,11 @@ return [
     // ── API ──────────────────────────────────────────────────────────────────
     (new Extend\Notification())
         ->type(\Ramon\PointSystem\Notification\PointsManualBlueprint::class, ['alert'])
-        ->type(\Ramon\PointSystem\Notification\TierClaimedBlueprint::class, ['alert']),
+        ->type(\Ramon\PointSystem\Notification\TierClaimedBlueprint::class, ['alert'])
+        ->type(\Ramon\PointSystem\Notification\ItemGrantedBlueprint::class, ['alert'])
+        ->type(\Ramon\PointSystem\Notification\TradeRequestedBlueprint::class, ['alert'])
+        ->type(\Ramon\PointSystem\Notification\TradeAcceptedBlueprint::class, ['alert'])
+        ->type(\Ramon\PointSystem\Notification\TradeCompletedBlueprint::class, ['alert']),
 
     (new Extend\ApiResource(\Ramon\PointSystem\Api\Resource\ShopItemResource::class)),
     (new Extend\ApiResource(\Ramon\PointSystem\Api\Resource\AvatarDecorationResource::class)),
@@ -89,7 +98,22 @@ return [
         ->delete('/point-system/avatar-decoration/{id}', 'pointSystem.avatarDeco.delete', Controller\DeleteAvatarDecorationController::class)
         ->post('/point-system/cover-decoration/upload', 'pointSystem.coverDeco.upload', Controller\UploadCoverDecorationController::class)
         ->delete('/point-system/cover-decoration/{id}', 'pointSystem.coverDeco.delete', Controller\DeleteCoverDecorationController::class)
-        ->post('/point-system/award', 'pointSystem.award', Controller\ManualAwardController::class),
+        ->post('/point-system/award', 'pointSystem.award', Controller\ManualAwardController::class)
+        ->post('/point-system/grant', 'pointSystem.grant', Controller\GrantItemController::class)
+        // ── Trades ──────────────────────────────────────────────────────
+        ->get('/point-system/trades', 'pointSystem.trades.list', Controller\ListTradesController::class)
+        ->post('/point-system/trades', 'pointSystem.trades.open', Controller\OpenTradeController::class)
+        ->get('/point-system/trades/{id:[0-9]+}', 'pointSystem.trades.show', Controller\ShowTradeController::class)
+        ->patch('/point-system/trades/{id:[0-9]+}', 'pointSystem.trades.update', Controller\UpdateTradeOfferController::class)
+        ->post('/point-system/trades/{id:[0-9]+}/accept', 'pointSystem.trades.accept', Controller\AcceptTradeController::class)
+        ->post('/point-system/trades/{id:[0-9]+}/finalize', 'pointSystem.trades.finalize', Controller\FinalizeTradeController::class)
+        ->post('/point-system/trades/{id:[0-9]+}/cancel', 'pointSystem.trades.cancel', Controller\CancelTradeController::class)
+        // ── User-submission moderation queue ──────────────────────────
+        ->get('/point-system/submissions', 'pointSystem.submissions.list', Controller\ListPendingSubmissionsController::class)
+        ->post('/point-system/submissions/{type}/{id:[0-9]+}/{action}', 'pointSystem.submissions.moderate', Controller\ModerateSubmissionController::class)
+        // ── Admin trades dashboard ────────────────────────────────────
+        ->get('/point-system/admin/trades', 'pointSystem.admin.trades.list', Controller\ListAllTradesController::class)
+        ->post('/point-system/admin/trades/{id:[0-9]+}/revert', 'pointSystem.admin.trades.revert', Controller\RevertTradeController::class),
 
     // ── Permissions ──────────────────────────────────────────────────────────
     // ShopItemPolicy is registered as a global policy (it has no `$model`)
@@ -123,6 +147,8 @@ return [
         ->serializeToForum('pointSystem.deco_in_user_card', 'point-system.deco_in_user_card', 'boolval')
         ->serializeToForum('pointSystem.deco_in_lists', 'point-system.deco_in_lists', 'boolval')
         ->serializeToForum('pointSystem.hide_badges_with_avatar_deco', 'point-system.hide_badges_with_avatar_deco', 'boolval')
+        ->serializeToForum('pointSystem.trade_enabled', 'point-system.trade_enabled', 'boolval')
+        ->serializeToForum('pointSystem.user_submissions_enabled', 'point-system.user_submissions_enabled', 'boolval')
         ->default('point-system.enabled', true)
         ->default('point-system.points_per_discussion', 10)
         ->default('point-system.points_per_post', 5)
@@ -144,5 +170,7 @@ return [
         ->default('point-system.deco_in_posts', true)
         ->default('point-system.deco_in_user_card', true)
         ->default('point-system.deco_in_lists', true)
-        ->default('point-system.hide_badges_with_avatar_deco', false),
+        ->default('point-system.hide_badges_with_avatar_deco', false)
+        ->default('point-system.trade_enabled', true)
+        ->default('point-system.user_submissions_enabled', false),
 ];

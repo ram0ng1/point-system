@@ -17,6 +17,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Ramon\PointSystem\Event\TierClaimed;
 use Ramon\PointSystem\Model\GroupOffer;
 use Ramon\PointSystem\Repository\PointsRepository;
+use Ramon\PointSystem\Support\ItemAvailability;
 
 /**
  * POST /api/point-system/tier-claim
@@ -76,6 +77,16 @@ class ClaimTierController implements RequestHandlerInterface
             ], 422);
         }
 
+        // Availability gate — date window, max claims, group restriction.
+        // Mirrors ClaimItemController so the same set of refusal codes is
+        // surfaced uniformly to the frontend.
+        $reason = ItemAvailability::reasonNotClaimable($offer, $actor);
+        if ($reason !== null) {
+            return new JsonResponse([
+                'errors' => [['code' => $reason, 'detail' => $reason]],
+            ], 422);
+        }
+
         $alreadyMember = $actor->groups()->where('groups.id', $offer->group_id)->exists();
         if ($alreadyMember) {
             $userPoints = $this->points->getOrCreate($actor);
@@ -110,6 +121,18 @@ class ClaimTierController implements RequestHandlerInterface
 
         try {
             $this->db->transaction(function () use ($actor, $offer, $cost, $resolvedMode) {
+                // Lock the offer row so a parallel claim cannot race past
+                // max_claims. We re-read the row inside the lock and re-check
+                // availability — the un-locked read above is a fast-fail path
+                // but is NOT authoritative.
+                /** @var GroupOffer $offer */
+                $offer = GroupOffer::where('id', $offer->id)->lockForUpdate()->firstOrFail();
+
+                $reason = ItemAvailability::reasonNotClaimable($offer, $actor);
+                if ($reason !== null) {
+                    throw new \DomainException($reason);
+                }
+
                 if ($cost > 0) {
                     $this->points->deduct(
                         $actor,
@@ -121,14 +144,25 @@ class ClaimTierController implements RequestHandlerInterface
                 }
                 $actor->groups()->syncWithoutDetaching([$offer->group_id]);
 
+                // Track grant count for the per-offer limit. Auto-attach via
+                // syncAutoGroups bypasses this controller so it does NOT
+                // increment — max_claims here counts explicit claims only.
+                $offer->claim_count = (int) $offer->claim_count + 1;
+                $offer->save();
+
                 $group = Group::find($offer->group_id);
                 if ($group) {
                     $actor->raise(new TierClaimed($actor, $group, $cost));
                 }
             });
         } catch (\DomainException $e) {
+            $code = $e->getMessage();
+            $known = ['expired', 'sold_out', 'group_restricted', 'not_yet_available', 'disabled'];
             return new JsonResponse([
-                'errors' => [['code' => 'insufficient_balance', 'detail' => $e->getMessage()]],
+                'errors' => [[
+                    'code'   => in_array($code, $known, true) ? $code : 'insufficient_balance',
+                    'detail' => $code,
+                ]],
             ], 422);
         }
 

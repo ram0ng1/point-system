@@ -158,18 +158,28 @@
 }
 
 // ─── Points badge inside PostUser ─────────────────────────────────────────────
+// Picks up the Flarum primary colour from the host theme so the badge
+// matches the rest of the forum's accent rather than locking onto Avocado's
+// "online" green. color-mix() builds a soft 12% tint of whatever the
+// theme exposes — Linear-style restraint: low-contrast, monochrome accent.
 .PointSystemPostBadge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   margin-left: 6px;
-  padding: 1px 8px;
-  background: rgba(108, 192, 74, 0.12);
-  color: var(--avocado-online, var(--primary-color, #6cc04a));
+  padding: 2px 9px;
+  background: color-mix(in srgb, var(--primary-color, #6cc04a) 12%, transparent);
+  color: var(--primary-color, #6cc04a);
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  transition: background-color var(--ps-t, 0.16s ease), transform var(--ps-t, 0.16s ease);
+
+  &:hover {
+    background: color-mix(in srgb, var(--primary-color, #6cc04a) 18%, transparent);
+  }
 
   i {
     font-size: 10px;
@@ -325,6 +335,11 @@ body.ps-hide-badges-with-deco {
       display: flex;
       gap: 6px;
       position: static;
+      // Without this, Flarum core's `.Dropdown-menu { z-index: 100 }` (or a
+      // host theme's higher value) keeps the menu painted above the page
+      // header — even when the menu is rendered in static flow. Forcing
+      // `auto` lets it stack normally with the surrounding page content.
+      z-index: auto;
       flex-wrap: wrap;
       padding: 0;
       margin: 0;
@@ -391,20 +406,22 @@ body.ps-hide-badges-with-deco {
     }
   }
 
-  // ─── Phone : title control escapes to phone header, menu opens as
-  // rounded bottom-sheet. Positioning of the toggle is handled by core's
-  // `.App-titleControl` rules in common/App.less (position:absolute, centred
-  // at top of viewport). We only restyle the bottom-sheet surface here.
+  // ─── Phone : centered trigger button + rounded bottom-sheet menu ─────────
+  // SelectDropdown renders an inline `.Dropdown-toggle.Button` here; core's
+  // common/Dropdown.less converts the popup `.Dropdown-menu` into a fixed
+  // bottom-sheet on phone, which we just restyle below for the rounded-top
+  // pill look.
+  //
+  // Historical note (2026-05): we used to apply `App-titleControl` to the
+  // SelectDropdown wrapper to float the trigger into the page header on
+  // phone. That class is positioned absolute by Avocado-style themes on
+  // EVERY breakpoint, which landed the trigger (and our inline pill row)
+  // on top of the navbar at tablet+. Removing the class fixed the overlap
+  // and only costs the phone-only "trigger in header" trick.
   @media @phone {
-    // The nav element itself is empty on phone (the App-titleControl
-    // child escapes via position:absolute). Don't reserve vertical space.
-    margin: 0;
-    padding: 0;
-    height: 0;
+    margin: 0 auto 16px;
+    text-align: center;
 
-    // Inside the floating .App-titleControl, force the label to center and
-    // give the caret a sensible offset. We deliberately keep the toggle
-    // visually plain (transparent, header-coloured) to match core/avocado.
     .Dropdown-toggle.Button {
       > .Button-label {
         display: block;
@@ -768,10 +785,15 @@ body.ps-hide-badges-with-deco {
 // (plus the `--fixedAvatar` variant) so `!important` doesn't have to fight
 // source-order ties.
 .Post-side,
+.Post-side--online,
 .CommentPost .Post-side,
+.CommentPost .Post-side--online,
 .CommentPost.CommentPost--fixedAvatar .Post-side,
+.CommentPost.CommentPost--fixedAvatar .Post-side--online,
 .Page.DiscussionPage .CommentPost .Post-side,
-.Page.DiscussionPage .CommentPost.CommentPost--fixedAvatar .Post-side {
+.Page.DiscussionPage .CommentPost .Post-side--online,
+.Page.DiscussionPage .CommentPost.CommentPost--fixedAvatar .Post-side,
+.Page.DiscussionPage .CommentPost.CommentPost--fixedAvatar .Post-side--online {
   display: flex !important;
   flex-direction: column !important;
   justify-content: flex-start !important;
@@ -780,26 +802,83 @@ body.ps-hide-badges-with-deco {
   overflow: visible;
 }
 
-// The Post-side-inner wrapper Avocado creates is the row that holds avatar
-// + badges. Make it a non-shrink flex item so it doesn't collapse when our
-// title joins the column.
+// The Post-side-inner wrapper Avocado creates as a row holding avatar +
+// inline badges. The default row layout pushes the avatar off-center (it
+// sits left of the badges), which then misaligns our PointSystemUserTitle
+// sibling — the title centers in `.Post-side` but the avatar doesn't, so
+// they don't share a vertical axis.
+//
+// Force the inner to ALSO be a centered column so the avatar lands on top,
+// any badges stack below it, and the title underneath shares the same
+// vertical center line.
 .Post-side > .Post-side-inner {
   flex: 0 0 auto;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 6px;
+}
+
+// ── Side-variant title — ABSOLUTELY positioned under the avatar ───────────
+// Avocado pins `.Post-side` to a fixed 64px width with `display: flex` +
+// `justify-content: center` so its single in-flow child (the avatar) sits
+// centered. Our title can be wider than 64px, and flex `margin: auto` did
+// NOT consistently centre an overflowing item across Avocado's `Post-side`
+// / `Post-side--online` variants — the chip kept landing flush-left under
+// the avatar.
+//
+// Fix: take the title out of the flex flow with `position: absolute` and
+// pin it 50% from the left edge of `.Post-side`, then nudge back by half
+// its own width with `translateX(-50%)`. Now the title's centre always
+// lines up with the avatar column's centre regardless of how wide the
+// chip text gets — exact centring with no flex quirks.
+//
+// `.Post-side` is already a positioning context in every Avocado layout:
+//   - normal CommentPost: `position: absolute` (sets containing block)
+//   - fixedAvatar variant: `position: sticky` (sets containing block too)
+// So we don't need to force `position: relative` on it.
+
+// Belt-and-braces — force the column to allow our title to escape the
+// 64px width. Avocado's fixedAvatar variant already has `overflow: visible`;
+// this catches the non-fixedAvatar case + any other theme that clips.
+.Post-side,
+.Post-side--online {
+  overflow: visible !important;
 }
 
 .PointSystemUserTitle--inSide {
+  // Position via the parent's flex flow (`.Post-side` is forced to a
+  // `display: flex; flex-direction: column; align-items: center` column
+  // above), NOT via `position: absolute`. The previous absolute-positioned
+  // approach worked on Avocado (`.Post-side` carries a positioning context
+  // from its own `position: absolute`/`sticky`) but broke on default
+  // Flarum, where `.Post-side` is in normal flow — `position: absolute`
+  // there walks up the ancestor chain to <body> and the chip lands at
+  // `top: 76px; left: 50%` of the page, far away from the post.
+  //
+  // Flex flow is robust across themes: align-self: center keeps the chip
+  // on the avatar's vertical axis even when the chip overflows the 64px
+  // column width (the column's `overflow: visible` lets that overflow
+  // paint outside the column edge).
   display: block;
-  margin: 8px auto 0;
+  align-self: center;
+  margin: 8px auto 0 !important;
   width: max-content;
-  max-width: 160px;
-  // Lift over Avocado's sticky badges (z-index 3) so the chip is never
-  // partially covered when the column has overflowing siblings.
-  position: relative;
-  z-index: 2;
-  // Don't let the column squash the chip when the layout briefly flips back
-  // to a row before our `!important` rules apply (avoids the flash of
-  // truncated "O" the user reported).
+  max-width: 200px;
   flex: 0 0 auto;
+  position: static;       // win over any inherited `position: absolute`
+  z-index: 1;
+}
+
+// Avocado wraps the avatar + inline badges in `.Post-side-inner`, then
+// places our title as a sibling below. The default 8px gap reads as
+// "stuck-to-the-avatar" because Avocado already adds its own visual
+// space inside the inner wrapper. Bump to 12-14px specifically when the
+// `.Post-side-inner` sibling is present — i.e., we're inside an Avocado
+// post layout — so the title clearly reads as a separate element.
+.Post-side > .Post-side-inner + .PointSystemUserTitle--inSide,
+.Post-side-inner ~ .PointSystemUserTitle--inSide {
+  margin-top: 14px !important;
 }
 
 // ── Header variant (phone) ──────────────────────────────────────────────────
@@ -824,11 +903,17 @@ body.ps-hide-badges-with-deco {
   // Force the chip onto a fresh line under the avatar row. `clear: left`
   // bumps it past any floated content (some themes float the avatar).
   // `width: fit-content` keeps the pill from spanning the whole row.
+  //
+  // The PostUser-name ul on phone lays out as: avatar | username | title |
+  // timestamp. With no left margin, the title sits flush against the
+  // username — fix by giving the chip a tiny breathing space on the LEFT
+  // (the right side is naturally handled by the ul's `li` gap). 6px is
+  // enough to read as separation without pushing the rest of the row.
   .PointSystemUserTitle--inHeader {
     display: block;
     width: fit-content;
     clear: left;
-    margin: 4px 0 0;
+    margin: 4px 0 0 6px;
   }
 }
 
@@ -840,6 +925,22 @@ body.ps-hide-badges-with-deco {
 .PointSystemDecorations-previewAvatar .PointSystemUserTitle {
   font-size: 12px;
   padding: 2px 10px;
+}
+
+// Title chip displayed inline next to the username on the Avocado profile
+// hero (injected via `registerAvocadoProfileHooks.injectTitle`). The hero
+// name is an H1 with the displayName + verified popover anchor; our chip
+// is appended as the last child so it reads as "name | title". A small
+// left margin separates it from the verified badge / name tail.
+.AvocadoUserPage-hero-name .PointSystemUserTitle--inProfile {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 10px;
+  vertical-align: middle;
+  font-size: 13px;
+  // Slightly larger padding than the post-side variant — hero is wider
+  // and the chip would look cramped at the post-column size.
+  padding: 3px 12px;
 }
 
 // ── Mobile layout — keep the rewards/decoration pages comfortable on
@@ -952,6 +1053,37 @@ body.ps-hide-badges-with-deco {
       max-height: 96px;
       display: block;
       margin: 0 auto 8px;
+    }
+
+    // Composite avatar preview (user avatar + frame overlay) — the shop card
+    // uses .PointSystemShop-avatarPreview which absolute-positions both
+    // images inside a 96px square; we just center the wrapper in the item
+    // and clear the bottom margin the bare-<img> rule above adds.
+    .PointSystemShop-avatarPreview {
+      margin: 0 auto 8px;
+
+      img {
+        margin: 0;
+      }
+    }
+
+    // Post-highlight preview — `.ps-posthl-preview` defaults to
+    // `min-width: 160px; max-width: 220px` which overflows the 180px-grid
+    // item's inner width. Lock the width to the cell, add breathing room
+    // for the `outline-offset: 4px` of every preset, and center it.
+    .ps-posthl-preview {
+      width: auto;
+      min-width: 0 !important;
+      max-width: 100% !important;
+      margin: 6px 6px 12px;
+      box-sizing: border-box;
+    }
+
+    // Title preview chip — show a clear gap before the name so the chip
+    // doesn't crowd the row below it on the title tab.
+    .ps-title-preview {
+      margin: 8px auto;
+      display: inline-block;
     }
 
     &-name {
@@ -1106,4 +1238,1435 @@ body.ps-hide-badges-with-deco {
       min-width: 96px;
     }
   }
+}
+
+// ─── Shop card availability badges (added 2026-05-16) ─────────────────────
+.PointSystemShop-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 12px 0;
+}
+.PointSystemShop-card-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--ps-text-muted, #555);
+  line-height: 1.2;
+
+  > i {
+    font-size: 10px;
+    opacity: 0.85;
+  }
+
+  &.is-warning {
+    background: rgba(255, 152, 0, 0.18);
+    color: #b35900;
+  }
+  &.is-future {
+    background: rgba(96, 165, 250, 0.18);
+    color: #1e40af;
+  }
+}
+
+// ─── Trade modal (Habbo-style two-panel exchange) ─────────────────────────
+//
+// Z-index + position discipline: Flarum's ModalManager renders each modal as
+// a sibling of `.ModalManager-invisibleBackdrop` (used to catch outside-of-
+// modal clicks). The base `.Modal` rule sets `position: relative; z-index: 2`
+// to keep modal content above the backdrop — but a host theme like Avocado
+// can introduce stacking-context surprises that effectively re-order them,
+// leaving the trade modal trapped UNDER the invisible backdrop (you can see
+// the chrome but can't click anything). We pin both props with !important
+// on the trade modal root so the layering is deterministic regardless of
+// the host theme.
+.PointSystemTradeModal {
+  position: relative !important;
+  z-index: 100 !important;
+  pointer-events: auto !important;
+
+  .Modal-content {
+    pointer-events: auto !important;
+    // Wider than default 600 / narrower than --large 800 so the two-panel
+    // grid fits without becoming a full-screen takeover.
+    max-width: 720px;
+    width: calc(100% - 32px);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18), 0 8px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  // Distinctive identity: a thin primary-tinted top stripe under the
+  // header — enough to mark the trade modal as a special surface without
+  // hiding the close button against a dark gradient (the previous attempt
+  // tinted the whole header dark, which made the close icon invisible on
+  // many themes). The stripe sits behind the header content via a pseudo
+  // element so it never conflicts with App-titleControl typography rules.
+  .Modal-content::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 4px;
+    background: linear-gradient(90deg,
+      var(--primary-color, #6cc04a) 0%,
+      color-mix(in srgb, var(--primary-color, #6cc04a) 60%, #2563eb) 100%);
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .Modal-header {
+    padding: 24px 28px 12px !important;
+    border-bottom: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06)) !important;
+    background: var(--body-bg);
+
+    h3 {
+      letter-spacing: -0.01em;
+      font-weight: 600;
+    }
+  }
+
+  .Modal-body {
+    background: var(--body-bg) !important;
+    padding: 20px 28px 24px !important;
+  }
+
+  &-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 999px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    font-size: 13.5px;
+    background: var(--ps-surface-muted);
+    color: var(--text-color, #333);
+
+    &.is-completed { background: color-mix(in srgb, var(--primary-color, #6cc04a) 18%, transparent); color: var(--primary-color, #6cc04a); }
+    &.is-cancelled { background: rgba(220, 38, 38, 0.12); color: #b91c1c; }
+  }
+
+  &-panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+
+    @media (max-width: 720px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &-panel {
+    background: var(--ps-surface, #fff);
+    border: 1px solid var(--ps-border, #e6e6e9);
+    border-radius: 12px;
+    padding: 14px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+
+    &.is-accepted {
+      border-color: var(--primary-color, #6cc04a);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color, #6cc04a) 22%, transparent) inset;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      color: var(--ps-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+  }
+
+  &-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 64px;
+  }
+
+  &-itemChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--ps-surface-muted);
+    border-radius: 999px;
+    padding: 4px 10px 4px 4px;
+    font-size: 12.5px;
+    line-height: 1.2;
+
+    &-name {
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &-remove {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--ps-text-muted);
+      padding: 2px 4px;
+      font-size: 10px;
+
+      &:hover { color: #b91c1c; }
+    }
+
+    &.is-readonly {
+      opacity: 0.95;
+    }
+  }
+
+  &-itemThumb {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex: 0 0 28px;
+    background: var(--body-bg);
+  }
+
+  &-addItem {
+    margin: 8px 0;
+  }
+
+  &-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 4px 0 8px;
+    padding: 8px;
+    background: var(--ps-surface-muted);
+    border-radius: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  &-pickerItem {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--body-bg);
+    border: 1px solid var(--ps-border);
+    border-radius: 999px;
+    padding: 4px 10px 4px 4px;
+    cursor: pointer;
+    font-size: 12.5px;
+
+    &:hover { border-color: var(--primary-color); }
+  }
+
+  &-points {
+    margin-top: 12px;
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--ps-text-muted);
+      margin-bottom: 4px;
+    }
+  }
+
+  &-readonly {
+    padding: 8px 12px;
+    background: var(--ps-surface-muted);
+    border-radius: 6px;
+  }
+
+  &-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ps-border);
+  }
+
+  &-error {
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: rgba(220, 38, 38, 0.10);
+    color: #b91c1c;
+    font-size: 13px;
+  }
+}
+
+// ─── Trades dashboard page ────────────────────────────────────────────────
+.PointSystemTradesPage {
+  padding: 24px 0;
+
+  &-header {
+    margin-bottom: 24px;
+    h1 {
+      margin: 0 0 6px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 22px;
+      i { color: var(--primary-color, #6cc04a); }
+    }
+  }
+
+  &-notice {
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: rgba(255, 152, 0, 0.12);
+    color: #a85c00;
+    margin-bottom: 16px;
+  }
+
+  &-section {
+    margin-bottom: 28px;
+    h2 {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--ps-text-muted);
+      margin: 0 0 10px;
+    }
+  }
+
+  &-empty {
+    color: var(--ps-text-muted);
+    padding: 12px 0;
+  }
+
+  &-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &-row {
+    display: grid;
+    grid-template-columns: minmax(160px, 1.2fr) minmax(200px, 2fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--ps-surface);
+    border: 1px solid var(--ps-border);
+    border-radius: 12px;
+
+    &.is-pending { border-color: color-mix(in srgb, var(--primary-color, #6cc04a) 35%, transparent); }
+    &.is-completed { opacity: 0.8; }
+    &.is-cancelled { opacity: 0.65; }
+
+    @media (max-width: 720px) {
+      grid-template-columns: 1fr;
+    }
+
+    &-party {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    &-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex: 0 0 36px;
+      background: var(--ps-surface-muted);
+
+      &--placeholder {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--ps-text-muted);
+      }
+    }
+
+    &-time {
+      font-size: 12px;
+      color: var(--ps-text-muted);
+    }
+
+    &-summary {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+
+      .muted {
+        display: block;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--ps-text-muted);
+      }
+
+      em {
+        color: var(--ps-text-muted);
+        font-style: normal;
+      }
+
+      i {
+        color: var(--ps-text-muted);
+      }
+    }
+
+    &-side {
+      flex: 1;
+      min-width: 0;
+    }
+
+    &-status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+  }
+
+  &-pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: var(--ps-surface-muted);
+    color: var(--ps-text-muted);
+
+    &.is-pending { background: color-mix(in srgb, var(--primary-color, #6cc04a) 16%, transparent); color: var(--primary-color, #6cc04a); }
+    &.is-completed { background: rgba(108, 192, 74, 0.18); color: #2f7a25; }
+    &.is-cancelled { background: rgba(220, 38, 38, 0.14); color: #b91c1c; }
+    &.is-waiting { background: rgba(255, 159, 0, 0.18); color: #b45a00; }
+  }
+}
+
+// ─── User-submission CTA + submit modal + creator pill ────────────────────
+.PointSystemDecorations-pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+
+  h1 { margin: 0; }
+}
+
+.PointSystemSubmitModal {
+  &-error {
+    margin: 12px 0 0;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: rgba(220, 38, 38, 0.10);
+    color: #b91c1c;
+    font-size: 13px;
+  }
+  &-footer {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ps-border);
+
+    .helpText {
+      margin: 0;
+      flex: 1;
+    }
+  }
+
+  &-sourceToggle {
+    display: inline-flex;
+    gap: 6px;
+    padding: 4px;
+    background: var(--ps-surface-muted, rgba(0, 0, 0, 0.04));
+    border-radius: 999px;
+    border: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+  }
+  &-sourceOption {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--ps-text-muted, #6b7280);
+    transition: background-color var(--ps-t-fast), color var(--ps-t-fast);
+    position: relative;
+
+    input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    &.is-active {
+      background: var(--ps-surface, #fff);
+      color: var(--ps-text, #111827);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    }
+
+    &:hover:not(.is-active) {
+      color: var(--ps-text, #111827);
+    }
+  }
+}
+
+.PointSystemShop-card-creator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 8px;
+  padding: 3px 10px 3px 3px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--ps-text-muted, #6b7280);
+  font-size: 12px;
+  text-decoration: none;
+  max-width: 100%;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.08);
+    color: var(--text-color, inherit);
+    text-decoration: none;
+  }
+}
+.PointSystemShop-card-creatorAvatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--ps-surface-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: var(--ps-text-muted);
+
+  &--placeholder {
+    color: var(--ps-text-muted);
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// LINEAR-STYLE POLISH PASS (2026-05-16)
+//
+// Cohesive refinement across every PointSystem forum surface. Touches:
+//   - Spacing tokens + hover/focus motion
+//   - ShopPage cards (hover lift, refined price typography, tighter badge row)
+//   - DecorationsPage grid items + preview band
+//   - TradesPage list rows + status pills
+//   - Modals (Trade, Submit, AwardPoints, ConfirmPurchase)
+//   - Buttons inside our scoped components (subtle inset highlight on primary)
+//   - Focus rings (accessible, primary-tinted)
+//
+// Everything below is additive — pre-existing rules stay. Where a previous
+// rule needs a tweak, we override with the same specificity at the bottom
+// so the cascade picks our refined version.
+// ──────────────────────────────────────────────────────────────────────────────
+
+:root {
+  --ps-space-1: 4px;
+  --ps-space-2: 8px;
+  --ps-space-3: 12px;
+  --ps-space-4: 16px;
+  --ps-space-5: 20px;
+  --ps-space-6: 24px;
+  --ps-space-8: 32px;
+
+  --ps-elevate-1: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.02);
+  --ps-elevate-2: 0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.03);
+  --ps-elevate-3: 0 12px 32px rgba(0, 0, 0, 0.10), 0 4px 8px rgba(0, 0, 0, 0.04);
+
+  --ps-ring: 0 0 0 2px var(--body-bg, #fff), 0 0 0 4px color-mix(in srgb, var(--primary-color, #6cc04a) 40%, transparent);
+
+  --ps-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ps-t-fast: 0.12s var(--ps-ease);
+  --ps-t-med: 0.18s var(--ps-ease);
+}
+
+// ShopPage refinement.
+.PointSystemShop {
+  &-header {
+    padding: var(--ps-space-6) var(--ps-space-4) var(--ps-space-3);
+
+    h1 {
+      font-size: 28px;
+      letter-spacing: -0.02em;
+      font-weight: 700;
+      margin: 0 0 var(--ps-space-2);
+    }
+  }
+
+  &-subtitle {
+    color: var(--ps-text-muted);
+    font-size: 14px;
+    margin: 0 0 var(--ps-space-4);
+  }
+
+  &-balance {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--ps-space-4);
+    padding: var(--ps-space-3) var(--ps-space-4);
+    background: var(--ps-surface-muted);
+    border: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+    border-radius: var(--ps-radius);
+
+    &-item {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--ps-space-2);
+      font-size: 13px;
+      color: var(--ps-text-muted);
+
+      strong {
+        color: var(--text-color, inherit);
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        font-size: 15px;
+      }
+
+      i {
+        color: var(--primary-color, inherit);
+      }
+    }
+  }
+}
+
+.PointSystemShop-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--ps-surface);
+  border: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+  border-radius: var(--ps-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--ps-elevate-1);
+  transition: transform var(--ps-t-med), box-shadow var(--ps-t-med), border-color var(--ps-t-fast);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--ps-elevate-2);
+    border-color: color-mix(in srgb, var(--primary-color, #6cc04a) 18%, var(--ps-border));
+  }
+
+  &.is-equipped {
+    border-color: var(--primary-color, #6cc04a);
+    box-shadow: 0 0 0 1px var(--primary-color, #6cc04a), var(--ps-elevate-2);
+  }
+
+  &-equippedRibbon {
+    position: absolute;
+    top: var(--ps-space-3);
+    right: var(--ps-space-3);
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ps-space-1);
+    padding: 3px 10px;
+    background: var(--primary-color, #6cc04a);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    box-shadow: var(--ps-elevate-1);
+  }
+
+  &-body {
+    padding: var(--ps-space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--ps-space-2);
+  }
+
+  &-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    color: var(--text-color, inherit);
+  }
+
+  &-desc {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--ps-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  &-price {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ps-space-1);
+    color: var(--ps-text-muted);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+
+    strong {
+      color: var(--text-color, inherit);
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: -0.01em;
+    }
+
+    i {
+      color: #e6a800;
+      font-size: 14px;
+    }
+  }
+}
+
+.PointSystemShop-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ps-space-1);
+  padding: var(--ps-space-2) var(--ps-space-4) 0;
+}
+.PointSystemShop-card-badge {
+  font-size: 10.5px;
+  padding: 3px 8px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+// DecorationsPage refinement.
+.PointSystemDecorations {
+  padding: var(--ps-space-6) 0 var(--ps-space-8);
+
+  h1 {
+    font-size: 26px;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+    margin: 0 0 var(--ps-space-4);
+  }
+
+  h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ps-text-muted);
+    margin: var(--ps-space-6) 0 var(--ps-space-3);
+    font-weight: 600;
+  }
+
+  &-pageHeader {
+    margin-bottom: var(--ps-space-5);
+    padding-bottom: var(--ps-space-3);
+    border-bottom: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+  }
+
+  &-preview {
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--primary-color, #6cc04a) 8%, var(--ps-surface)) 0%,
+      var(--ps-surface) 100%);
+    border: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+    border-radius: var(--ps-radius-xl);
+    padding: var(--ps-space-6);
+    box-shadow: var(--ps-elevate-1);
+
+    h2 {
+      margin: 0 0 var(--ps-space-3);
+      color: var(--ps-text-muted);
+    }
+  }
+
+  &-allGroup {
+    margin-bottom: var(--ps-space-6);
+  }
+
+  &-item {
+    background: var(--ps-surface);
+    border: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+    border-radius: var(--ps-radius);
+    padding: var(--ps-space-3);
+    text-align: center;
+    transition: transform var(--ps-t-med), box-shadow var(--ps-t-med), border-color var(--ps-t-fast);
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--ps-elevate-1);
+      border-color: color-mix(in srgb, var(--primary-color, #6cc04a) 15%, var(--ps-border));
+    }
+
+    &.is-equipped {
+      border-color: var(--primary-color, #6cc04a);
+      box-shadow: 0 0 0 1px var(--primary-color, #6cc04a);
+    }
+
+    &-name {
+      font-weight: 600;
+      font-size: 13.5px;
+      margin: var(--ps-space-2) 0;
+      letter-spacing: -0.005em;
+    }
+  }
+
+  &-coverItem {
+    background: var(--ps-surface);
+    border: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+    border-radius: var(--ps-radius);
+    padding: var(--ps-space-3);
+    transition: transform var(--ps-t-med), box-shadow var(--ps-t-med);
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--ps-elevate-1);
+    }
+
+    &.is-equipped {
+      border-color: var(--primary-color, #6cc04a);
+    }
+
+    &-preview {
+      border-radius: var(--ps-radius-sm);
+      overflow: hidden;
+      aspect-ratio: 16 / 9;
+      background: var(--ps-surface-muted);
+    }
+  }
+}
+
+// TradesPage refinement.
+.PointSystemTradesPage {
+  &-header h1 {
+    font-size: 26px;
+    letter-spacing: -0.02em;
+  }
+
+  &-row {
+    transition: transform var(--ps-t-fast), box-shadow var(--ps-t-fast), border-color var(--ps-t-fast);
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--ps-elevate-1);
+    }
+
+    &.is-pending {
+      border-color: color-mix(in srgb, var(--primary-color, #6cc04a) 35%, var(--ps-border));
+      background: linear-gradient(180deg,
+        color-mix(in srgb, var(--primary-color, #6cc04a) 3%, var(--ps-surface)) 0%,
+        var(--ps-surface) 100%);
+    }
+
+    strong {
+      font-weight: 600;
+      letter-spacing: -0.005em;
+    }
+  }
+
+  &-pill {
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+  }
+}
+
+// Modal refinement.
+.PointSystemTradeModal,
+.PointSystemSubmitModal,
+.AwardPointsModal,
+.ConfirmPurchaseModal {
+  .Modal-header {
+    border-bottom: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+    padding: var(--ps-space-4) var(--ps-space-5);
+
+    h3 {
+      font-size: 17px;
+      letter-spacing: -0.01em;
+      font-weight: 600;
+    }
+  }
+
+  .Modal-body {
+    padding: var(--ps-space-5);
+
+    .Form-group {
+      margin-bottom: var(--ps-space-4);
+
+      label {
+        display: block;
+        font-size: 12.5px;
+        font-weight: 600;
+        margin-bottom: var(--ps-space-1);
+        color: var(--ps-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .helpText {
+        margin-top: var(--ps-space-1);
+        font-size: 12px;
+        color: var(--ps-text-muted);
+      }
+    }
+
+    .FormControl {
+      border-radius: var(--ps-radius-sm);
+      padding: 9px 12px;
+      border: 1px solid var(--ps-border);
+      transition: border-color var(--ps-t-fast), box-shadow var(--ps-t-fast);
+
+      &:focus {
+        outline: none;
+        border-color: var(--primary-color, #6cc04a);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color, #6cc04a) 18%, transparent);
+      }
+    }
+  }
+}
+
+.PointSystemTradeModal-panel {
+  transition: border-color var(--ps-t-med), box-shadow var(--ps-t-med);
+
+  &.is-accepted {
+    animation: ps-trade-accept-pulse 0.6s var(--ps-ease) 1;
+  }
+}
+
+.PointSystemTradeModal-banner {
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+// "Finalizing in 5..." countdown shown in the banner once both sides have
+// accepted. Big digit + small explanatory label so the countdown is the
+// dominant signal — users always see "this is closing NOW" rather than
+// the small hourglass.
+.PointSystemTradeModal-countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+
+  &-digit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--primary-color, #6cc04a) 18%, transparent);
+    color: var(--primary-color, #6cc04a);
+    font-size: 18px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    animation: ps-trade-countdown-pulse 1s var(--ps-ease) infinite;
+  }
+
+  &-text {
+    font-size: 13px;
+    font-weight: 500;
+  }
+}
+
+@keyframes ps-trade-countdown-pulse {
+  0%   { transform: scale(1);    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary-color, #6cc04a) 40%, transparent); }
+  60%  { transform: scale(1.06); box-shadow: 0 0 0 8px color-mix(in srgb, var(--primary-color, #6cc04a) 0%,  transparent); }
+  100% { transform: scale(1);    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary-color, #6cc04a) 0%,  transparent); }
+}
+
+// "Your offer is saved automatically" reassurance — sits below the action
+// row so the user reads it as the answer to "wait, what happens if I close
+// this?". Muted text with a small cloud icon makes it feel like a system
+// note, not a primary instruction.
+.PointSystemTradeModal-persistHint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--ps-text-muted, #6b7280);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  i {
+    opacity: 0.7;
+  }
+}
+
+// The actions row got a third button (Close, between Accept and Cancel).
+// Let the row wrap on narrow viewports so the three buttons stack instead
+// of overflowing.
+.PointSystemTradeModal-actions {
+  flex-wrap: wrap;
+}
+
+@keyframes ps-trade-accept-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary-color, #6cc04a) 40%, transparent); }
+  100% { box-shadow: 0 0 0 12px color-mix(in srgb, var(--primary-color, #6cc04a) 0%, transparent); }
+}
+
+// Button refinement inside our scoped components.
+.PointSystemShop,
+.PointSystemDecorations,
+.PointSystemTradesPage,
+.PointSystemTradeModal,
+.PointSystemSubmitModal {
+  .Button {
+    border-radius: var(--ps-radius-sm);
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    transition: transform var(--ps-t-fast), box-shadow var(--ps-t-fast), background-color var(--ps-t-fast);
+
+    &:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    &:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    &--primary {
+      background: var(--primary-color, #6cc04a);
+      color: #fff;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 1px 2px rgba(0, 0, 0, 0.06);
+
+      &:hover:not(:disabled) {
+        background: color-mix(in srgb, var(--primary-color, #6cc04a) 90%, black);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 4px 12px color-mix(in srgb, var(--primary-color, #6cc04a) 30%, transparent);
+      }
+    }
+
+    &--danger:hover:not(:disabled) {
+      box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--ps-ring);
+    }
+  }
+}
+
+// Tier card refinement.
+.PointSystemShop-tier {
+  transition: transform var(--ps-t-med), box-shadow var(--ps-t-med), border-color var(--ps-t-fast);
+
+  &-name {
+    font-size: 15px;
+    letter-spacing: -0.005em;
+  }
+
+  &-points {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &.is-reached {
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--primary-color, #6cc04a) 4%, var(--ps-surface)) 0%,
+      var(--ps-surface) 100%);
+  }
+}
+
+// Empty states.
+.PointSystemShop-empty,
+.PointSystemDecorations-empty,
+.PointSystemTradesPage-empty {
+  text-align: center;
+  padding: var(--ps-space-8) var(--ps-space-4);
+  color: var(--ps-text-muted);
+  background: var(--ps-surface-muted);
+  border-radius: var(--ps-radius-lg);
+  border: 1px dashed var(--ps-border);
+  font-size: 14px;
+}
+
+// Nav pill refinement.
+.PointSystemShop-nav,
+.PointSystemDecorations-nav {
+  @media @tablet-up {
+    .Dropdown-menu > li > a,
+    .Dropdown-menu > li > button {
+      transition: background-color var(--ps-t-fast), color var(--ps-t-fast),
+                  border-color var(--ps-t-fast), transform var(--ps-t-fast);
+
+      &:hover {
+        transform: translateY(-1px);
+      }
+
+      &:focus-visible {
+        outline: none;
+        box-shadow: var(--ps-ring);
+      }
+    }
+  }
+}
+
+// Avatar preview refinement.
+.PointSystemShop-avatarPreview {
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.04));
+  transition: transform var(--ps-t-med);
+
+  .PointSystemShop-card:hover & {
+    transform: scale(1.02);
+  }
+}
+
+// Creator pill polish.
+.PointSystemShop-card-creator {
+  font-size: 11.5px;
+  font-weight: 500;
+  transition: background-color var(--ps-t-fast), color var(--ps-t-fast);
+
+  &:hover {
+    background: color-mix(in srgb, var(--primary-color, #6cc04a) 10%, transparent);
+    color: var(--primary-color, #6cc04a);
+  }
+}
+
+// Decorations preview body refinement.
+.PointSystemDecorations-previewBody {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+
+  .Avatar {
+    box-shadow: var(--ps-elevate-2);
+  }
+}
+
+// Title chip refinement.
+.PointSystemUserTitle {
+  background: color-mix(in srgb, var(--ps-title-color, var(--primary-color, #6cc04a)) 14%, transparent);
+  color: var(--ps-title-color, var(--primary-color, #6cc04a));
+  letter-spacing: 0.02em;
+  font-weight: 700;
+  transition: background-color var(--ps-t-fast), transform var(--ps-t-fast);
+
+  &:hover {
+    background: color-mix(in srgb, var(--ps-title-color, var(--primary-color, #6cc04a)) 20%, transparent);
+  }
+}
+
+
+.PointSystemTradesPage-header-titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.PointSystemStartTradeModal-error {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(220, 38, 38, 0.10);
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Live profile preview on /decorations
+//
+// Mirrors the Avocado / Flarum profile hero so users see exactly how their
+// equipped decorations will render on their own profile. The wrapper carries
+// `.UserHero` so the existing cover-decoration rule paints the banner via
+// the `--ps-cover-url` custom property the JSX sets inline.
+// ──────────────────────────────────────────────────────────────────────────────
+.PointSystemDecorations-previewHero {
+  position: relative;
+  border-radius: var(--ps-radius-xl, 14px);
+  overflow: hidden;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--primary-color, #6cc04a) 6%, var(--ps-surface)) 0%,
+    var(--ps-surface) 100%);
+  border: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+  min-height: 220px;
+  display: flex;
+  align-items: flex-end;
+  padding: 24px;
+  box-shadow: var(--ps-elevate-1);
+  isolation: isolate;
+
+  // When the user has a cover equipped, paint it as the hero background.
+  // Same `--ps-cover-url` mechanism used everywhere else; `before` layer
+  // gives us a flat fill on top of the gradient so the cover doesn't
+  // bleed into the meta area.
+  &.ps-has-cover {
+    background-image: var(--ps-cover-url);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+
+    // Readable text on top of arbitrary user covers — a subtle dark
+    // gradient at the bottom (where the name + title sit) so light text
+    // stays legible on bright covers without dimming the whole banner.
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg,
+        rgba(0, 0, 0, 0) 40%,
+        rgba(0, 0, 0, 0.35) 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
+  }
+
+  &-inner {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  &-avatar {
+    flex: 0 0 auto;
+    .Avatar {
+      width: 96px;
+      height: 96px;
+      font-size: 40px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25),
+                  0 0 0 4px var(--ps-surface, #fff);
+      border-radius: 50%;
+    }
+  }
+
+  &-meta {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-bottom: 4px;
+  }
+
+  &-name {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--text-color, inherit);
+
+    // When there's a cover, the gradient overlay darkens this area — flip
+    // the username to white so it stays readable. The `ps-name-{slug}`
+    // class still wins via the `!important` in the deco CSS.
+    .ps-has-cover & {
+      color: #fff;
+      text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
+    }
+  }
+
+  &-stats {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .PointSystemProfilePill {
+    background: rgba(255, 255, 255, 0.9);
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-color, #333);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+
+    .ps-has-cover & {
+      background: rgba(255, 255, 255, 0.95);
+    }
+  }
+
+  // Title chip inside the preview — laid out as inline-flex so it sits
+  // neatly under the name and doesn't break the meta column flow.
+  .PointSystemUserTitle--inPreview {
+    align-self: flex-start;
+    margin: 0;
+  }
+
+  // Mobile collapse — avatar above meta on narrow screens.
+  @media (max-width: 540px) {
+    padding: 16px;
+    min-height: 0;
+
+    &-inner {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    &-name { font-size: 22px; }
+    &-avatar .Avatar { width: 72px; height: 72px; }
+  }
+}
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Mobile fixes (2026-05-16)
+//
+// 1. Duplicate avatar: Flarum core hides .Post-side on @phone for the
+//    DiscussionPage so the inline avatar inside PostUser-name is the only
+//    one visible. Avocado MessagesPage (and a few other layouts) DOES keep
+//    Post-side rendered on phone — which combined with our applyAvatarDeco
+//    extender meant the user saw the same decorated face twice. We hide
+//    the entire .Post-side-inner (avatar + badge row) on phone so the
+//    inline PostUser-name avatar stays as the single representation.
+//
+// 2. PointSystemPostBadge takes horizontal room next to the username on
+//    a narrow header. On phone, hide it — the same balance is visible on
+//    the user profile + decorations preview, and the header row stays
+//    breathable.
+// ──────────────────────────────────────────────────────────────────────────────
+@media (max-width: 767px) {
+  // Hiding .Post-side-inner alone leaves the parent `.Post-side` with its
+  // `display: flex !important; flex-direction: column` rule still reserving
+  // a full row of vertical space (the empty 515×82 box visible in DevTools).
+  // Collapse the whole side column on phone — the inline avatar inside
+  // `PostUser-name` is the single representation we want.
+  .Post-side,
+  .Post-side--online,
+  .CommentPost .Post-side,
+  .CommentPost .Post-side--online,
+  .CommentPost.CommentPost--fixedAvatar .Post-side,
+  .CommentPost.CommentPost--fixedAvatar .Post-side--online {
+    display: none !important;
+  }
+
+  .PointSystemPostBadge {
+    display: none !important;
+  }
+}
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Avatar / badge duplication on desktop (2026-05-16)
+//
+// Flarum 2 + Avocado renders the avatar twice on desktop: once as the big
+// avatar inside `.Post-side > .Post-side-inner` (Avocado's column) AND once
+// inline inside `.PostUser-name > .Avatar` (the post-header byline). With
+// our `applyAvatarDecoration` running on every <Avatar/> instance, BOTH
+// copies pick up the decoration frame → user sees the same decorated face
+// twice on every post.
+//
+// Same story for `.PostUser-badges` — Avocado renders them once with the
+// `--inSide` modifier inside `.Post-side-inner`, plus the default inline
+// `.PostUser-badges` in the header. Two identical badge clusters.
+//
+// Fix: whenever a `.CommentPost` has a `.Post-side` child rendering, hide
+// the inline header copies. The side column carries the canonical big
+// avatar + badges + title chip; the header keeps name + timestamp only.
+// Mobile is already covered (we collapse `.Post-side` entirely below 768px),
+// so we scope this rule to >=768px to keep mobile rendering untouched.
+// ──────────────────────────────────────────────────────────────────────────────
+@media (min-width: 768px) {
+  .CommentPost:has(.Post-side) .PostUser-name > .Avatar,
+  .CommentPost:has(.Post-side) > .Post-header .PostUser > .Avatar,
+  .CommentPost:has(.Post-side) > .Post-header .PostUser-name .Avatar:not(.Post-avatar),
+  .CommentPost:has(.Post-side) .PostUser-badges:not(.PointSystemPostBadge):not(.PostUser-badges--inSide) {
+    display: none !important;
+  }
+}
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Post-highlight border bloat (2026-05-16)
+//
+// When a post-highlight decoration is applied (`.CommentPost.ps-posthl-*`),
+// Avocado's default `.CommentPost` keeps a generous vertical padding so the
+// avatar column has breathing room. With our `.Post-side` collapsed on phone
+// AND the highlight presets adding a 2-3px border around the post, the result
+// is a hollow rectangle: a thick coloured border with a near-empty top half
+// where the avatar column used to sit.
+//
+// Tighten the post box whenever ANY post-highlight class is present. This
+// matches every `ps-posthl-*` slug via the attribute selector so we don't
+// have to enumerate presets, and applies on both desktop and phone — the
+// border is meant to hug the post content, not to enlarge its container.
+// ──────────────────────────────────────────────────────────────────────────────
+.CommentPost[class*="ps-posthl-"],
+.Post[class*="ps-posthl-"] {
+  // Make sure the host carries the border-box model so the border doesn't
+  // add to the visible width and create a horizontal-scroll-trigger on phone.
+  box-sizing: border-box;
+
+  // Trim the dead space above the avatar / username line. Avocado's default
+  // is ~16-20px on top; halving it tightens the box without clipping the
+  // hover affordance on the controls row.
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+
+  // (former `top:` override removed — the `--inSide` chip is now in
+  // natural flex flow inside `.Post-side`, not absolutely positioned.)
+}
+
+// On phone the `.Post-side` is collapsed entirely (see above), so the
+// highlight border now wraps the inline header + body directly. Drop the
+// border-radius edge a touch so it doesn't visually orphan from a small body.
+@media (max-width: 767px) {
+  .CommentPost[class*="ps-posthl-"],
+  .Post[class*="ps-posthl-"] {
+    padding: 8px 12px !important;
+  }
+}
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Trade modal z-index blindage (2026-05-16)
+//
+// Flarum 2 ModalManager renders the modal and an `.ModalManager-invisibleBackdrop`
+// sibling in the same wrapper. The Modal has z-index: 2 by core spec, the
+// backdrop has z-index: auto. In most setups the modal wins — but under some
+// theme stacking-context configurations (Avocado on certain layouts, dark
+// mode toggles, etc.), the backdrop ends up on top, intercepting every click
+// and leaving the trade modal visually present but functionally inert.
+//
+// Two-pronged fix:
+//   1. Pin our trade modal at z-index 100 + position: relative on the root.
+//   2. Use :has() to find the SAME ModalManager wrapper and push its
+//      invisible backdrop strictly below the modal. The user can still close
+//      the trade via the X button or our Cancel action (we also disabled
+//      `viaBackdropClick` on the JS side so a stray click doesn't close it).
+// ──────────────────────────────────────────────────────────────────────────────
+// Earlier attempt scoped to `.ModalManager:has(.PointSystemTradeModal) >
+// .ModalManager-invisibleBackdrop`. That selector relies on the backdrop
+// being a *direct child* of the same ModalManager that hosts our modal —
+// but Flarum 2's ModalManager re-mounts the backdrop as a wrapper-sibling
+// in several themes (notably Avocado), so the `>` combinator missed and
+// the backdrop kept on top.
+//
+// Fix: walk up to <body> and match any backdrop in the document whenever
+// our trade modal is mounted. Use `display: none` rather than `z-index: -1`
+// — the backdrop has no functional purpose for our modal (we disabled
+// `viaBackdropClick` in TradeModal.tsx already), and removing it from the
+// flow defeats every stacking-context surprise the theme might throw.
+body:has(.PointSystemTradeModal) .ModalManager-invisibleBackdrop {
+  display: none !important;
+}
+
+// Belt-and-braces for environments where `:has()` isn't supported (older
+// Safari / very old Chromium). Boost our modal's own z-index to a value
+// no `position: fixed` overlay should beat, and lift its own stacking
+// context so the backdrop loses the paint race even when it's still in
+// the DOM at `z-index: auto`.
+.PointSystemTradeModal {
+  position: relative !important;
+  z-index: 9999 !important;
+  pointer-events: auto !important;
 }

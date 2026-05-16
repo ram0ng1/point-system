@@ -55,5 +55,13 @@ app.initializers.add('ramon/point-system', () => {
         permission: 'pointSystem.manage',
       },
       'moderate'
+    )
+    .registerPermission(
+      {
+        icon: 'fas fa-handshake',
+        label: app.translator.trans('ramon-point-system.admin.permissions.trade'),
+        permission: 'pointSystem.trade',
+      },
+      'reply'
     );
 });

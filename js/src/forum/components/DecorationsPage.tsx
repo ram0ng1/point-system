@@ -5,8 +5,9 @@ import Button from 'flarum/common/components/Button';
 import LinkButton from 'flarum/common/components/LinkButton';
 import Avatar from 'flarum/common/components/Avatar';
 import SelectDropdown from 'flarum/common/components/SelectDropdown';
+import SubmitDecorationModal from './SubmitDecorationModal';
 
-type DecorationsTab = 'avatar' | 'name' | 'cover' | 'title' | 'post-hl';
+type DecorationsTab = 'all' | 'avatar' | 'name' | 'cover' | 'title' | 'post-hl';
 
 /**
  * Page that lists what the current user already owns and lets them switch
@@ -18,8 +19,23 @@ export default class DecorationsPage extends Page {
   // back to 'avatar'.
   get tab(): DecorationsTab {
     const raw = m.route.param('tab');
-    const valid: DecorationsTab[] = ['avatar', 'name', 'cover', 'title', 'post-hl'];
-    return (valid as string[]).includes(raw) ? (raw as DecorationsTab) : 'avatar';
+    const valid: DecorationsTab[] = ['all', 'avatar', 'name', 'cover', 'title', 'post-hl'];
+    if ((valid as string[]).includes(raw)) {
+      // Reject a tab whose master toggle is off — the section won't
+      // render anyway and the user would see an empty page. Fall
+      // through to 'all' so they at least see what they own.
+      const attr = (k: string) => app.forum.attribute(k) !== false;
+      const enabledKey = {
+        avatar: 'pointSystem.avatar_deco_enabled',
+        name: 'pointSystem.name_deco_enabled',
+        cover: 'pointSystem.cover_deco_enabled',
+        title: 'pointSystem.title_deco_enabled',
+        'post-hl': 'pointSystem.post_hl_deco_enabled',
+        all: null,
+      }[raw as string];
+      if (!enabledKey || attr(enabledKey)) return raw as DecorationsTab;
+    }
+    return 'all';
   }
 
   // Track which specific row is busy (key = `${type}:${id}` or `${type}:unequip`)
@@ -65,41 +81,267 @@ export default class DecorationsPage extends Page {
 
     const user = app.session.user;
     const equippedNameSlug = String(user.attribute('equippedNameDecorationSlug') || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    const avatarEnabled = app.forum.attribute('pointSystem.avatar_deco_enabled') !== false;
+    const nameEnabled = app.forum.attribute('pointSystem.name_deco_enabled') !== false;
     const coverEnabled = app.forum.attribute('pointSystem.cover_deco_enabled') !== false;
     const titleEnabled = app.forum.attribute('pointSystem.title_deco_enabled') !== false;
     const postHlEnabled = app.forum.attribute('pointSystem.post_hl_deco_enabled') !== false;
 
+    const submitType = this.currentSubmitType();
+    const userSubmissionsEnabled = app.forum.attribute('pointSystemUserSubmissionsEnabled') !== false && app.forum.attribute('pointSystemUserSubmissionsEnabled') !== undefined;
+    const canSubmit = userSubmissionsEnabled && submitType !== null;
+
     return (
       <div className="PointSystemDecorations container">
-        <h1>{app.translator.trans('ramon-point-system.forum.my_decorations.title')}</h1>
+        <div className="PointSystemDecorations-pageHeader">
+          <h1>{app.translator.trans('ramon-point-system.forum.my_decorations.title')}</h1>
+          {canSubmit && (
+            <Button className="Button Button--primary" onclick={() => app.modal.show(SubmitDecorationModal, { type: submitType, onSubmitted: () => m.redraw() })}>
+              <i className="fas fa-paper-plane" /> {app.translator.trans('ramon-point-system.forum.my_decorations.submit_cta')}
+            </Button>
+          )}
+        </div>
 
-        {/* Live preview — shows the user how they currently appear with both
-            decorations equipped. Avatar uses the standard component so our
-            Avatar.view extender adds the frame; username uses ps-name-{slug}
-            so the global decoration CSS picks it up. */}
-        <section className="PointSystemDecorations-preview">
-          <h2>{app.translator.trans('ramon-point-system.forum.my_decorations.preview')}</h2>
-          <div className="PointSystemDecorations-previewBody">
-            <div className="PointSystemDecorations-previewAvatar">
-              <Avatar user={user} />
-            </div>
-            <div className={equippedNameSlug ? `ps-name-${equippedNameSlug}` : ''}>
-              <span className="username">{user.username()}</span>
-            </div>
-          </div>
-        </section>
+        {/* Live preview — mirrors the user-profile hero so users see exactly
+            how their equipped decorations render on their own page (Avocado /
+            Flarum UserPage Hero look). The wrapper carries `.UserHero` so
+            our cover-decoration CSS rule (`background-image: var(--ps-cover-url)`)
+            paints the banner; Avatar inherits our `applyAvatarDecoration`
+            view extender for the frame overlay; the name span carries
+            `ps-name-{slug}` so the runtime style block paints it; the title
+            chip uses the same component the post header renders. */}
+        {this.renderLivePreview(user, equippedNameSlug)}
 
         <nav className="PointSystemDecorations-nav">
           <SelectDropdown
-            className="PointSystemDecorations-nav-select App-titleControl"
+            className="PointSystemDecorations-nav-select"
             buttonClassName="Button"
             accessibleToggleLabel={app.translator.trans('ramon-point-system.forum.my_decorations.toggle_nav_label')}
           >
-            {this.navItems(coverEnabled, titleEnabled, postHlEnabled)}
+            {this.navItems(avatarEnabled, nameEnabled, coverEnabled, titleEnabled, postHlEnabled)}
           </SelectDropdown>
         </nav>
 
-        {this.tab === 'avatar' && (
+        {this.tab === 'all' && (
+          <section>
+            <h2>{app.translator.trans('ramon-point-system.forum.my_decorations.tab_all')}</h2>
+            {ownedAvatars.length + ownedNames.length + ownedCovers.length + ownedTitles.length + ownedPostHls.length === 0 && (
+              <p className="PointSystemDecorations-empty">{app.translator.trans('ramon-point-system.forum.my_decorations.none')}</p>
+            )}
+
+            {ownedAvatars.length > 0 && avatarEnabled && (
+              <div className="PointSystemDecorations-allGroup">
+                <h3>{app.translator.trans('ramon-point-system.forum.my_decorations.avatar')}</h3>
+                <div className="PointSystemDecorations-grid">
+                  {ownedAvatars.map((d) => (
+                    <div className={`PointSystemDecorations-item ${equippedAvatarId === d.id ? 'is-equipped' : ''}`} key={`all-av-${d.id}`}>
+                      {this.avatarPreview(d)}
+                      <div className="PointSystemDecorations-item-name">{d.name}</div>
+                      <div className="PointSystemDecorations-item-actions">
+                        {equippedAvatarId === d.id ? (
+                          <Button
+                            className="Button"
+                            loading={this.busy.has(this.busyKey('avatar_decoration', d.id))}
+                            onclick={() => this.unequip('avatar_decoration', d.id)}
+                          >
+                            {app.translator.trans('ramon-point-system.forum.my_decorations.unequip')}
+                          </Button>
+                        ) : (
+                          <Button
+                            className="Button Button--primary"
+                            loading={this.busy.has(this.busyKey('avatar_decoration', d.id))}
+                            onclick={() =>
+                              this.equip('avatar_decoration', d.id, {
+                                equippedAvatarDecorationId: d.id,
+                                equippedAvatarDecorationUrl: d.imageUrl || d.imagePath,
+                              })
+                            }
+                          >
+                            {app.translator.trans('ramon-point-system.forum.my_decorations.equip')}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {ownedNames.length > 0 && nameEnabled && (
+              <div className="PointSystemDecorations-allGroup">
+                <h3>{app.translator.trans('ramon-point-system.forum.my_decorations.name')}</h3>
+                <div className="PointSystemDecorations-grid">
+                  {ownedNames.map((d) => {
+                    const slug = String(d.slug || '').replace(/[^a-zA-Z0-9_-]/g, '');
+                    return (
+                      <div className={`PointSystemDecorations-item ${equippedNameId === d.id ? 'is-equipped' : ''}`} key={`all-na-${d.id}`}>
+                        <span className={`ps-name-preview ps-name-${slug}`}>{app.session.user.username()}</span>
+                        <div className="PointSystemDecorations-item-name">{d.name}</div>
+                        <div className="PointSystemDecorations-item-actions">
+                          {equippedNameId === d.id ? (
+                            <Button
+                              className="Button"
+                              loading={this.busy.has(this.busyKey('name_decoration', d.id))}
+                              onclick={() => this.unequip('name_decoration', d.id)}
+                            >
+                              {app.translator.trans('ramon-point-system.forum.my_decorations.unequip')}
+                            </Button>
+                          ) : (
+                            <Button
+                              className="Button Button--primary"
+                              loading={this.busy.has(this.busyKey('name_decoration', d.id))}
+                              onclick={() =>
+                                this.equip('name_decoration', d.id, { equippedNameDecorationId: d.id, equippedNameDecorationSlug: d.slug })
+                              }
+                            >
+                              {app.translator.trans('ramon-point-system.forum.my_decorations.equip')}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {ownedCovers.length > 0 && coverEnabled && (
+              <div className="PointSystemDecorations-allGroup">
+                <h3>{app.translator.trans('ramon-point-system.forum.my_decorations.cover')}</h3>
+                <div className="PointSystemDecorations-coverGrid">
+                  {ownedCovers.map((d) => (
+                    <div className={`PointSystemDecorations-coverItem ${equippedCoverId === d.id ? 'is-equipped' : ''}`} key={`all-co-${d.id}`}>
+                      <div className="PointSystemDecorations-coverItem-preview">
+                        <img src={this.resolveAsset(d.imagePath || d.imageUrl)} alt={d.name} />
+                      </div>
+                      <div className="PointSystemDecorations-item-name">{d.name}</div>
+                      <div className="PointSystemDecorations-item-actions">
+                        {equippedCoverId === d.id ? (
+                          <Button
+                            className="Button"
+                            loading={this.busy.has(this.busyKey('cover_decoration', d.id))}
+                            onclick={() => this.unequip('cover_decoration', d.id)}
+                          >
+                            {app.translator.trans('ramon-point-system.forum.my_decorations.unequip')}
+                          </Button>
+                        ) : (
+                          <Button
+                            className="Button Button--primary"
+                            loading={this.busy.has(this.busyKey('cover_decoration', d.id))}
+                            onclick={() =>
+                              this.equip('cover_decoration', d.id, {
+                                equippedCoverDecorationId: d.id,
+                                equippedCoverDecorationUrl: d.imageUrl || d.imagePath,
+                              })
+                            }
+                          >
+                            {app.translator.trans('ramon-point-system.forum.my_decorations.equip')}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {ownedTitles.length > 0 && titleEnabled && (
+              <div className="PointSystemDecorations-allGroup">
+                <h3>{app.translator.trans('ramon-point-system.forum.my_decorations.custom_title')}</h3>
+                <div className="PointSystemDecorations-grid">
+                  {ownedTitles.map((d) => {
+                    const slug = String(d.slug || '').replace(/[^a-zA-Z0-9_-]/g, '');
+                    const isEq = equippedTitleId === d.id;
+                    const styleVar = d.color ? `--ps-title-color:${String(d.color).replace(/[<>"';]/g, '')};` : '';
+                    return (
+                      <div className={`PointSystemDecorations-item ${isEq ? 'is-equipped' : ''}`} key={`all-ti-${d.id}`}>
+                        <span className={`ps-title-preview ps-title-${slug}`} style={styleVar}>
+                          {d.titleText}
+                        </span>
+                        <div className="PointSystemDecorations-item-name">{d.name}</div>
+                        <div className="PointSystemDecorations-item-actions">
+                          {isEq ? (
+                            <Button
+                              className="Button"
+                              loading={this.busy.has(this.busyKey('title_decoration', d.id))}
+                              onclick={() => this.unequip('title_decoration', d.id)}
+                            >
+                              {app.translator.trans('ramon-point-system.forum.my_decorations.unequip')}
+                            </Button>
+                          ) : (
+                            <Button
+                              className="Button Button--primary"
+                              loading={this.busy.has(this.busyKey('title_decoration', d.id))}
+                              onclick={() =>
+                                this.equip('title_decoration', d.id, {
+                                  equippedTitleDecorationId: d.id,
+                                  equippedTitleDecorationSlug: d.slug,
+                                  equippedTitleDecorationText: d.titleText,
+                                })
+                              }
+                            >
+                              {app.translator.trans('ramon-point-system.forum.my_decorations.equip')}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {ownedPostHls.length > 0 && postHlEnabled && (
+              <div className="PointSystemDecorations-allGroup">
+                <h3>{app.translator.trans('ramon-point-system.forum.my_decorations.post_hl')}</h3>
+                <div className="PointSystemDecorations-grid">
+                  {ownedPostHls.map((d) => {
+                    const slug = String(d.slug || '').replace(/[^a-zA-Z0-9_-]/g, '');
+                    const isEq = equippedPostHlId === d.id;
+                    return (
+                      <div className={`PointSystemDecorations-item ${isEq ? 'is-equipped' : ''}`} key={`all-ph-${d.id}`}>
+                        <div className={`ps-posthl-preview ps-posthl-${slug}`}>
+                          <div className="ps-posthl-preview-avatar" />
+                          <div className="ps-posthl-preview-body">
+                            <div className="ps-posthl-preview-line" />
+                            <div className="ps-posthl-preview-line short" />
+                          </div>
+                        </div>
+                        <div className="PointSystemDecorations-item-name">{d.name}</div>
+                        <div className="PointSystemDecorations-item-actions">
+                          {isEq ? (
+                            <Button
+                              className="Button"
+                              loading={this.busy.has(this.busyKey('post_highlight_decoration', d.id))}
+                              onclick={() => this.unequip('post_highlight_decoration', d.id)}
+                            >
+                              {app.translator.trans('ramon-point-system.forum.my_decorations.unequip')}
+                            </Button>
+                          ) : (
+                            <Button
+                              className="Button Button--primary"
+                              loading={this.busy.has(this.busyKey('post_highlight_decoration', d.id))}
+                              onclick={() =>
+                                this.equip('post_highlight_decoration', d.id, {
+                                  equippedPostHighlightDecorationId: d.id,
+                                  equippedPostHighlightDecorationSlug: d.slug,
+                                })
+                              }
+                            >
+                              {app.translator.trans('ramon-point-system.forum.my_decorations.equip')}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {this.tab === 'avatar' && avatarEnabled && (
           <section>
             <h2>{app.translator.trans('ramon-point-system.forum.my_decorations.avatar')}</h2>
             {ownedAvatars.length === 0 && (
@@ -108,7 +350,7 @@ export default class DecorationsPage extends Page {
             <div className="PointSystemDecorations-grid">
               {ownedAvatars.map((d) => (
                 <div className={`PointSystemDecorations-item ${equippedAvatarId === d.id ? 'is-equipped' : ''}`} key={`av-${d.id}`}>
-                  <img src={this.resolveAsset(d.imagePath)} alt={d.name} />
+                  {this.avatarPreview(d)}
                   <div className="PointSystemDecorations-item-name">{d.name}</div>
                   <div className="PointSystemDecorations-item-actions">
                     {equippedAvatarId === d.id ? (
@@ -124,7 +366,10 @@ export default class DecorationsPage extends Page {
                         className="Button Button--primary"
                         loading={this.busy.has(this.busyKey('avatar_decoration', d.id))}
                         onclick={() =>
-                          this.equip('avatar_decoration', d.id, { equippedAvatarDecorationId: d.id, equippedAvatarDecorationUrl: d.imagePath })
+                          this.equip('avatar_decoration', d.id, {
+                            equippedAvatarDecorationId: d.id,
+                            equippedAvatarDecorationUrl: d.imageUrl || d.imagePath,
+                          })
                         }
                       >
                         {app.translator.trans('ramon-point-system.forum.my_decorations.equip')}
@@ -137,7 +382,7 @@ export default class DecorationsPage extends Page {
           </section>
         )}
 
-        {this.tab === 'name' && (
+        {this.tab === 'name' && nameEnabled && (
           <section>
             <h2>{app.translator.trans('ramon-point-system.forum.my_decorations.name')}</h2>
             {ownedNames.length === 0 && (
@@ -286,7 +531,7 @@ export default class DecorationsPage extends Page {
               {ownedCovers.map((d) => (
                 <div className={`PointSystemDecorations-coverItem ${equippedCoverId === d.id ? 'is-equipped' : ''}`} key={`co-${d.id}`}>
                   <div className="PointSystemDecorations-coverItem-preview">
-                    <img src={this.resolveAsset(d.imagePath)} alt={d.name} />
+                    <img src={this.resolveAsset(d.imageUrl || d.imagePath)} alt={d.name} />
                   </div>
                   <div className="PointSystemDecorations-item-name">{d.name}</div>
                   <div className="PointSystemDecorations-item-actions">
@@ -303,7 +548,10 @@ export default class DecorationsPage extends Page {
                         className="Button Button--primary"
                         loading={this.busy.has(this.busyKey('cover_decoration', d.id))}
                         onclick={() =>
-                          this.equip('cover_decoration', d.id, { equippedCoverDecorationId: d.id, equippedCoverDecorationUrl: d.imagePath })
+                          this.equip('cover_decoration', d.id, {
+                            equippedCoverDecorationId: d.id,
+                            equippedCoverDecorationUrl: d.imageUrl || d.imagePath,
+                          })
                         }
                       >
                         {app.translator.trans('ramon-point-system.forum.my_decorations.equip')}
@@ -319,7 +567,7 @@ export default class DecorationsPage extends Page {
     );
   }
 
-  navItems(coverEnabled: boolean, titleEnabled: boolean, postHlEnabled: boolean) {
+  navItems(avatarEnabled: boolean, nameEnabled: boolean, coverEnabled: boolean, titleEnabled: boolean, postHlEnabled: boolean) {
     // See ShopPage.navItems for the bind() rationale.
     const t = app.translator.trans.bind(app.translator);
     const current = this.tab;
@@ -335,8 +583,9 @@ export default class DecorationsPage extends Page {
     };
 
     return [
-      item('avatar', 'fas fa-user-circle', t('ramon-point-system.forum.my_decorations.avatar') as string),
-      item('name', 'fas fa-font', t('ramon-point-system.forum.my_decorations.name') as string),
+      item('all', 'fas fa-th-large', t('ramon-point-system.forum.my_decorations.tab_all') as string),
+      avatarEnabled ? item('avatar', 'fas fa-user-circle', t('ramon-point-system.forum.my_decorations.avatar') as string) : null,
+      nameEnabled ? item('name', 'fas fa-font', t('ramon-point-system.forum.my_decorations.name') as string) : null,
       coverEnabled ? item('cover', 'fas fa-image', t('ramon-point-system.forum.my_decorations.cover') as string) : null,
       titleEnabled ? item('title', 'fas fa-id-badge', t('ramon-point-system.forum.my_decorations.custom_title') as string) : null,
       postHlEnabled ? item('post-hl', 'fas fa-highlighter', t('ramon-point-system.forum.my_decorations.post_hl') as string) : null,
@@ -385,10 +634,91 @@ export default class DecorationsPage extends Page {
     }
   }
 
+  // Builds the live-preview block — modelled after Avocado's profile hero
+  // and Flarum's UserCard. Cover banner + large framed avatar + decorated
+  // username + optional custom title chip. Lets the user see EXACTLY how
+  // they'll appear on their own profile page before equipping/changing
+  // decorations.
+  renderLivePreview(user: any, equippedNameSlug: string) {
+    const coverPath = user.attribute?.('equippedCoverDecorationUrl') as string | undefined;
+    const titleSlug = String(user.attribute?.('equippedTitleDecorationSlug') || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    const titleText = user.attribute?.('equippedTitleDecorationText') as string | undefined;
+    const balance = Number(user.attribute?.('pointBalance') ?? 0);
+    const currencyIcon = (app.forum.attribute('pointSystem.currency_icon') as string) || 'fas fa-coins';
+    const coverUrl = coverPath ? this.resolveAsset(String(coverPath)) : '';
+    // CSS custom property carrying the cover URL — matches the same
+    // `--ps-cover-url` plumbing the global cover-decoration rule uses on
+    // .UserCard / .UserHero / .AvocadoUserPage-hero (see less/forum.less).
+    const heroStyle = coverUrl ? `--ps-cover-url: url("${coverUrl.replace(/"/g, '%22')}")` : '';
+
+    // Standalone hero — no surrounding `<section class="PointSystemDecorations-preview">`
+    // and no "Live preview" heading. The hero is its own self-contained
+    // representation of the user's current decorations, matching the
+    // hero element on the public profile.
+    return (
+      <div className={`PointSystemDecorations-previewHero UserHero ${coverUrl ? 'ps-has-cover' : ''}`} style={heroStyle}>
+        <div className="PointSystemDecorations-previewHero-inner">
+          <div className="PointSystemDecorations-previewHero-avatar">
+            <Avatar user={user} />
+          </div>
+          <div className="PointSystemDecorations-previewHero-meta">
+            <h3 className={`PointSystemDecorations-previewHero-name ${equippedNameSlug ? `ps-name-${equippedNameSlug}` : ''}`}>
+              <span className="username ps-name-text">{user.displayName?.() || user.username?.()}</span>
+            </h3>
+            {titleText && titleSlug && (
+              <span className={`PointSystemUserTitle ps-title-${titleSlug} PointSystemUserTitle--inPreview`}>{titleText}</span>
+            )}
+            <div className="PointSystemDecorations-previewHero-stats">
+              <span className="PointSystemProfilePill">
+                <i className={currencyIcon} aria-hidden="true" /> {balance.toLocaleString()} pts
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Maps the current tab to the JSON:API type that SubmitDecorationModal
+  // expects. Returns null for the "all" tab (no implicit type).
+  currentSubmitType(): string | null {
+    const tab = this.tab;
+    if (tab === 'all') return null;
+    return {
+      avatar: 'avatar_decoration',
+      name: 'name_decoration',
+      cover: 'cover_decoration',
+      title: 'title_decoration',
+      'post-hl': 'post_highlight_decoration',
+    }[tab as string] as string | null;
+  }
+
   resolveAsset(path: string): string {
     if (!path) return '';
     if (/^https?:\/\//i.test(path)) return path;
     const base = (app.forum.attribute('assetsBaseUrl') as string | undefined) || (app.forum.attribute('baseUrl') as string) + '/assets';
     return base.replace(/\/+$/, '') + '/' + String(path).replace(/^\/+/, '');
+  }
+
+  // Composite preview matching the shop card: user's avatar on the bottom,
+  // the decoration frame layered on top. Reuses the shop's existing
+  // `.PointSystemShop-avatarPreview` LESS so the two pages render the same
+  // shape.
+  avatarPreview(d: any) {
+    const src = d.imageUrl || d.imagePath || '';
+    const url = src ? this.resolveAsset(String(src)) : '';
+    const userAvatarUrl = app.session.user?.avatarUrl?.();
+    return (
+      <div className="PointSystemShop-avatarPreview PointSystemDecorations-avatarPreview">
+        {userAvatarUrl ? (
+          <img className="PointSystemShop-avatarPreview-img" src={userAvatarUrl} alt="" />
+        ) : (
+          <span className="PointSystemShop-avatarPreview-placeholder" aria-hidden="true">
+            <i className="fas fa-user" />
+          </span>
+        )}
+        {url && <img className="PointSystemShop-avatarPreview-frame" src={url} alt={d.name} />}
+      </div>
+    );
   }
 }

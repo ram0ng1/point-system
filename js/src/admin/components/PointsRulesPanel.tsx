@@ -4,29 +4,75 @@ import Component from 'flarum/common/Component';
 import Switch from 'flarum/common/components/Switch';
 import Button from 'flarum/common/components/Button';
 
-const SETTINGS: Array<{ key: string; transKey: string; type: 'number' | 'text' | 'bool' | 'icon'; defaultBool?: boolean; help?: string }> = [
-  { key: 'point-system.enabled', transKey: 'enabled', type: 'bool' },
-  { key: 'point-system.auto_group_enabled', transKey: 'auto_group_enabled', type: 'bool' },
-  { key: 'point-system.lifetime_enabled', transKey: 'lifetime_enabled', type: 'bool', defaultBool: true },
-  { key: 'point-system.show_in_post_header', transKey: 'show_in_post_header', type: 'bool', defaultBool: true },
-  { key: 'point-system.show_in_user_profile', transKey: 'show_in_user_profile', type: 'bool', defaultBool: true },
-  { key: 'point-system.avatar_deco_enabled', transKey: 'avatar_deco_enabled', type: 'bool', defaultBool: true },
-  { key: 'point-system.name_deco_enabled', transKey: 'name_deco_enabled', type: 'bool', defaultBool: true },
-  { key: 'point-system.cover_deco_enabled', transKey: 'cover_deco_enabled', type: 'bool', defaultBool: true },
-  { key: 'point-system.title_deco_enabled', transKey: 'title_deco_enabled', type: 'bool', defaultBool: true },
-  { key: 'point-system.post_hl_deco_enabled', transKey: 'post_hl_deco_enabled', type: 'bool', defaultBool: true },
-  { key: 'point-system.deco_in_posts', transKey: 'deco_in_posts', type: 'bool', defaultBool: true },
-  { key: 'point-system.deco_in_user_card', transKey: 'deco_in_user_card', type: 'bool', defaultBool: true },
-  { key: 'point-system.deco_in_lists', transKey: 'deco_in_lists', type: 'bool', defaultBool: true },
-  { key: 'point-system.hide_badges_with_avatar_deco', transKey: 'hide_badges_with_avatar_deco', type: 'bool', defaultBool: false },
-  { key: 'point-system.currency_name', transKey: 'currency_name', type: 'text' },
-  { key: 'point-system.currency_icon', transKey: 'currency_icon', type: 'icon' },
-  { key: 'point-system.points_per_discussion', transKey: 'points_per_discussion', type: 'number' },
-  { key: 'point-system.points_per_post', transKey: 'points_per_post', type: 'number' },
-  { key: 'point-system.points_per_like_received', transKey: 'points_per_like_received', type: 'number' },
-  { key: 'point-system.points_per_like_given', transKey: 'points_per_like_given', type: 'number' },
-  { key: 'point-system.points_per_registration', transKey: 'points_per_registration', type: 'number' },
-  { key: 'point-system.daily_login_bonus', transKey: 'daily_login_bonus', type: 'number' },
+// Settings grouped into themed sections — keeps the page navigable and
+// stops the previous flat-grid layout from breaking when a help text was
+// long enough to overflow a column.
+//
+// Section schema:
+//   transKey  → maps to ramon-point-system.admin.rules.section_<key>_{title,help}
+//   intro     → optional sub-help paragraph at the top of the section
+//   fields    → list of settings (same shape as before).
+interface FieldDef {
+  key: string;
+  transKey: string;
+  type: 'number' | 'text' | 'bool' | 'icon';
+  defaultBool?: boolean;
+}
+interface SectionDef {
+  transKey: string;
+  fields: FieldDef[];
+}
+
+const SECTIONS: SectionDef[] = [
+  {
+    transKey: 'general',
+    fields: [
+      { key: 'point-system.enabled', transKey: 'enabled', type: 'bool', defaultBool: true },
+      { key: 'point-system.lifetime_enabled', transKey: 'lifetime_enabled', type: 'bool', defaultBool: true },
+      { key: 'point-system.auto_group_enabled', transKey: 'auto_group_enabled', type: 'bool', defaultBool: true },
+      { key: 'point-system.trade_enabled', transKey: 'trade_enabled', type: 'bool', defaultBool: true },
+      { key: 'point-system.user_submissions_enabled', transKey: 'user_submissions_enabled', type: 'bool', defaultBool: false },
+    ],
+  },
+  {
+    transKey: 'currency',
+    fields: [
+      { key: 'point-system.currency_name', transKey: 'currency_name', type: 'text' },
+      { key: 'point-system.currency_icon', transKey: 'currency_icon', type: 'icon' },
+    ],
+  },
+  {
+    transKey: 'decorations',
+    fields: [
+      { key: 'point-system.avatar_deco_enabled', transKey: 'avatar_deco_enabled', type: 'bool', defaultBool: true },
+      { key: 'point-system.name_deco_enabled', transKey: 'name_deco_enabled', type: 'bool', defaultBool: true },
+      { key: 'point-system.cover_deco_enabled', transKey: 'cover_deco_enabled', type: 'bool', defaultBool: true },
+      { key: 'point-system.title_deco_enabled', transKey: 'title_deco_enabled', type: 'bool', defaultBool: true },
+      { key: 'point-system.post_hl_deco_enabled', transKey: 'post_hl_deco_enabled', type: 'bool', defaultBool: true },
+    ],
+  },
+  {
+    transKey: 'placement',
+    fields: [
+      { key: 'point-system.show_in_post_header', transKey: 'show_in_post_header', type: 'bool', defaultBool: true },
+      { key: 'point-system.show_in_user_profile', transKey: 'show_in_user_profile', type: 'bool', defaultBool: true },
+      { key: 'point-system.deco_in_posts', transKey: 'deco_in_posts', type: 'bool', defaultBool: true },
+      { key: 'point-system.deco_in_user_card', transKey: 'deco_in_user_card', type: 'bool', defaultBool: true },
+      { key: 'point-system.deco_in_lists', transKey: 'deco_in_lists', type: 'bool', defaultBool: true },
+      { key: 'point-system.hide_badges_with_avatar_deco', transKey: 'hide_badges_with_avatar_deco', type: 'bool', defaultBool: false },
+    ],
+  },
+  {
+    transKey: 'awards',
+    fields: [
+      { key: 'point-system.points_per_discussion', transKey: 'points_per_discussion', type: 'number' },
+      { key: 'point-system.points_per_post', transKey: 'points_per_post', type: 'number' },
+      { key: 'point-system.points_per_like_received', transKey: 'points_per_like_received', type: 'number' },
+      { key: 'point-system.points_per_like_given', transKey: 'points_per_like_given', type: 'number' },
+      { key: 'point-system.points_per_registration', transKey: 'points_per_registration', type: 'number' },
+      { key: 'point-system.daily_login_bonus', transKey: 'daily_login_bonus', type: 'number' },
+    ],
+  },
 ];
 
 export default class PointsRulesPanel extends Component {
@@ -41,30 +87,56 @@ export default class PointsRulesPanel extends Component {
           <p className="helpText">{app.translator.trans('ramon-point-system.admin.rules.help')}</p>
         </div>
 
-        <div className="PointSystemAdmin-grid">{SETTINGS.map((s) => this.renderField(s))}</div>
+        {SECTIONS.map((s) => this.renderSection(s))}
 
-        <div className="PointSystemAdmin-actions">
+        <div className="PointSystemAdmin-actions PointSystemAdmin-actions--sticky">
           <Button
             className="Button Button--primary"
             loading={this.saving}
             disabled={Object.keys(this.dirty).length === 0}
             onclick={() => this.save()}
           >
-            {app.translator.trans('ramon-point-system.admin.rules.save')}
+            <i className="fas fa-save" /> {app.translator.trans('ramon-point-system.admin.rules.save')}
           </Button>
+          {Object.keys(this.dirty).length > 0 && (
+            <span className="PointSystemAdmin-dirty">
+              <i className="fas fa-circle" /> {app.translator.trans('ramon-point-system.admin.rules.unsaved', { count: Object.keys(this.dirty).length })}
+            </span>
+          )}
         </div>
       </div>
     );
   }
 
-  renderField(s: { key: string; transKey: string; type: string; defaultBool?: boolean }) {
+  renderSection(section: SectionDef) {
+    const title = app.translator.trans(`ramon-point-system.admin.rules.section_${section.transKey}_title`);
+    const help = app.translator.trans(`ramon-point-system.admin.rules.section_${section.transKey}_help`);
+    // Booleans get their own visually-distinct list (one row each, label
+    // + help inline) instead of a 2-column grid that was wrapping long
+    // descriptions awkwardly. Number/text fields stay in a 2-column grid
+    // because they're naturally short.
+    const bools = section.fields.filter((f) => f.type === 'bool');
+    const others = section.fields.filter((f) => f.type !== 'bool');
+
+    return (
+      <div className="PointSystemAdmin-card">
+        <div className="PointSystemAdmin-card-header">
+          <h3>{title}</h3>
+          {help && <p className="helpText">{help}</p>}
+        </div>
+        {bools.length > 0 && <div className="PointSystemAdmin-toggleList">{bools.map((f) => this.renderField(f))}</div>}
+        {others.length > 0 && <div className="PointSystemAdmin-fieldGrid">{others.map((f) => this.renderField(f))}</div>}
+      </div>
+    );
+  }
+
+  renderField(s: FieldDef) {
     const stored = app.data.settings[s.key];
     const current = this.dirty[s.key] ?? stored ?? '';
     const label = app.translator.trans(`ramon-point-system.admin.rules.${s.transKey}`);
     const help = app.translator.trans(`ramon-point-system.admin.rules.${s.transKey}_help`);
 
     if (s.type === 'bool') {
-      // Honor backend default when setting was never persisted (stored === undefined).
       const checked =
         this.dirty[s.key] !== undefined
           ? this.dirty[s.key] === '1' || this.dirty[s.key] === true
@@ -72,11 +144,11 @@ export default class PointsRulesPanel extends Component {
             ? s.defaultBool === true
             : stored === true || stored === '1' || stored === 1 || stored === 'true';
       return (
-        <div className="Form-group PointSystemAdmin-field">
+        <div className="PointSystemAdmin-toggleRow">
           <Switch state={checked} onchange={(v: boolean) => (this.dirty[s.key] = v ? '1' : '0')}>
-            {label}
+            <span className="PointSystemAdmin-toggleRow-label">{label}</span>
+            {help && <span className="PointSystemAdmin-toggleRow-help">{help}</span>}
           </Switch>
-          {help && <p className="helpText">{help}</p>}
         </div>
       );
     }
@@ -98,7 +170,6 @@ export default class PointsRulesPanel extends Component {
       );
     }
 
-    // text / icon
     return (
       <div className="Form-group PointSystemAdmin-field">
         <label>{label}</label>

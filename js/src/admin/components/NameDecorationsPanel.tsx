@@ -3,6 +3,17 @@ import app from 'flarum/admin/app';
 import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
+import AvailabilityInputs from './AvailabilityInputs';
+import GrantItemModal from './GrantItemModal';
+
+const EMPTY_AVAILABILITY = () => ({
+  maxClaims: null as number | null,
+  claimCount: 0,
+  availableFrom: '',
+  availableUntil: '',
+  isListed: true,
+  allowedGroupIds: [] as number[],
+});
 
 const BUILTIN_PRESETS = [
   'gold',
@@ -38,7 +49,7 @@ export default class NameDecorationsPanel extends Component {
   saving = false;
 
   // create form
-  draft = { name: '', description: '', preset: 'fire', price: 50, customCss: '' };
+  draft: any = { name: '', description: '', preset: 'fire', price: 50, customCss: '', availability: EMPTY_AVAILABILITY() };
 
   // per-row edit buffers keyed by deco id; presence = card is in edit mode
   edits: Record<string, any> = {};
@@ -133,6 +144,8 @@ export default class NameDecorationsPanel extends Component {
             </span>
           </div>
 
+          <AvailabilityInputs state={this.draft.availability} onchange={(s: any) => (this.draft.availability = s)} />
+
           <Button className="Button Button--primary" loading={this.saving} disabled={!this.draft.name.trim()} onclick={() => this.create()}>
             {app.translator.trans('ramon-point-system.admin.name.create')}
           </Button>
@@ -186,6 +199,19 @@ export default class NameDecorationsPanel extends Component {
           </Button>
           <Button className="Button" onclick={() => this.saveField(deco, 'isEnabled', !enabled)}>
             {enabled ? app.translator.trans('ramon-point-system.admin.disable') : app.translator.trans('ramon-point-system.admin.enable')}
+          </Button>
+          <Button
+            className="Button"
+            onclick={() =>
+              app.modal.show(GrantItemModal, {
+                itemType: 'name_decoration',
+                itemId: deco.id(),
+                itemLabel: name,
+                onGranted: () => this.load(),
+              })
+            }
+          >
+            <i className="fas fa-gift" /> {app.translator.trans('ramon-point-system.admin.grant.action_button')}
           </Button>
           <Button className="Button Button--danger" onclick={() => this.remove(deco)}>
             <i className="fas fa-trash" />
@@ -251,6 +277,9 @@ export default class NameDecorationsPanel extends Component {
           />
           <p className="helpText">{app.translator.trans('ramon-point-system.admin.name.field_css_help')}</p>
         </div>
+
+        <AvailabilityInputs state={draft.availability} onchange={(s: any) => (draft.availability = s)} />
+
         <div className="PointSystemAdmin-decoCard-actions">
           <Button className="Button Button--primary" onclick={() => this.commitEdit(deco)}>
             {app.translator.trans('ramon-point-system.admin.save')}
@@ -271,6 +300,14 @@ export default class NameDecorationsPanel extends Component {
       preset: deco.attribute('preset') || 'custom',
       price: deco.attribute('price') || 0,
       customCss: deco.attribute('customCss') || '',
+      availability: {
+        maxClaims: deco.attribute('maxClaims'),
+        claimCount: Number(deco.attribute('claimCount') ?? 0),
+        availableFrom: deco.attribute('availableFrom') || '',
+        availableUntil: deco.attribute('availableUntil') || '',
+        isListed: deco.attribute('isListed') !== false,
+        allowedGroupIds: Array.isArray(deco.attribute('allowedGroupIds')) ? deco.attribute('allowedGroupIds') : [],
+      },
     };
   }
 
@@ -283,12 +320,18 @@ export default class NameDecorationsPanel extends Component {
     const draft = this.edits[id];
     if (!draft) return;
     try {
+      const av = draft.availability || {};
       await deco.save({
         name: draft.name,
         description: draft.description || null,
         preset: draft.preset,
         price: Number(draft.price) || 0,
         customCss: draft.customCss || null,
+        maxClaims: av.maxClaims,
+        availableFrom: av.availableFrom || null,
+        availableUntil: av.availableUntil || null,
+        isListed: !!av.isListed,
+        allowedGroupIds: Array.isArray(av.allowedGroupIds) ? av.allowedGroupIds : [],
       });
       delete this.edits[id];
       m.redraw();
@@ -302,14 +345,20 @@ export default class NameDecorationsPanel extends Component {
     this.saving = true;
     m.redraw();
     try {
+      const av = this.draft.availability || EMPTY_AVAILABILITY();
       await app.store.createRecord('point-system-name-decorations').save({
         name: this.draft.name,
         description: this.draft.description || null,
         preset: this.draft.preset,
         price: this.draft.price,
         customCss: this.draft.customCss || null,
+        maxClaims: av.maxClaims,
+        availableFrom: av.availableFrom || null,
+        availableUntil: av.availableUntil || null,
+        isListed: !!av.isListed,
+        allowedGroupIds: Array.isArray(av.allowedGroupIds) ? av.allowedGroupIds : [],
       });
-      this.draft = { name: '', description: '', preset: 'fire', price: 50, customCss: '' };
+      this.draft = { name: '', description: '', preset: 'fire', price: 50, customCss: '', availability: EMPTY_AVAILABILITY() };
       await this.load();
       app.alerts.show({ type: 'success' }, app.translator.trans('ramon-point-system.admin.name.created'));
     } catch (e: any) {

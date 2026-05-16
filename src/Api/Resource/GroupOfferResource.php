@@ -12,6 +12,7 @@ use Flarum\Foundation\ValidationException;
 use Flarum\Settings\SettingsRepositoryInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Ramon\PointSystem\Model\GroupOffer;
+use Ramon\PointSystem\Support\ItemAvailability;
 
 /**
  * @extends AbstractDatabaseResource<GroupOffer>
@@ -44,7 +45,11 @@ class GroupOfferResource extends AbstractDatabaseResource
         }
         if (! $this->autoGroupEnabled()) {
             $query->whereRaw('1 = 0');
+            return;
         }
+        // Public catalog: hide unlisted / out-of-window / sold-out / group-
+        // restricted offers from non-managers. Managers see everything.
+        ItemAvailability::applyShopScope($query, $actor);
     }
 
     #[\Override]
@@ -98,7 +103,7 @@ class GroupOfferResource extends AbstractDatabaseResource
     #[\Override]
     public function fields(): array
     {
-        return [
+        return array_merge([
             Schema\Integer::make('groupId')->property('group_id'),
             Schema\Integer::make('pointsRequired')->property('points_required'),
             Schema\Integer::make('price')->property('price'),
@@ -108,7 +113,7 @@ class GroupOfferResource extends AbstractDatabaseResource
             Schema\Relationship\ToOne::make('group')
                 ->type('groups')
                 ->includable(),
-        ];
+        ], AvailabilityFields::fields());
     }
 
     protected function fill(GroupOffer $offer, array $attrs): void
@@ -134,5 +139,7 @@ class GroupOfferResource extends AbstractDatabaseResource
         if (array_key_exists('isEnabled', $attrs)) {
             $offer->is_enabled = (bool) $attrs['isEnabled'];
         }
+
+        ItemAvailability::fillFromAttrs($offer, $attrs);
     }
 }

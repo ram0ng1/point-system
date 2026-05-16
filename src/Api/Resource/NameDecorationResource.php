@@ -16,6 +16,8 @@ use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Model\NameDecoration;
 use Ramon\PointSystem\Model\ShopClaim;
 use Ramon\PointSystem\Support\CssSanitizer;
+use Ramon\PointSystem\Support\ItemAvailability;
+use Ramon\PointSystem\Support\SubmissionScope;
 
 /**
  * @extends AbstractDatabaseResource<NameDecoration>
@@ -52,15 +54,14 @@ class NameDecorationResource extends AbstractDatabaseResource
     {
         $actor = $context->getActor();
 
-        // Feature gate: when admin turns the family off, non-managers see an
-        // empty catalog (their shop tab disappears entirely). Managers still
-        // see everything so they can re-enable individual rows from admin.
         if (! $actor->hasPermission('pointSystem.manage')) {
             if (! resolve(FeatureGate::class)->isEnabled(ShopClaim::TYPE_NAME)) {
                 $query->whereRaw('1 = 0');
                 return;
             }
             $query->where('is_enabled', true);
+            SubmissionScope::apply($query, $actor);
+            ItemAvailability::applyShopScope($query, $actor);
         }
     }
 
@@ -71,15 +72,38 @@ class NameDecorationResource extends AbstractDatabaseResource
             Endpoint\Index::make()->paginate(100, 200),
             Endpoint\Show::make(),
 
+            // Create: open to both admins (full control) and regular users
+            // (limited fields, pending status). Both paths gate on the
+            // family toggle; the user path additionally gates on the global
+            // user-submissions setting.
             Endpoint\Create::make()
                 ->authenticated()
-                ->can('pointSystem.manage')
                 ->action(function (Context $context) {
-                    $context->getActor()->assertCan('pointSystem.manage');
-                    resolve(FeatureGate::class)->assertEnabled(ShopClaim::TYPE_NAME);
+                    $actor     = $context->getActor();
+                    $features  = resolve(FeatureGate::class);
+                    $isManager = $actor->hasPermission('pointSystem.manage');
+
+                    $features->assertEnabled(ShopClaim::TYPE_NAME);
+                    if (! $isManager) {
+                        $features->assertUserSubmissionsEnabled();
+                    }
+
                     $attrs = (array) ($context->body()['data']['attributes'] ?? []);
                     $deco = new NameDecoration();
-                    $this->fill($deco, $attrs, isNew: true);
+                    $this->fill($deco, $attrs, isNew: true, byManager: $isManager);
+
+                    if (! $isManager) {
+                        // User submissions land pending — admin reviews and
+                        // either flips status=approved+is_enabled=true OR
+                        // sets status=rejected. Price stays 0 until admin
+                        // picks one (otherwise users could undercut the
+                        // admin's existing catalog).
+                        $deco->creator_id = (int) $actor->id;
+                        $deco->status = NameDecoration::STATUS_PENDING;
+                        $deco->is_enabled = false;
+                        $deco->price = 0;
+                    }
+
                     $deco->save();
                     return $deco;
                 }),
@@ -93,7 +117,7 @@ class NameDecorationResource extends AbstractDatabaseResource
                     /** @var NameDecoration $deco */
                     $deco = NameDecoration::query()->findOrFail($context->modelId);
                     $attrs = (array) ($context->body()['data']['attributes'] ?? []);
-                    $this->fill($deco, $attrs);
+                    $this->fill($deco, $attrs, byManager: true);
                     $deco->save();
                     return $deco;
                 }),
@@ -115,7 +139,7 @@ class NameDecorationResource extends AbstractDatabaseResource
     #[\Override]
     public function fields(): array
     {
-        return [
+        return array_merge([
             Schema\Str::make('name'),
             Schema\Str::make('slug'),
             Schema\Str::make('description')->nullable(),
@@ -125,7 +149,10 @@ class NameDecorationResource extends AbstractDatabaseResource
             Schema\Boolean::make('isEnabled')->property('is_enabled'),
             Schema\Integer::make('sort'),
             Schema\DateTime::make('createdAt')->property('created_at'),
-        ];
+            Schema\Str::make('status'),
+            Schema\Integer::make('creatorId')->property('creator_id')->nullable(),
+            Schema\Str::make('creatorUsername')->get(fn (NameDecoration $d) => optional($d->creator)->username),
+        ], AvailabilityFields::fields());
     }
 
     #[\Override]
@@ -137,7 +164,7 @@ class NameDecorationResource extends AbstractDatabaseResource
         ];
     }
 
-    protected function fill(NameDecoration $deco, array $attrs, bool $isNew = false): void
+    protected function fill(NameDecoration $deco, array $attrs, bool $isNew = false, bool $byManager = true): void
     {
         if ($isNew || isset($attrs['name'])) {
             $name = trim((string) ($attrs['name'] ?? $deco->name ?? ''));
@@ -150,9 +177,6 @@ class NameDecorationResource extends AbstractDatabaseResource
         if ($isNew && ! $deco->slug) {
             $presetAttr = $attrs['preset'] ?? null;
             if ($presetAttr && in_array($presetAttr, self::BUILTIN_PRESETS, true)) {
-                // Built-ins share their slug with the preset name so the shipped
-                // CSS targets them. Suffix with -2, -3, ... only if there is
-                // already a row with that slug (preserves uniqueness constraint).
                 $deco->slug = $this->uniqueSlug($presetAttr);
             } else {
                 $deco->slug = $this->uniqueSlug($deco->name);
@@ -176,14 +200,27 @@ class NameDecorationResource extends AbstractDatabaseResource
                 : null;
         }
 
-        if (isset($attrs['price'])) {
-            $deco->price = max(0, (int) $attrs['price']);
-        }
-        if (isset($attrs['isEnabled'])) {
-            $deco->is_enabled = (bool) $attrs['isEnabled'];
-        }
-        if (isset($attrs['sort'])) {
-            $deco->sort = (int) $attrs['sort'];
+        // Admin-only fields — silently ignored when the caller is a regular
+        // user submitting a draft. Price/enabled/availability all stay at
+        // defaults; admin sets them when approving.
+        if ($byManager) {
+            if (isset($attrs['price'])) {
+                $deco->price = max(0, (int) $attrs['price']);
+            }
+            if (isset($attrs['isEnabled'])) {
+                $deco->is_enabled = (bool) $attrs['isEnabled'];
+            }
+            if (isset($attrs['sort'])) {
+                $deco->sort = (int) $attrs['sort'];
+            }
+            if (isset($attrs['status']) && in_array($attrs['status'], [
+                NameDecoration::STATUS_APPROVED,
+                NameDecoration::STATUS_PENDING,
+                NameDecoration::STATUS_REJECTED,
+            ], true)) {
+                $deco->status = (string) $attrs['status'];
+            }
+            ItemAvailability::fillFromAttrs($deco, $attrs);
         }
     }
 
