@@ -456,3 +456,607 @@
     flex-wrap: wrap;
   }
 }
+
+
+// ─── Availability inputs + grant action (added 2026-05-16) ────────────────
+.PointSystemAdmin {
+  .PointSystemAdmin-availability {
+    border: 1px solid var(--control-bg, #d0d0d0);
+    border-radius: 8px;
+    padding: 12px 16px 16px;
+    margin: 16px 0;
+    background: fade(#000, 2%);
+
+    > legend {
+      padding: 0 8px;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--muted-color, #888);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+  }
+
+  .PointSystemAdmin-sourceTabs {
+    display: flex;
+    gap: 16px;
+    label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+  }
+
+  .PointSystemAdmin-groupPicker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    padding: 8px 0;
+  }
+  .PointSystemAdmin-groupPicker-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  .PointSystemAdmin-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    margin-left: 6px;
+    background: var(--control-bg, #d0d0d0);
+    color: var(--muted-color, #555);
+    font-size: 11px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .PointSystemAdmin-decoCard.is-unlisted,
+  .PointSystemAdmin-coverCard.is-unlisted {
+    opacity: 0.85;
+    box-shadow: inset 0 0 0 1px fade(#ff9800, 50%);
+  }
+
+  .PointSystemAdmin-decoCard--editing .PointSystemAdmin-availability,
+  .PointSystemAdmin-coverCard--editing .PointSystemAdmin-availability {
+    grid-column: 1 / -1;
+  }
+}
+
+
+// ─── Group offer per-row availability expansion (added 2026-05-16) ────────
+.PointSystemAdmin-availabilityRow {
+  background: fade(#000, 2%);
+}
+.PointSystemAdmin-availabilityRow .PointSystemAdmin-availability {
+  margin: 4px 0;
+}
+.PointSystemAdmin-availabilityRow-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+// ─── Polished admin layout (2026-05-16) ──────────────────────────────────
+// Card-based sections, consistent spacing, clean separation between the
+// global header and grouped settings. Replaces the previous flat-grid
+// layout where long help text was breaking the grid.
+.PointSystemAdmin {
+  &-section {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 24px 24px 48px;
+  }
+
+  &-section-header {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--control-bg, #e6e6e9);
+
+    h2 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      font-weight: 600;
+    }
+    p.helpText {
+      margin: 0;
+      color: var(--muted-color, #6b7280);
+    }
+  }
+
+  // Each settings group is its own card with a small header. Groups
+  // separate boolean toggles (one-per-row list) from number/text fields
+  // (2-column grid) inside them.
+  &-card {
+    background: var(--body-bg, #fff);
+    border: 1px solid var(--control-bg, #e6e6e9);
+    border-radius: 12px;
+    padding: 18px 20px 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  }
+
+  &-card-header {
+    margin-bottom: 14px;
+    h3 {
+      margin: 0 0 4px;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    p.helpText {
+      margin: 0;
+      color: var(--muted-color, #6b7280);
+      font-size: 13px;
+    }
+  }
+
+  // Toggle list — one row per switch, label + help text inline.
+  // Replaces the old 2-column grid where help text was wrapping into
+  // the next cell.
+  &-toggleList {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &-toggleRow {
+    padding: 10px 12px;
+    border-radius: 8px;
+    transition: background-color 0.15s;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.02);
+    }
+
+    .Switch {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    &-label {
+      display: block;
+      font-weight: 500;
+      font-size: 14px;
+      color: var(--text-color, #1f2937);
+    }
+
+    &-help {
+      display: block;
+      font-size: 12.5px;
+      color: var(--muted-color, #6b7280);
+      margin-top: 2px;
+      line-height: 1.45;
+    }
+  }
+
+  // Number / text field grid — 2 columns on wide, 1 column on narrow.
+  &-fieldGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 20px;
+    margin-top: 12px;
+
+    @media (max-width: 720px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &-field {
+    margin: 0;
+
+    label {
+      display: block;
+      font-weight: 500;
+      font-size: 13px;
+      margin-bottom: 6px;
+      color: var(--text-color, #1f2937);
+    }
+    .FormControl {
+      width: 100%;
+    }
+    .helpText {
+      margin: 6px 0 0;
+      font-size: 12px;
+      color: var(--muted-color, #6b7280);
+      line-height: 1.4;
+    }
+  }
+
+  // Sticky save bar pinned to the bottom of the page so admins don't
+  // have to scroll all the way back up after editing the awards section.
+  &-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    background: var(--body-bg, #fff);
+    border: 1px solid var(--control-bg, #e6e6e9);
+    border-radius: 12px;
+    box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.03);
+
+    &--sticky {
+      position: sticky;
+      bottom: 16px;
+      z-index: 5;
+    }
+  }
+
+  &-dirty {
+    color: var(--muted-color, #6b7280);
+    font-size: 13px;
+    i {
+      color: #f59e0b;
+      font-size: 8px;
+      margin-right: 4px;
+    }
+  }
+}
+
+// ─── Pending submissions panel ─────────────────────────────────────────────
+.PointSystemAdmin-counter {
+  display: inline-block;
+  margin-left: 10px;
+  background: var(--primary-color, #6cc04a);
+  color: #fff;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  vertical-align: middle;
+}
+.PointSystemAdmin-submissionList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.PointSystemAdmin-submission {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 16px;
+  background: var(--control-bg, #f8f8fa);
+  border-radius: 12px;
+  padding: 14px;
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
+  }
+
+  &-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--body-bg, #fff);
+    border-radius: 10px;
+    aspect-ratio: 1;
+    min-height: 96px;
+  }
+  &-thumb {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    &--placeholder {
+      color: var(--muted-color, #999);
+      font-size: 32px;
+    }
+  }
+  &-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  &-family {
+    display: inline-block;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted-color, #888);
+    background: rgba(0, 0, 0, 0.04);
+    padding: 2px 10px;
+    border-radius: 999px;
+    margin-bottom: 6px;
+  }
+  &-meta h4 {
+    margin: 0;
+    font-size: 16px;
+  }
+  &-creator {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--muted-color, #888);
+    img {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+    }
+    .muted {
+      color: var(--muted-color, #aaa);
+    }
+  }
+  &-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  &-css {
+    flex-basis: 100%;
+    margin-top: 6px;
+    summary {
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--muted-color, #888);
+    }
+    pre {
+      background: rgba(0, 0, 0, 0.05);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      overflow-x: auto;
+    }
+  }
+  &-actions {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  &-price {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted-color, #888);
+    }
+    input {
+      width: 100px;
+    }
+  }
+}
+
+.PointSystemAdmin-tradesTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th,
+  td {
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+    vertical-align: middle;
+  }
+
+  thead th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted-color, #888);
+    font-weight: 600;
+  }
+}
+
+.PointSystemAdmin-tradeParty {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  img {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  small {
+    display: block;
+    color: var(--muted-color, #888);
+    font-size: 11px;
+  }
+}
+
+.PointSystemAdmin-tradeOffer {
+  .muted {
+    color: var(--muted-color, #888);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+}
+
+.PointSystemAdmin-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.06);
+  font-size: 11px;
+  color: var(--muted-color, #666);
+}
+
+.PointSystemAdmin-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+
+  &.is-pending {
+    background: rgba(245, 158, 11, 0.15);
+    color: #b45309;
+  }
+  &.is-completed {
+    background: rgba(34, 197, 94, 0.15);
+    color: #15803d;
+  }
+  &.is-cancelled {
+    background: rgba(220, 38, 38, 0.12);
+    color: #b91c1c;
+  }
+}
+
+.PointSystemAdmin-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+}
+
+.PointSystemAdmin-pageInfo {
+  font-size: 12px;
+  color: var(--muted-color, #888);
+}
+
+.PointSystemAdmin-empty {
+  text-align: center;
+  padding: 24px;
+  color: var(--muted-color, #888);
+  font-style: italic;
+}
+
+.PointSystemAdmin-tradesTable-row:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+// Admin trade detail modal — two-column party comparison + revert footer.
+.AdminTradeDetailModal {
+  &-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  &-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    font-size: 12px;
+
+    .muted {
+      color: var(--muted-color, #888);
+    }
+  }
+
+  &-grid {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  &-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted-color, #888);
+    font-size: 18px;
+  }
+
+  &-party {
+    border: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.08));
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    &-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted-color, #888);
+      font-weight: 600;
+    }
+
+    &-user {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      img {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        object-fit: cover;
+      }
+
+      small {
+        display: block;
+        color: var(--muted-color, #888);
+        font-size: 11px;
+      }
+    }
+
+    &-points {
+      font-weight: 600;
+      i {
+        color: #c79a2a;
+        margin-right: 4px;
+      }
+    }
+  }
+
+  &-itemList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 4px 8px;
+      background: rgba(0, 0, 0, 0.03);
+      border-radius: 4px;
+      font-size: 12px;
+    }
+  }
+
+  &-itemType {
+    color: var(--muted-color, #666);
+  }
+
+  &-error {
+    margin: 0;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: rgba(220, 38, 38, 0.10);
+    color: #b91c1c;
+    font-size: 13px;
+  }
+
+  &-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+
+    .helpText {
+      margin: 0;
+      flex: 1;
+      font-size: 12px;
+      color: var(--muted-color, #888);
+    }
+  }
+}

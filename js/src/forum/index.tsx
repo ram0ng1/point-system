@@ -1,6 +1,7 @@
 import app from 'flarum/forum/app';
 import { extend } from 'flarum/common/extend';
 import IndexSidebar from 'flarum/forum/components/IndexSidebar';
+import SessionDropdown from 'flarum/forum/components/SessionDropdown';
 import Avatar from 'flarum/common/components/Avatar';
 import CommentPost from 'flarum/forum/components/CommentPost';
 import UserCard from 'flarum/forum/components/UserCard';
@@ -13,9 +14,17 @@ import type User from 'flarum/common/models/User';
 import type Mithril from 'mithril';
 import ShopPage from './components/ShopPage';
 import DecorationsPage from './components/DecorationsPage';
+import TradesPage from './components/TradesPage';
+import UserTradesPage from './components/UserTradesPage';
+import UserPage from 'flarum/forum/components/UserPage';
 import AwardPointsModal from './components/AwardPointsModal';
 import PointsManualNotification from './components/PointsManualNotification';
 import TierClaimedNotification from './components/TierClaimedNotification';
+import ItemGrantedNotification from './components/ItemGrantedNotification';
+import TradeRequestedNotification from './components/TradeRequestedNotification';
+import TradeAcceptedNotification from './components/TradeAcceptedNotification';
+import TradeCompletedNotification from './components/TradeCompletedNotification';
+import TradeModal from './components/TradeModal';
 import { applyAvatarDecoration } from './utils/applyAvatarDecoration';
 import { applyNameDecorationClass } from './utils/applyNameDecoration';
 
@@ -37,10 +46,16 @@ app.initializers.add('ramon/point-system', () => {
   app.routes['pointSystem.shop.tab'] = { path: '/rewards/:tab', component: ShopPage };
   app.routes['pointSystem.decorations'] = { path: '/decorations', component: DecorationsPage };
   app.routes['pointSystem.decorations.tab'] = { path: '/decorations/:tab', component: DecorationsPage };
+  app.routes['pointSystem.trades'] = { path: '/trades', component: TradesPage };
+  app.routes['user.trades'] = { path: '/u/:username/trades', component: UserTradesPage };
 
   // ── Notification components ─────────────────────────────────────────────
   app.notificationComponents.pointsManual = PointsManualNotification;
   app.notificationComponents.pointSystemTierClaimed = TierClaimedNotification;
+  app.notificationComponents.pointSystemItemGranted = ItemGrantedNotification;
+  app.notificationComponents.pointSystemTradeRequested = TradeRequestedNotification;
+  app.notificationComponents.pointSystemTradeAccepted = TradeAcceptedNotification;
+  app.notificationComponents.pointSystemTradeCompleted = TradeCompletedNotification;
 
   // ── Inject the dynamic name-decoration <style> block once ───────────────
   // Deferred: `app.forum` isn't populated until after initializers finish.
@@ -170,6 +185,88 @@ app.initializers.add('ramon/point-system', () => {
     );
   });
 
+  // ── "Trade" entry in the user-profile Controls dropdown ─────────────────
+  // Gated by:
+  //   - the trade master toggle (`pointSystemTradeEnabled`)
+  //   - the per-actor permission (`pointSystemCanTrade`, which is
+  //     `pointSystem.trade` AND the master toggle on the server side)
+  //   - not the actor's own profile (you cannot trade with yourself)
+  //
+  // Extension point is `userControls` — Flarum core's UserControls.js defines
+  // exactly three ItemList groups: `userControls` (regular user actions),
+  // `moderationControls` (admin), `destructiveControls` (delete). The earlier
+  // `userActions` name was wrong — that group doesn't exist in core, so the
+  // button never rendered.
+  extend(UserControls, 'userControls', function (items, user) {
+    const me = app.session.user;
+    if (!me) return;
+    if (Number(me.id?.()) === Number(user.id?.())) return;
+    if (!app.forum.attribute('pointSystemTradeEnabled')) return;
+    if (!app.forum.attribute('pointSystemCanTrade')) return;
+
+    items.add(
+      'pointSystem-trade',
+      <Button icon="fas fa-handshake" onclick={() => app.modal.show(TradeModal, { target: user })}>
+        {app.translator.trans('ramon-point-system.forum.user_controls.trade')}
+      </Button>,
+      80
+    );
+  });
+
+  // ── "Trades" tab on the user profile sidebar — self-only ──────────────
+  // Only visible when the viewer IS the profile owner. The corresponding
+  // UserTradesPage component does its own self-check on mount as a hard
+  // gate; this extension just hides the nav entry to other visitors so
+  // they don't see the link at all.
+  extend(UserPage.prototype, 'navItems', function (items) {
+    const user = this.user;
+    if (!user) return;
+    const me = app.session.user;
+    if (!me || Number(me.id?.()) !== Number(user.id?.())) return;
+    if (!app.forum.attribute('pointSystemTradeEnabled')) return;
+
+    // Use the top-level `import LinkButton from 'flarum/common/components/LinkButton'`.
+    // The earlier `require(...).default` shim returned undefined under the
+    // bundler's external-module rewrite (Flarum 2's webpack maps `flarum/*`
+    // strings to externals, and the `.default` accessor fired against an
+    // undefined module → Mithril's "selector must be a string or component"
+    // crash on the user profile route.
+    items.add(
+      'pointSystem-trades',
+      <LinkButton href={app.route('user.trades', { username: user.slug() })} icon="fas fa-handshake">
+        {app.translator.trans('ramon-point-system.forum.user_profile.trades_link')}
+      </LinkButton>,
+      85
+    );
+  });
+
+  // ── Session dropdown entries (next to "Settings" / "Profile") ──────────
+  // Adds "My decorations" — always visible — and "Trades" — only when
+  // the master toggle is on AND the actor has `pointSystem.trade`.
+  // Priorities slot above the core `settings: 50` entry so the order is:
+  // Profile (100) → My decorations (80) → Trades (75) → Settings (50).
+  extend(SessionDropdown.prototype, 'items', function (items) {
+    if (!app.session.user) return;
+
+    items.add(
+      'pointSystem-decorations',
+      <LinkButton icon="fas fa-tshirt" href={app.route('pointSystem.decorations')}>
+        {app.translator.trans('ramon-point-system.forum.session_dropdown.my_decorations')}
+      </LinkButton>,
+      80
+    );
+
+    if (app.forum.attribute('pointSystemTradeEnabled') && app.forum.attribute('pointSystemCanTrade')) {
+      items.add(
+        'pointSystem-trades',
+        <LinkButton icon="fas fa-handshake" href={app.route('pointSystem.trades')}>
+          {app.translator.trans('ramon-point-system.forum.session_dropdown.trades')}
+        </LinkButton>,
+        75
+      );
+    }
+  });
+
   // ── Points badge + custom title in the post header ─────────────────────
   // The title is rendered in BOTH `.Post-side` (sideItems below) AND here in
   // `.PostUser` so the post can show it whichever side column is visible at
@@ -203,12 +300,21 @@ app.initializers.add('ramon/point-system', () => {
     if (node) items.add('pointSystem-userTitle', node, 50);
   });
 
-  // ── Points badge on the user profile card ──────────────────────────────
+  // ── Points badge + equipped title on the user profile card ────────────
+  // Adding the title here (same renderer as post-header / sidebar) so the
+  // user's equipped title actually shows up on /u/username. Gated by both
+  // the global "show points on profile" toggle AND the title-deco feature
+  // flag so a forum that has titles disabled doesn't leak the markup.
   extend(UserCard.prototype, 'infoItems', function (this: any, items) {
-    if (!setting('pointSystem.show_in_user_profile')) return;
     const user = this.attrs.user as User | undefined;
     if (!user) return;
-    items.add('pointSystem-profileBadge', pointsBadge(user), 50);
+    if (setting('pointSystem.show_in_user_profile')) {
+      items.add('pointSystem-profileBadge', pointsBadge(user), 50);
+    }
+    if (setting('pointSystem.title_deco_enabled')) {
+      const node = userTitleBadge(user, 'PointSystemUserTitle--inProfile');
+      if (node) items.add('pointSystem-userTitle', node, 48);
+    }
   });
 });
 
@@ -320,7 +426,15 @@ function injectNameDecorationStyles(): void {
     // the wrapper, avatar or badges). User-authored custom CSS for these
     // selectors should win the cascade against theme rules, so we append
     // `!important` to every property of the raw input below.
-    const selectors = `.ps-name-preview.ps-name-${cls},` + `.ps-name-${cls} .username,` + `.username.ps-name-${cls},` + `a.ps-name-${cls}`;
+    //
+    // The descendant selector `.ps-name-${cls} .username` would normally
+    // also match usernames of OTHER users rendered inside the post —
+    // notably `.Post-likedBy .username` ("Ramon liked this") and quoted
+    // content. Exclude those via `:not(.Post-likedBy *)` etc. so the
+    // current actor's name decoration doesn't bleed onto unrelated
+    // usernames embedded in the post body.
+    const inDescendant = `.ps-name-${cls} .username:not(.Post-likedBy *):not(.Post-mentionedBy *):not(blockquote *):not(.UserMention *)`;
+    const selectors = `.ps-name-preview.ps-name-${cls},` + `${inDescendant},` + `.username.ps-name-${cls},` + `a.ps-name-${cls}`;
     const css = String(d.customCss).trim();
 
     if (css.includes('{')) {
@@ -493,12 +607,35 @@ function registerPerLetterRewriter(): void {
 // at runtime with `ps-name-{slug}`. Critically, we SKIP anchors that wrap an
 // `<img>` / `.Avatar` — those are avatar links, NOT name links, and tagging
 // them would apply the decoration to the avatar.
+// Containers where username links appear in NON-authorial contexts —
+// "X liked this", "mentioned by X", quote buttons that reference a user,
+// etc. Decorating these makes the deco bleed into prose ("Ramon liked
+// this" gets the glitch animation on just "Ramon" amid surrounding plain
+// text), which the user reported as a bug. The tagger skips any anchor /
+// span sitting inside one of these.
+const SECONDARY_USERNAME_CONTAINERS = [
+  '.Post-likedBy',
+  '.Post-mentionedBy',
+  '.PostMention',
+  '.Post-quoteButtonContainer',
+  '.Post-actions',
+  '.Notification',
+  '.NotificationList',
+  '.SearchResult',
+  '.DiscussionListItem-info',
+].join(',');
+
+function isInSecondaryContext(el: Element): boolean {
+  return !!el.closest(SECONDARY_USERNAME_CONTAINERS);
+}
+
 function registerThemeUsernameTagger(): void {
   if (!setting('pointSystem.name_deco_enabled') || !setting('pointSystem.deco_in_lists')) return;
 
   const decorate = (el: Element) => {
     const a = el as HTMLAnchorElement;
     if (a.dataset.psNameDeco) return;
+    if (isInSecondaryContext(a)) return;
     // Skip avatar-wrapping anchors — the username link is text-only.
     if (a.querySelector('img, .Avatar, .ps-avatar-deco-wrap')) return;
     const m = /\/u\/([^/?#]+)/.exec(a.getAttribute('href') || '');
@@ -554,6 +691,7 @@ function registerUsernameSpanTagger(): void {
 
   const decorate = (span: Element) => {
     if ((span as HTMLElement).dataset.psNameDeco === '1') return;
+    if (isInSecondaryContext(span)) return;
 
     // Find the closest ancestor anchor pointing at `/u/{username}`.
     let node: Element | null = span;
@@ -624,7 +762,8 @@ function registerAvocadoProfileHooks(): void {
   const showPoints = setting('pointSystem.show_in_user_profile');
   const showName = setting('pointSystem.name_deco_enabled') && setting('pointSystem.deco_in_user_card');
   const showCover = setting('pointSystem.cover_deco_enabled');
-  if (!showPoints && !showName && !showCover) return;
+  const showTitle = setting('pointSystem.title_deco_enabled') && setting('pointSystem.deco_in_user_card');
+  if (!showPoints && !showName && !showCover && !showTitle) return;
 
   const resolveUser = (): User | null => {
     const match = /\/u\/([^/?#]+)/.exec(window.location.pathname);
@@ -701,8 +840,37 @@ function registerAvocadoProfileHooks(): void {
     textNode.replaceWith(wrapper);
   };
 
+  // Inject the equipped-title chip inline next to the username in Avocado's
+  // hero. Our `UserCard.infoItems` extension renders the chip on default
+  // Flarum, but Avocado replaces the UserCard with its own hero markup —
+  // the infoItems hook still fires (Avocado extends UserCard) but its
+  // chip ends up inside a list that Avocado visually relocates, so the
+  // chip never lands next to the name. We attach DIRECTLY to the
+  // `.AvocadoUserPage-hero-name` H1 instead.
+  const injectTitle = (el: Element) => {
+    if (!showTitle) return;
+    const nameEl = el as HTMLElement;
+    if (nameEl.dataset.psTitleChip === '1') return;
+    const user = resolveUser();
+    if (!user) return;
+    const slug = user.attribute?.('equippedTitleDecorationSlug') as string | undefined;
+    const text = user.attribute?.('equippedTitleDecorationText') as string | undefined;
+    if (!slug || !text) return;
+    const cleanSlug = String(slug).replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!cleanSlug) return;
+
+    nameEl.dataset.psTitleChip = '1';
+    const chip = document.createElement('span');
+    chip.className = 'PointSystemUserTitle ps-title-' + cleanSlug + ' PointSystemUserTitle--inProfile';
+    // Use textContent (NOT innerHTML) — the title text is user-authored but
+    // sanitised server-side; defence-in-depth, never render it as HTML.
+    chip.textContent = String(text);
+    nameEl.appendChild(chip);
+  };
+
   if (showPoints) onAdded('.AvocadoUserPage-hero-stats', injectPoints);
   if (showName) onAdded('.AvocadoUserPage-hero-name', tagName);
+  if (showTitle) onAdded('.AvocadoUserPage-hero-name', injectTitle);
   if (showCover) {
     onAdded('.AvocadoUserPage-hero', injectCover);
     // Also cover Flarum core's UserPage hero (used on default theme + many

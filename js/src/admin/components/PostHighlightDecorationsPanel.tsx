@@ -3,6 +3,17 @@ import app from 'flarum/admin/app';
 import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
+import AvailabilityInputs from './AvailabilityInputs';
+import GrantItemModal from './GrantItemModal';
+
+const EMPTY_AVAILABILITY = () => ({
+  maxClaims: null as number | null,
+  claimCount: 0,
+  availableFrom: '',
+  availableUntil: '',
+  isListed: true,
+  allowedGroupIds: [] as number[],
+});
 
 const BUILTIN_PRESETS = [
   'gold-border',
@@ -26,7 +37,7 @@ export default class PostHighlightDecorationsPanel extends Component {
   items: any[] = [];
   saving = false;
 
-  draft = { name: '', description: '', preset: 'gold-border', price: 150, customCss: '' };
+  draft: any = { name: '', description: '', preset: 'gold-border', price: 150, customCss: '', availability: EMPTY_AVAILABILITY() };
 
   oninit(vnode: any) {
     super.oninit(vnode);
@@ -118,6 +129,8 @@ export default class PostHighlightDecorationsPanel extends Component {
             </div>
           </div>
 
+          <AvailabilityInputs state={this.draft.availability} onchange={(s: any) => (this.draft.availability = s)} />
+
           <Button
             className="Button Button--primary"
             disabled={this.saving || !this.draft.name.trim()}
@@ -159,6 +172,19 @@ export default class PostHighlightDecorationsPanel extends Component {
                         ? app.translator.trans('ramon-point-system.admin.disable')
                         : app.translator.trans('ramon-point-system.admin.enable')}
                     </Button>
+                    <Button
+                      className="Button"
+                      onclick={() =>
+                        app.modal.show(GrantItemModal, {
+                          itemType: 'post_highlight_decoration',
+                          itemId: it.id(),
+                          itemLabel: it.attribute('name'),
+                          onGranted: () => this.load(),
+                        })
+                      }
+                    >
+                      <i className="fas fa-gift" /> {app.translator.trans('ramon-point-system.admin.grant.action_button')}
+                    </Button>
                     <Button className="Button" onclick={() => this.del(it)}>
                       <i className="fas fa-trash" />
                     </Button>
@@ -176,6 +202,7 @@ export default class PostHighlightDecorationsPanel extends Component {
     if (!this.draft.name.trim()) return;
     this.saving = true;
     try {
+      const av = this.draft.availability || EMPTY_AVAILABILITY();
       const created = await app.store.createRecord('point-system-post-highlight-decorations').save({
         name: this.draft.name.trim(),
         description: this.draft.description || null,
@@ -183,11 +210,17 @@ export default class PostHighlightDecorationsPanel extends Component {
         customCss: this.draft.preset === 'custom' ? this.draft.customCss : null,
         price: Number(this.draft.price) || 0,
         isEnabled: true,
+        maxClaims: av.maxClaims,
+        availableFrom: av.availableFrom || null,
+        availableUntil: av.availableUntil || null,
+        isListed: !!av.isListed,
+        allowedGroupIds: Array.isArray(av.allowedGroupIds) ? av.allowedGroupIds : [],
       });
       this.items.unshift(created);
       this.draft.name = '';
       this.draft.description = '';
       this.draft.customCss = '';
+      this.draft.availability = EMPTY_AVAILABILITY();
       app.alerts.show({ type: 'success' }, app.translator.trans('ramon-point-system.admin.post_hl.created'));
     } catch (e: any) {
       app.alerts.show({ type: 'error' }, e?.response?.errors?.[0]?.detail || 'Error');

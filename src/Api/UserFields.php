@@ -68,7 +68,11 @@ class UserFields
                         return null;
                     }
                     $deco = $this->decoration($user, AvatarDecoration::class, $id);
-                    return $deco?->image_path;
+                    // Prefer image_url (admin chose URL source) over image_path
+                    // (admin uploaded a file). Both are nullable now, so the
+                    // null-coalesce keeps the equipped frame visible after the
+                    // schema migrated to allowing both sources.
+                    return $deco?->image_url ?: $deco?->image_path;
                 }),
 
             Schema\Integer::make('equippedNameDecorationId')
@@ -96,7 +100,8 @@ class UserFields
                     if (! $id) {
                         return null;
                     }
-                    return $this->decoration($user, CoverDecoration::class, $id)?->image_path;
+                    $deco = $this->decoration($user, CoverDecoration::class, $id);
+                    return $deco?->image_url ?: $deco?->image_path;
                 }),
 
             Schema\Integer::make('equippedTitleDecorationId')
@@ -142,9 +147,18 @@ class UserFields
                     return $context->getActor()->id === $user->id;
                 })
                 ->get(function (User $user) {
+                    // Include `quantity` so the inventory UI can render a
+                    // stack count next to each owned decoration. Claims are
+                    // stackable since migration 2026_05_16_000005 — a user
+                    // may own N copies of the same item via repeat shop
+                    // purchases, admin grants, or accumulated trades.
                     return ShopClaim::where('user_id', $user->id)
-                        ->get(['item_type', 'item_id'])
-                        ->map(fn ($c) => ['type' => $c->item_type, 'id' => $c->item_id])
+                        ->get(['item_type', 'item_id', 'quantity'])
+                        ->map(fn ($c) => [
+                            'type' => $c->item_type,
+                            'id' => $c->item_id,
+                            'quantity' => (int) $c->quantity,
+                        ])
                         ->toArray();
                 }),
         ];

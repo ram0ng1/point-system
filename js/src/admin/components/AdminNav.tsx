@@ -12,6 +12,8 @@ export default function AdminNav(current: string) {
     ['post-hl', 'fas fa-highlighter', 'post_hl'],
     ['groups', 'fas fa-layer-group', 'groups'],
     ['manual', 'fas fa-hand-holding-usd', 'manual'],
+    ['submissions', 'fas fa-inbox', 'submissions'],
+    ['all-trades', 'fas fa-handshake', 'all_trades'],
   ];
 
   const base = app.route('extension', { id: 'ramon-point-system' });

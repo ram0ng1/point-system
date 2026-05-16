@@ -17,14 +17,22 @@ use Ramon\PointSystem\Model\ShopClaim;
 use Ramon\PointSystem\Support\SafePath;
 
 /**
- * POST /api/point-system/cover-decoration/upload (admin only)
+ * POST /api/point-system/cover-decoration/upload
+ *
+ * Two entry modes share this controller, mirroring the avatar uploader:
+ *
+ *   • Manager (pointSystem.manage) — full admin upload, accepts `replace_id`,
+ *     new rows ship enabled + approved.
+ *   • User submission — non-manager actor when `user_submissions_enabled` is
+ *     on. `replace_id` is ignored; rows land as pending / disabled / price 0
+ *     with creator_id set to the submitter. Reviewer approves via the queue.
  *
  * Multipart fields:
  *   - image:        file (png, jpg, gif, webp, apng)
  *   - name:         string
  *   - description:  string (optional)
- *   - price:        int (optional, default 0)
- *   - replace_id:   int (optional, replaces the cover image of an existing row)
+ *   - price:        int (manager only)
+ *   - replace_id:   int (manager only)
  *
  * Covers are landscape banners (similar to forumaker/profile-cover). We allow
  * animated formats (GIF/APNG/WebP) so admins can ship animated covers for sale.
@@ -70,8 +78,13 @@ class UploadCoverDecorationController implements RequestHandlerInterface
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $actor = RequestUtil::getActor($request);
-        $actor->assertCan('pointSystem.manage');
+        $actor->assertRegistered();
         $this->features->assertEnabled(ShopClaim::TYPE_COVER);
+
+        $isManager = $actor->hasPermission('pointSystem.manage');
+        if (! $isManager) {
+            $this->features->assertUserSubmissionsEnabled();
+        }
 
         $files = $request->getUploadedFiles();
         $file  = $files['image'] ?? null;
@@ -97,7 +110,10 @@ class UploadCoverDecorationController implements RequestHandlerInterface
         }
 
         $body = (array) $request->getParsedBody();
-        $replaceId = isset($body['replace_id']) ? (int) $body['replace_id'] : 0;
+        // Manager-only privilege — see UploadAvatarDecorationController for
+        // the threat-model rationale. Submitters can only create new pending
+        // rows, never tamper with an existing approved cover.
+        $replaceId = $isManager && isset($body['replace_id']) ? (int) $body['replace_id'] : 0;
 
         $destDir = $this->paths->public.'/assets/'.self::DEST_DIR;
         if (! is_dir($destDir)) {
@@ -135,17 +151,28 @@ class UploadCoverDecorationController implements RequestHandlerInterface
         } else {
             $name = trim((string) ($body['name'] ?? 'Cover'));
             $description = isset($body['description']) ? trim((string) $body['description']) : null;
-            $price = max(0, (int) ($body['price'] ?? 0));
 
-            $deco = CoverDecoration::create([
+            $attrs = [
                 'name' => $name !== '' ? $name : 'Cover',
                 'description' => $description ?: null,
                 'image_path' => $relPath,
                 'is_animated' => in_array($ext, ['gif', 'apng', 'webp'], true),
-                'price' => $price,
-                'is_enabled' => true,
                 'sort' => 0,
-            ]);
+            ];
+
+            if ($isManager) {
+                $attrs['price']      = max(0, (int) ($body['price'] ?? 0));
+                $attrs['is_enabled'] = true;
+                $attrs['status']     = CoverDecoration::STATUS_APPROVED;
+            } else {
+                // User submission — locked into the moderation pipeline.
+                $attrs['price']      = 0;
+                $attrs['is_enabled'] = false;
+                $attrs['status']     = CoverDecoration::STATUS_PENDING;
+                $attrs['creator_id'] = (int) $actor->id;
+            }
+
+            $deco = CoverDecoration::create($attrs);
         }
 
         return new JsonResponse(['data' => [
@@ -158,6 +185,7 @@ class UploadCoverDecorationController implements RequestHandlerInterface
                 'isAnimated' => $deco->is_animated,
                 'price' => $deco->price,
                 'isEnabled' => $deco->is_enabled,
+                'status' => $deco->status,
             ],
         ]], 201);
     }

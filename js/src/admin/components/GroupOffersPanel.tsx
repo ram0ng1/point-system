@@ -3,12 +3,33 @@ import app from 'flarum/admin/app';
 import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
+import AvailabilityInputs from './AvailabilityInputs';
+
+const EMPTY_AVAILABILITY = () => ({
+  maxClaims: null as number | null,
+  claimCount: 0,
+  availableFrom: '',
+  availableUntil: '',
+  isListed: true,
+  allowedGroupIds: [] as number[],
+});
 
 export default class GroupOffersPanel extends Component {
   loading = true;
   items: any[] = [];
 
-  draft = { groupId: 0, pointsRequired: 100, price: 100, isAuto: true, isPurchasable: false };
+  draft: any = {
+    groupId: 0,
+    pointsRequired: 100,
+    price: 100,
+    isAuto: true,
+    isPurchasable: false,
+    availability: EMPTY_AVAILABILITY(),
+  };
+
+  // Per-row "edit availability" buffer keyed by offer id. When present, the
+  // row expands an inline AvailabilityInputs form right below it.
+  edits: Record<string, any> = {};
 
   oninit(vnode: any) {
     super.oninit(vnode);
@@ -104,6 +125,8 @@ export default class GroupOffersPanel extends Component {
             </div>
           )}
 
+          <AvailabilityInputs state={this.draft.availability} onchange={(s: any) => (this.draft.availability = s)} />
+
           <Button
             className="Button Button--primary"
             disabled={!this.draft.groupId || (!this.draft.isAuto && !this.draft.isPurchasable)}
@@ -130,7 +153,7 @@ export default class GroupOffersPanel extends Component {
             {this.items
               .slice()
               .sort((a, b) => a.attribute('pointsRequired') - b.attribute('pointsRequired'))
-              .map((o) => this.renderRow(o))}
+              .flatMap((o) => [this.renderRow(o), this.renderAvailabilityRow(o)].filter(Boolean))}
           </tbody>
         </table>
       </div>
@@ -142,13 +165,29 @@ export default class GroupOffersPanel extends Component {
     const enabled = !!offer.attribute('isEnabled');
     const isAuto = !!offer.attribute('isAuto');
     const isPurchasable = !!offer.attribute('isPurchasable');
+    const id = String(offer.id());
+    const isEditing = !!this.edits[id];
+    const listed = offer.attribute('isListed') !== false;
+    const claimCount = Number(offer.attribute('claimCount') ?? 0);
+    const maxClaims = offer.attribute('maxClaims');
+
     return (
-      <tr>
+      <tr key={id}>
         <td>
           <span className="GroupBadge" style={{ backgroundColor: group?.color?.() || '#666' }}>
             <i className={`icon ${group?.icon?.() || 'fas fa-users'}`} />
             {group?.namePlural?.() || `#${offer.attribute('groupId')}`}
           </span>
+          {!listed && (
+            <span className="PointSystemAdmin-tag" style="margin-left:6px">
+              {app.translator.trans('ramon-point-system.admin.availability.unlisted_tag')}
+            </span>
+          )}
+          {maxClaims != null && (
+            <span className="PointSystemAdmin-tag" style="margin-left:6px">
+              {claimCount}/{maxClaims}
+            </span>
+          )}
         </td>
         <td>
           <label className="checkbox" title={app.translator.trans('ramon-point-system.admin.groups.field_is_auto') as string}>
@@ -190,6 +229,13 @@ export default class GroupOffersPanel extends Component {
           </Button>
         </td>
         <td>
+          <Button
+            className="Button Button--small"
+            title={app.translator.trans('ramon-point-system.admin.availability.legend') as string}
+            onclick={() => this.toggleAvailability(offer)}
+          >
+            <i className={`fas ${isEditing ? 'fa-times' : 'fa-clock'}`} />
+          </Button>{' '}
           <Button className="Button Button--danger Button--small" onclick={() => this.remove(offer)}>
             <i className="fas fa-trash" />
           </Button>
@@ -198,10 +244,72 @@ export default class GroupOffersPanel extends Component {
     );
   }
 
+  renderAvailabilityRow(offer: any) {
+    const id = String(offer.id());
+    const draft = this.edits[id];
+    if (!draft) return null;
+
+    return (
+      <tr key={`${id}-avail`} className="PointSystemAdmin-availabilityRow">
+        <td colSpan={6}>
+          <AvailabilityInputs state={draft} onchange={(s: any) => (this.edits[id] = s)} />
+          <div className="PointSystemAdmin-availabilityRow-actions">
+            <Button className="Button Button--primary" onclick={() => this.commitAvailability(offer)}>
+              {app.translator.trans('ramon-point-system.admin.save')}
+            </Button>
+            <Button className="Button" onclick={() => this.cancelAvailability(offer)}>
+              {app.translator.trans('ramon-point-system.admin.cancel')}
+            </Button>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  toggleAvailability(offer: any) {
+    const id = String(offer.id());
+    if (this.edits[id]) {
+      delete this.edits[id];
+      return;
+    }
+    this.edits[id] = {
+      maxClaims: offer.attribute('maxClaims'),
+      claimCount: Number(offer.attribute('claimCount') ?? 0),
+      availableFrom: offer.attribute('availableFrom') || '',
+      availableUntil: offer.attribute('availableUntil') || '',
+      isListed: offer.attribute('isListed') !== false,
+      allowedGroupIds: Array.isArray(offer.attribute('allowedGroupIds')) ? offer.attribute('allowedGroupIds') : [],
+    };
+  }
+
+  cancelAvailability(offer: any) {
+    delete this.edits[String(offer.id())];
+  }
+
+  async commitAvailability(offer: any) {
+    const id = String(offer.id());
+    const draft = this.edits[id];
+    if (!draft) return;
+    try {
+      await offer.save({
+        maxClaims: draft.maxClaims,
+        availableFrom: draft.availableFrom || null,
+        availableUntil: draft.availableUntil || null,
+        isListed: !!draft.isListed,
+        allowedGroupIds: Array.isArray(draft.allowedGroupIds) ? draft.allowedGroupIds : [],
+      });
+      delete this.edits[id];
+      m.redraw();
+    } catch (e: any) {
+      app.alerts.show({ type: 'error' }, e?.response?.errors?.[0]?.detail || 'Failed');
+    }
+  }
+
   async create() {
     if (!this.draft.groupId) return;
     if (!this.draft.isAuto && !this.draft.isPurchasable) return;
     try {
+      const av = this.draft.availability || EMPTY_AVAILABILITY();
       await app.store.createRecord('point-system-group-offers').save({
         groupId: this.draft.groupId,
         pointsRequired: this.draft.isAuto ? this.draft.pointsRequired : 0,
@@ -209,8 +317,20 @@ export default class GroupOffersPanel extends Component {
         isAuto: this.draft.isAuto,
         isPurchasable: this.draft.isPurchasable,
         isEnabled: true,
+        maxClaims: av.maxClaims,
+        availableFrom: av.availableFrom || null,
+        availableUntil: av.availableUntil || null,
+        isListed: !!av.isListed,
+        allowedGroupIds: Array.isArray(av.allowedGroupIds) ? av.allowedGroupIds : [],
       });
-      this.draft = { groupId: 0, pointsRequired: 100, price: 100, isAuto: true, isPurchasable: false };
+      this.draft = {
+        groupId: 0,
+        pointsRequired: 100,
+        price: 100,
+        isAuto: true,
+        isPurchasable: false,
+        availability: EMPTY_AVAILABILITY(),
+      };
       await this.load();
     } catch (e: any) {
       app.alerts.show({ type: 'error' }, e?.response?.errors?.[0]?.detail || 'Failed');

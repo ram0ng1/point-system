@@ -17,13 +17,25 @@ use Ramon\PointSystem\Model\ShopClaim;
 use Ramon\PointSystem\Support\SafePath;
 
 /**
- * POST /api/point-system/avatar-decoration/upload (admin only)
+ * POST /api/point-system/avatar-decoration/upload
+ *
+ * Two entry modes share this controller so the upload pipeline (size /
+ * extension / magic-byte / finfo / SafePath cleanup) only lives in one place:
+ *
+ *   • Manager (pointSystem.manage permission) — full admin upload.
+ *     Accepts `replace_id` to swap an existing decoration's file. New rows
+ *     are created enabled (`is_enabled=true`, `status=approved`).
+ *   • User submission — non-manager actor when `user_submissions_enabled`
+ *     is on. `replace_id` is ignored; rows land as
+ *     `is_enabled=false / status=pending / creator_id=actor / price=0` and
+ *     wait for the moderation queue.
  *
  * Multipart fields:
- *   - image: file (png, gif, webp)
+ *   - image: file (png, gif, webp, apng)
  *   - name:  string
  *   - description: string (optional)
- *   - price: int (optional, default 0)
+ *   - price: int (manager only; ignored for user submissions)
+ *   - replace_id: int (manager only)
  */
 class UploadAvatarDecorationController implements RequestHandlerInterface
 {
@@ -69,8 +81,16 @@ class UploadAvatarDecorationController implements RequestHandlerInterface
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $actor = RequestUtil::getActor($request);
-        $actor->assertCan('pointSystem.manage');
+        $actor->assertRegistered();
         $this->features->assertEnabled(ShopClaim::TYPE_AVATAR);
+
+        $isManager = $actor->hasPermission('pointSystem.manage');
+        if (! $isManager) {
+            // Non-manager path is gated behind the user-submissions toggle.
+            // When the admin has it off, fall back to the original behavior:
+            // upload requires the manage permission.
+            $this->features->assertUserSubmissionsEnabled();
+        }
 
         $files = $request->getUploadedFiles();
         $file  = $files['image'] ?? null;
@@ -99,7 +119,11 @@ class UploadAvatarDecorationController implements RequestHandlerInterface
         }
 
         $body = (array) $request->getParsedBody();
-        $replaceId = isset($body['replace_id']) ? (int) $body['replace_id'] : 0;
+        // replace_id is a manager-only privilege: it swaps the file on an
+        // existing row in place. Regular submitters can only create new
+        // pending rows — anything else would let them tamper with an
+        // already-approved decoration.
+        $replaceId = $isManager && isset($body['replace_id']) ? (int) $body['replace_id'] : 0;
 
         $destDir = $this->paths->public.'/assets/'.self::DEST_DIR;
         if (! is_dir($destDir)) {
@@ -146,17 +170,32 @@ class UploadAvatarDecorationController implements RequestHandlerInterface
         } else {
             $name = trim((string) ($body['name'] ?? 'Decoration'));
             $description = isset($body['description']) ? trim((string) $body['description']) : null;
-            $price = max(0, (int) ($body['price'] ?? 0));
 
-            $deco = AvatarDecoration::create([
+            $attrs = [
                 'name' => $name !== '' ? $name : 'Decoration',
                 'description' => $description ?: null,
                 'image_path' => $relPath,
                 'is_animated' => in_array($ext, ['gif', 'apng'], true),
-                'price' => $price,
-                'is_enabled' => true,
                 'sort' => 0,
-            ]);
+            ];
+
+            if ($isManager) {
+                $attrs['price']      = max(0, (int) ($body['price'] ?? 0));
+                $attrs['is_enabled'] = true;
+                $attrs['status']     = AvatarDecoration::STATUS_APPROVED;
+            } else {
+                // User submission: forced into the moderation queue. The
+                // actor decides the name/description/image; admin-only
+                // fields (price, listing, group restrictions, dates) are
+                // server-derived and locked. Reviewer can flip is_enabled
+                // once they approve from the admin queue.
+                $attrs['price']      = 0;
+                $attrs['is_enabled'] = false;
+                $attrs['status']     = AvatarDecoration::STATUS_PENDING;
+                $attrs['creator_id'] = (int) $actor->id;
+            }
+
+            $deco = AvatarDecoration::create($attrs);
         }
 
         return new JsonResponse(['data' => [
@@ -169,6 +208,7 @@ class UploadAvatarDecorationController implements RequestHandlerInterface
                 'isAnimated' => $deco->is_animated,
                 'price' => $deco->price,
                 'isEnabled' => $deco->is_enabled,
+                'status' => $deco->status,
             ],
         ]], 201);
     }

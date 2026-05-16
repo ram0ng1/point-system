@@ -16,6 +16,8 @@ use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Model\ShopClaim;
 use Ramon\PointSystem\Model\TitleDecoration;
 use Ramon\PointSystem\Support\CssSanitizer;
+use Ramon\PointSystem\Support\ItemAvailability;
+use Ramon\PointSystem\Support\SubmissionScope;
 
 /**
  * @extends AbstractDatabaseResource<TitleDecoration>
@@ -44,6 +46,8 @@ class TitleDecorationResource extends AbstractDatabaseResource
                 return;
             }
             $query->where('is_enabled', true);
+            SubmissionScope::apply($query, $actor);
+            ItemAvailability::applyShopScope($query, $actor);
         }
     }
 
@@ -56,13 +60,27 @@ class TitleDecorationResource extends AbstractDatabaseResource
 
             Endpoint\Create::make()
                 ->authenticated()
-                ->can('pointSystem.manage')
                 ->action(function (Context $context) {
-                    $context->getActor()->assertCan('pointSystem.manage');
-                    resolve(FeatureGate::class)->assertEnabled(ShopClaim::TYPE_TITLE);
+                    $actor     = $context->getActor();
+                    $features  = resolve(FeatureGate::class);
+                    $isManager = $actor->hasPermission('pointSystem.manage');
+
+                    $features->assertEnabled(ShopClaim::TYPE_TITLE);
+                    if (! $isManager) {
+                        $features->assertUserSubmissionsEnabled();
+                    }
+
                     $attrs = (array) ($context->body()['data']['attributes'] ?? []);
                     $deco = new TitleDecoration();
-                    $this->fill($deco, $attrs, isNew: true);
+                    $this->fill($deco, $attrs, isNew: true, byManager: $isManager);
+
+                    if (! $isManager) {
+                        $deco->creator_id = (int) $actor->id;
+                        $deco->status = TitleDecoration::STATUS_PENDING;
+                        $deco->is_enabled = false;
+                        $deco->price = 0;
+                    }
+
                     $deco->save();
                     return $deco;
                 }),
@@ -76,7 +94,7 @@ class TitleDecorationResource extends AbstractDatabaseResource
                     /** @var TitleDecoration $deco */
                     $deco = TitleDecoration::query()->findOrFail($context->modelId);
                     $attrs = (array) ($context->body()['data']['attributes'] ?? []);
-                    $this->fill($deco, $attrs);
+                    $this->fill($deco, $attrs, byManager: true);
                     $deco->save();
                     return $deco;
                 }),
@@ -98,7 +116,7 @@ class TitleDecorationResource extends AbstractDatabaseResource
     #[\Override]
     public function fields(): array
     {
-        return [
+        return array_merge([
             Schema\Str::make('name'),
             Schema\Str::make('slug'),
             Schema\Str::make('description')->nullable(),
@@ -109,7 +127,10 @@ class TitleDecorationResource extends AbstractDatabaseResource
             Schema\Boolean::make('isEnabled')->property('is_enabled'),
             Schema\Integer::make('sort'),
             Schema\DateTime::make('createdAt')->property('created_at'),
-        ];
+            Schema\Str::make('status'),
+            Schema\Integer::make('creatorId')->property('creator_id')->nullable(),
+            Schema\Str::make('creatorUsername')->get(fn (TitleDecoration $d) => optional($d->creator)->username),
+        ], AvailabilityFields::fields());
     }
 
     #[\Override]
@@ -118,7 +139,7 @@ class TitleDecorationResource extends AbstractDatabaseResource
         return [SortColumn::make('sort'), SortColumn::make('price')];
     }
 
-    protected function fill(TitleDecoration $deco, array $attrs, bool $isNew = false): void
+    protected function fill(TitleDecoration $deco, array $attrs, bool $isNew = false, bool $byManager = true): void
     {
         if ($isNew || isset($attrs['name'])) {
             $name = trim((string) ($attrs['name'] ?? $deco->name ?? ''));
@@ -164,14 +185,24 @@ class TitleDecorationResource extends AbstractDatabaseResource
                 : null;
         }
 
-        if (isset($attrs['price'])) {
-            $deco->price = max(0, (int) $attrs['price']);
-        }
-        if (isset($attrs['isEnabled'])) {
-            $deco->is_enabled = (bool) $attrs['isEnabled'];
-        }
-        if (isset($attrs['sort'])) {
-            $deco->sort = (int) $attrs['sort'];
+        if ($byManager) {
+            if (isset($attrs['price'])) {
+                $deco->price = max(0, (int) $attrs['price']);
+            }
+            if (isset($attrs['isEnabled'])) {
+                $deco->is_enabled = (bool) $attrs['isEnabled'];
+            }
+            if (isset($attrs['sort'])) {
+                $deco->sort = (int) $attrs['sort'];
+            }
+            if (isset($attrs['status']) && in_array($attrs['status'], [
+                TitleDecoration::STATUS_APPROVED,
+                TitleDecoration::STATUS_PENDING,
+                TitleDecoration::STATUS_REJECTED,
+            ], true)) {
+                $deco->status = (string) $attrs['status'];
+            }
+            ItemAvailability::fillFromAttrs($deco, $attrs);
         }
     }
 
