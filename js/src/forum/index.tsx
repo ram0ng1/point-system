@@ -515,8 +515,12 @@ function registerThemeUsernameTagger(): void {
     // sentence where the link target happens to be the user's profile but the
     // text is something else entirely. Allows the `@` mention prefix.
     const text = (a.textContent || '').trim().toLowerCase().replace(/^@\s*/, '');
-    const dn = String(user.displayName?.() ?? '').trim().toLowerCase();
-    const un = String(user.username?.() ?? '').trim().toLowerCase();
+    const dn = String(user.displayName?.() ?? '')
+      .trim()
+      .toLowerCase();
+    const un = String(user.username?.() ?? '')
+      .trim()
+      .toLowerCase();
     const isName =
       text === dn ||
       text === un ||
