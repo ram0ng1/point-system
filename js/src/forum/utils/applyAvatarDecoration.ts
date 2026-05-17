@@ -1,4 +1,6 @@
 // @ts-nocheck
+import { safeCssUrl } from '../../common/utils/safeCssUrl';
+
 // `m` is the Flarum-provided global (JSX pragma); don't import from 'mithril'.
 declare const m: any;
 
@@ -37,7 +39,7 @@ export function applyAvatarDecoration(vnode: any, frameUrl: string): void {
     innerVnode,
     m('span.ps-avatar-deco', {
       style: {
-        backgroundImage: `url("${frameUrl.replace(/"/g, '%22')}")`,
+        backgroundImage: `url("${safeCssUrl(frameUrl)}")`,
       },
       'aria-hidden': 'true',
     }),

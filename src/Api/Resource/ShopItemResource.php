@@ -46,8 +46,8 @@ class ShopItemResource extends AbstractDatabaseResource
     public function endpoints(): array
     {
         return [
-            Endpoint\Index::make()->paginate(100, 200),
-            Endpoint\Show::make(),
+            Endpoint\Index::make()->authenticated()->can('view')->paginate(100, 200),
+            Endpoint\Show::make()->authenticated()->can('view'),
         ];
     }
 

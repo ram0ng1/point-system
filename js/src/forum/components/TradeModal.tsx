@@ -3,6 +3,7 @@ import app from 'flarum/forum/app';
 import Modal from 'flarum/common/components/Modal';
 import Button from 'flarum/common/components/Button';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
+import { safeCssUrl } from '../../common/utils/safeCssUrl';
 
 // Polling cadence — same order of magnitude as Habbo's trade-window refresh.
 // Long enough to not hammer the server, short enough that "the other side
@@ -600,7 +601,7 @@ export default class TradeModal extends Modal {
     if (it.itemType === 'avatar_decoration') {
       const frameSrc = it.imageUrl || it.imagePath || '';
       const frameUrl = frameSrc ? this.resolveAsset(frameSrc) : '';
-      const safeFrameUrl = frameUrl.replace(/"/g, '%22');
+      const safeFrameUrl = safeCssUrl(frameUrl);
       return (
         <span className="ps-avatar-deco-wrap PointSystemTradeModal-itemThumb PointSystemTradeModal-itemThumb--avatar">
           {avatarUrl ? (

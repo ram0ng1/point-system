@@ -50,6 +50,9 @@ class ForumAttributes
         protected FeatureGate $features,
     ) {}
 
+    /** @var array<string, bool> per-request memoization of creator_id column presence */
+    private array $hasCreatorColumnCache = [];
+
     public function __invoke(): array
     {
         // The submission columns (`status`, `creator_id`) ship with the
@@ -82,17 +85,21 @@ class ForumAttributes
 
         $scopeFor = function (Builder $q, Context $context, string $itemType): Builder {
             $actor = $context->getActor();
-            // Eager-load creator only when the column exists — see
-            // SubmissionScope for the same defensive check. Without this
-            // guard, a pending migration kills the forum on every page.
-            try {
-                if (\Illuminate\Support\Facades\Schema::hasColumn($q->getModel()->getTable(), 'creator_id')) {
-                    $q->with('creator');
+            // Skip creator eager-load if the column doesn't exist yet
+            // (admin upgraded code before running migrate). Cache the
+            // INFORMATION_SCHEMA result per-request — without it every
+            // forum page-load fires 5 schema lookups.
+            $table = $q->getModel()->getTable();
+            if (! array_key_exists($table, $this->hasCreatorColumnCache)) {
+                try {
+                    $this->hasCreatorColumnCache[$table] =
+                        \Illuminate\Support\Facades\Schema::hasColumn($table, 'creator_id');
+                } catch (\Throwable) {
+                    $this->hasCreatorColumnCache[$table] = false;
                 }
-            } catch (\Throwable) {
-                // Schema lookup failures (broken DB driver, edge race during
-                // install) shouldn't propagate to the forum payload. Skip
-                // eager-load and let the per-row serializer null-fallback.
+            }
+            if ($this->hasCreatorColumnCache[$table]) {
+                $q->with('creator');
             }
             ItemAvailability::applyShopOrOwnedScope($q, $actor, $itemType);
             SubmissionScope::apply($q, $actor);

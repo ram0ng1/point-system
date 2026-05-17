@@ -21,6 +21,8 @@ use Ramon\PointSystem\Model\Trade;
  */
 class TradeCompletedBlueprint implements BlueprintInterface, AlertableInterface
 {
+    public const TYPE = 'pointSystemTradeCompleted';
+
     public function __construct(
         public User $recipient,
         public User $counterparty,
@@ -48,7 +50,7 @@ class TradeCompletedBlueprint implements BlueprintInterface, AlertableInterface
     #[\Override]
     public static function getType(): string
     {
-        return 'pointSystemTradeCompleted';
+        return self::TYPE;
     }
 
     #[\Override]

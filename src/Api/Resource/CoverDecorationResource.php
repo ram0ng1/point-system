@@ -23,6 +23,9 @@ use Ramon\PointSystem\Support\SubmissionScope;
  */
 class CoverDecorationResource extends AbstractDatabaseResource
 {
+    // Flarum populates routes via `newInstanceWithoutConstructor`, so
+    // services must be resolved inside action callbacks, not via injection.
+
     #[\Override]
     public function type(): string
     {
@@ -54,8 +57,8 @@ class CoverDecorationResource extends AbstractDatabaseResource
     public function endpoints(): array
     {
         return [
-            Endpoint\Index::make()->paginate(100, 200),
-            Endpoint\Show::make(),
+            Endpoint\Index::make()->paginate(100, 200)->eagerLoad('creator'),
+            Endpoint\Show::make()->eagerLoad('creator'),
 
             Endpoint\Create::make()
                 ->authenticated()
@@ -89,6 +92,7 @@ class CoverDecorationResource extends AbstractDatabaseResource
                 }),
 
             Endpoint\Update::make()
+                ->authenticated()
                 ->can('manage')
                 ->action(function (Context $context) {
                     resolve(FeatureGate::class)->assertEnabled(ShopClaim::TYPE_COVER);
@@ -101,6 +105,7 @@ class CoverDecorationResource extends AbstractDatabaseResource
                 }),
 
             Endpoint\Delete::make()
+                ->authenticated()
                 ->can('manage')
                 ->action(function (Context $context) {
                     resolve(FeatureGate::class)->assertEnabled(ShopClaim::TYPE_COVER);
@@ -115,19 +120,28 @@ class CoverDecorationResource extends AbstractDatabaseResource
     #[\Override]
     public function fields(): array
     {
+        $managerOnly = fn (CoverDecoration $d, \Flarum\Api\Context $context) =>
+            $context->getActor()->hasPermission('pointSystem.manage');
+        $managerOrCreator = fn (CoverDecoration $d, \Flarum\Api\Context $context) =>
+            $context->getActor()->hasPermission('pointSystem.manage')
+            || (int) $context->getActor()->id === (int) $d->creator_id;
+
         return array_merge([
-            Schema\Str::make('name'),
-            Schema\Str::make('description')->nullable(),
+            Schema\Str::make('name')->writable(),
+            Schema\Str::make('description')->nullable()->writable(),
             Schema\Str::make('imagePath')->property('image_path')->nullable(),
-            Schema\Str::make('imageUrl')->property('image_url')->nullable(),
-            Schema\Boolean::make('isAnimated')->property('is_animated'),
-            Schema\Integer::make('price'),
-            Schema\Boolean::make('isEnabled')->property('is_enabled'),
-            Schema\Integer::make('sort'),
+            Schema\Str::make('imageUrl')->property('image_url')->nullable()->writable(),
+            Schema\Boolean::make('isAnimated')->property('is_animated')->writable($managerOnly),
+            Schema\Integer::make('price')->writable($managerOnly),
+            Schema\Boolean::make('isEnabled')->property('is_enabled')->writable($managerOnly),
+            Schema\Integer::make('sort')->writable($managerOnly),
             Schema\DateTime::make('createdAt')->property('created_at'),
-            Schema\Str::make('status'),
-            Schema\Integer::make('creatorId')->property('creator_id')->nullable(),
-            Schema\Str::make('creatorUsername')->get(fn (CoverDecoration $d) => optional($d->creator)->username),
+            Schema\Str::make('status')->writable($managerOnly),
+            Schema\Integer::make('creatorId')->property('creator_id')->nullable()
+                ->visible($managerOrCreator),
+            Schema\Str::make('creatorUsername')
+                ->visible($managerOrCreator)
+                ->get(fn (CoverDecoration $d) => optional($d->creator)->username),
         ], AvailabilityFields::fields());
     }
 

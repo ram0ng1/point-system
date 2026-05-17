@@ -31,13 +31,12 @@ class ShopClaimResource extends AbstractDatabaseResource
     public function scope(Builder $query, \Tobyz\JsonApiServer\Context $context): void
     {
         $actor = $context->getActor();
-        if (! $actor->id) {
-            // Guests see nothing
+        if ($actor->isGuest()) {
             $query->whereRaw('1 = 0');
             return;
         }
         if (! $actor->hasPermission('pointSystem.manage')) {
-            $query->where('user_id', $actor->id);
+            $query->where('user_id', (int) $actor->id);
         }
     }
 
@@ -45,8 +44,8 @@ class ShopClaimResource extends AbstractDatabaseResource
     public function endpoints(): array
     {
         return [
-            Endpoint\Index::make()->paginate(50, 200),
-            Endpoint\Show::make(),
+            Endpoint\Index::make()->authenticated()->paginate(50, 200),
+            Endpoint\Show::make()->authenticated(),
         ];
     }
 

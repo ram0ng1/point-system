@@ -21,6 +21,8 @@ use Flarum\User\User;
  */
 class ItemGrantedBlueprint implements BlueprintInterface, AlertableInterface
 {
+    public const TYPE = 'pointSystemItemGranted';
+
     public function __construct(
         public User $recipient,
         public ?User $admin,
@@ -59,7 +61,7 @@ class ItemGrantedBlueprint implements BlueprintInterface, AlertableInterface
     #[\Override]
     public static function getType(): string
     {
-        return 'pointSystemItemGranted';
+        return self::TYPE;
     }
 
     #[\Override]

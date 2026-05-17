@@ -4,6 +4,7 @@ import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import AdminTradeDetailModal from './AdminTradeDetailModal';
+import { pointsLabel } from '../../common/utils/pointsLabel';
 
 const PAGE_SIZE = 25;
 
@@ -182,19 +183,19 @@ export default class AllTradesPanel extends Component {
         <td className="PointSystemAdmin-tradeOffer">
           <div>
             <span className="muted">{t('initiator_offer')}:</span>{' '}
-            {tr.initiatorPoints > 0 ? `${Number(tr.initiatorPoints).toLocaleString()} pts` : '—'}
+            {tr.initiatorPoints > 0 ? `${Number(tr.initiatorPoints).toLocaleString()} ${pointsLabel(app)}` : '—'}
             {initiatorItems.length > 0 && (
               <span className="PointSystemAdmin-tag" style="margin-left:6px">
-                {initiatorItems.length} {t('items_short')}
+                {t('items_short', { count: initiatorItems.length })}
               </span>
             )}
           </div>
           <div>
             <span className="muted">{t('recipient_offer')}:</span>{' '}
-            {tr.recipientPoints > 0 ? `${Number(tr.recipientPoints).toLocaleString()} pts` : '—'}
+            {tr.recipientPoints > 0 ? `${Number(tr.recipientPoints).toLocaleString()} ${pointsLabel(app)}` : '—'}
             {recipientItems.length > 0 && (
               <span className="PointSystemAdmin-tag" style="margin-left:6px">
-                {recipientItems.length} {t('items_short')}
+                {t('items_short', { count: recipientItems.length })}
               </span>
             )}
           </div>

@@ -6,6 +6,8 @@ import LinkButton from 'flarum/common/components/LinkButton';
 import Avatar from 'flarum/common/components/Avatar';
 import SelectDropdown from 'flarum/common/components/SelectDropdown';
 import SubmitDecorationModal from './SubmitDecorationModal';
+import { pointsLabel } from '../../common/utils/pointsLabel';
+import { safeCssUrl } from '../../common/utils/safeCssUrl';
 
 type DecorationsTab = 'all' | 'avatar' | 'name' | 'cover' | 'title' | 'post-hl';
 
@@ -126,7 +128,7 @@ export default class DecorationsPage extends Page {
             chip uses the same component the post header renders. */}
         {this.renderLivePreview(user, equippedNameSlug)}
 
-        <nav className="PointSystemDecorations-nav">
+        <nav className="PointSystemDecorations-nav App-titleControl">
           <SelectDropdown
             className="PointSystemDecorations-nav-select"
             buttonClassName="Button"
@@ -693,7 +695,7 @@ export default class DecorationsPage extends Page {
     // CSS custom property carrying the cover URL — matches the same
     // `--ps-cover-url` plumbing the global cover-decoration rule uses on
     // .UserCard / .UserHero / .AvocadoUserPage-hero (see less/forum.less).
-    const heroStyle = coverUrl ? `--ps-cover-url: url("${coverUrl.replace(/"/g, '%22')}")` : '';
+    const heroStyle = coverUrl ? `--ps-cover-url: url("${safeCssUrl(coverUrl)}")` : '';
 
     // Standalone hero — no surrounding `<section class="PointSystemDecorations-preview">`
     // and no "Live preview" heading. The hero is its own self-contained
@@ -714,7 +716,7 @@ export default class DecorationsPage extends Page {
             )}
             <div className="PointSystemDecorations-previewHero-stats">
               <span className="PointSystemProfilePill">
-                <i className={currencyIcon} aria-hidden="true" /> {balance.toLocaleString()} pts
+                <i className={currencyIcon} aria-hidden="true" /> {balance.toLocaleString()} {pointsLabel(app)}
               </span>
             </div>
           </div>

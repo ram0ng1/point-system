@@ -18,6 +18,8 @@ use Flarum\User\User;
  */
 class PointsManualBlueprint implements BlueprintInterface, AlertableInterface
 {
+    public const TYPE = 'pointsManual';
+
     public function __construct(
         public User $recipient,
         public ?User $admin,
@@ -39,21 +41,29 @@ class PointsManualBlueprint implements BlueprintInterface, AlertableInterface
 
     /**
      * Stored as JSON on the notification row and surfaced to the frontend via
-     * `notification.content()`. Both fields are read by the Mithril component.
+     * `notification.content()`. The reason text is admin-authored free-text;
+     * normalize it to plain UTF-8 and strip control bytes so an admin
+     * compromise can't smuggle HTML/JS into the notification card.
      */
     #[\Override]
     public function getData(): mixed
     {
+        $reason = $this->reason;
+        if (is_string($reason) && $reason !== '') {
+            $reason = preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $reason) ?? '';
+            $reason = mb_substr(trim($reason), 0, 500);
+            $reason = htmlspecialchars($reason, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        }
         return [
             'amount' => $this->amount,
-            'reason' => $this->reason,
+            'reason' => $reason,
         ];
     }
 
     #[\Override]
     public static function getType(): string
     {
-        return 'pointsManual';
+        return self::TYPE;
     }
 
     #[\Override]

@@ -97,7 +97,10 @@ class UploadAvatarDecorationController implements RequestHandlerInterface
         if (! $file instanceof UploadedFileInterface || $file->getError() !== UPLOAD_ERR_OK) {
             return new JsonResponse(['errors' => [['detail' => 'No image uploaded']]], 422);
         }
-        if ($file->getSize() > self::MAX_BYTES) {
+        // PSR-7 permits getSize() returning null for chunked uploads with no
+        // Content-Length header; null > MAX would silently bypass the cap.
+        $size = $file->getSize();
+        if ($size === null || $size <= 0 || $size > self::MAX_BYTES) {
             return new JsonResponse(['errors' => [['detail' => 'File too large (max 4MB)']]], 413);
         }
 
@@ -135,15 +138,22 @@ class UploadAvatarDecorationController implements RequestHandlerInterface
         $destPath = $destDir.'/'.$filename;
 
         $file->moveTo($destPath);
+        @chmod($destPath, 0644);
 
-        // §11 defense-in-depth: re-detect the content MIME via finfo after the
-        // upload settled on disk. The earlier magic-byte sniff catches naive
-        // polyglots, but finfo is the canonical CLAUDE.md check — and running
-        // it on the persisted file (not the stream) closes the gap where a
-        // moveTo() implementation might fail silently on a corrupted upload.
-        $detected = @mime_content_type($destPath) ?: '';
+        // Re-detect the content MIME via finfo after the upload settled on
+        // disk. The earlier magic-byte sniff catches naive polyglots, but
+        // finfo on the persisted file closes the gap where a moveTo()
+        // implementation might fail silently on a corrupted upload.
+        $detected = '';
+        if (function_exists('finfo_open')) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            if ($finfo) {
+                $detected = (string) (finfo_file($finfo, $destPath) ?: '');
+                finfo_close($finfo);
+            }
+        }
         $allowedMimes = self::ALLOWED_MIMES[$ext] ?? [];
-        if (! in_array($detected, $allowedMimes, true)) {
+        if (! in_array(strtolower($detected), $allowedMimes, true)) {
             @unlink($destPath);
             return new JsonResponse(['errors' => [['detail' => 'File MIME does not match its extension']]], 422);
         }

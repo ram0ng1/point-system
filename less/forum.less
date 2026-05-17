@@ -263,6 +263,132 @@
   display: block !important;
 }
 
+// ─── Badge re-anchoring when a frame is equipped ──────────────────────────────
+//
+// Flarum core's canonical badge position (vendor/flarum/core/less/forum/Post.less
+// L83 + L436-442) is the AVATAR'S TOP-RIGHT CORNER:
+//
+//   .PostUser-badges {
+//     text-align: right;
+//     position: relative;
+//     margin-left: calc(5px - var(--avatar-column-width));
+//     margin-top: -3px;
+//     width: 64px;
+//   }
+//
+// Theme-specific overrides (notably Avocado's `--inSide` clone, which sets
+// `margin-left: calc(5px - --disc-avatar - --disc-gap)` ≈ -61px) assume the
+// avatar is the bare `.Avatar` Mithril vnode. Our `.ps-avatar-deco-wrap`
+// mutation introduces `position: relative` on the avatar element, which can
+// shift the badge's containing block or push the cluster outside the visual
+// avatar area — leaving badges floating in the post gutter LEFT of the frame.
+//
+// Fix: when the wrap is present AND admin has NOT enabled the "hide badges
+// with avatar deco" setting, re-anchor the badge cluster onto the AVATAR'S
+// TOP-RIGHT corner (matching Flarum core). The wrap is already
+// `position: relative`, so absolute children resolve to its bounding box.
+//
+// Scoped via `:has()` so the rules only fire on posts where the frame is
+// actually rendered. Older browsers without `:has()` fall back to whatever
+// the theme does today — which is what the user already lives with.
+// Apply universally — whether or not the avatar wrap is present, whether
+// or not Avocado's `fixedAvatarEffect` is enabled (which is what creates
+// the `.Post-side-inner` wrapper).
+//
+// Two cases:
+//  1. Fixed-avatar ON  → Avocado wraps avatar+badges in `.Post-side-inner`,
+//     applies `margin-left: -61px` and `position: sticky` to the `--inSide`
+//     clone. Override to top-right of the wrapper.
+//  2. Fixed-avatar OFF → no `--inSide` clone; the original `PostUser-badges`
+//     lives in `.Post-header` and Avocado positions it absolutely at
+//     `left: calc(83px - --disc-avatar - --disc-gap)`. We also handle the
+//     case where the badge ends up inside `.Post-side` directly.
+//
+// All variants anchor to the AVATAR'S TOP-RIGHT CORNER (matching Flarum
+// core's canonical position — see vendor/flarum/core/less/forum/Post.less
+// L83 + L436).
+// Specificity-bumped to beat BOTH competing Avocado rules regardless of
+// load order:
+//  - forum/Post.less:90 `.Post-side .PostUser-badges--inSide` (0,2,0)
+//    `position: relative !important; top: auto !important; left: 0;
+//     width: 64px; text-align: right`
+//  - DiscussionPage.less:681 `.Page.DiscussionPage .CommentPost--fixedAvatar
+//    .PostUser-badges--inSide` (0,3,0) `display: block !important;
+//    position: sticky; top: var(--sticky-top); margin-left: calc(...)`
+//
+// We need at least (0,4,0) to win unconditionally. Prepending
+// `.Page.DiscussionPage .CommentPost` reaches (0,4,0) when combined with
+// `.Post-side-inner .PostUser-badges--inSide`. The non-fixed `.Post-side`
+// variant also gets the bump.
+.Page.DiscussionPage .CommentPost .Post-side,
+.Page.DiscussionPage .CommentPost .Post-side-inner {
+  position: relative;
+}
+
+.Page.DiscussionPage .CommentPost .Post-side .PostUser-badges,
+.Page.DiscussionPage .CommentPost .Post-side .PostUser-badges--inSide,
+.Page.DiscussionPage .CommentPost .Post-side > .badges,
+.Page.DiscussionPage .CommentPost .Post-side-inner .PostUser-badges,
+.Page.DiscussionPage .CommentPost .Post-side-inner .PostUser-badges--inSide,
+.Page.DiscussionPage .CommentPost .Post-side-inner > .badges {
+  position: absolute !important;
+  top: -4px !important;
+  right: 0 !important;
+  bottom: auto !important;
+  left: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: auto !important;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  gap: 2px !important;
+  text-align: right !important;
+  z-index: 5;
+  pointer-events: auto;
+}
+
+// Non-fixed-avatar fallback: badge lives in `.Post-header > .PostUser`
+// (PostUser has `display: contents`, so the badge participates in the
+// header's flex row). Anchor it to the AVATAR position via the Post-side
+// containing block instead — using `:has()` to find posts where the
+// badges are NOT cloned into Post-side-inner.
+@media (min-width: 768px) {
+  .Page.DiscussionPage .CommentPost:not(.CommentPost--fixedAvatar) .Post-header .PostUser-badges {
+    position: absolute !important;
+    top: -4px !important;
+    left: var(--post-padding, 14px) !important;
+    right: auto !important;
+    bottom: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: var(--avatar-column-width, 64px) !important;
+    text-align: right !important;
+    z-index: 5;
+    pointer-events: auto;
+  }
+}
+
+// When admin has the "hide badges with avatar deco" setting on, the badge
+// is hidden anyway by the broader `body.ps-hide-badges-with-deco` rule below.
+// We keep the anchoring rule unconditional so visible badges always sit at
+// the same spot.
+
+// Avocado non-fixed layout: badges live in `.Post-header` and are absolutely
+// positioned by avocado's `left: calc(83px - --disc-avatar - --disc-gap)`.
+// When a frame is present, normalize `.Post-side` as a positioning context
+// so the cluster anchors against the post column rather than drifting.
+.CommentPost:not(.CommentPost--fixedAvatar) .Post-side:has(.ps-avatar-deco-wrap) {
+  position: relative;
+}
+
+// Default Flarum theme (no avocado): `.PostUser-name` carries the avatar
+// and badges as inline siblings. Make sure the wrap acts as a positioning
+// context so it never produces a stranded layout.
+.PostUser-name:has(.ps-avatar-deco-wrap) {
+  position: relative;
+}
+
 // Hide Flarum's badges (mod/admin/group icons) ONLY on users whose avatar
 // is decorated with a frame, when admin enabled the corresponding setting.
 //
@@ -323,6 +449,12 @@ body.ps-hide-badges-with-deco {
 // and the .Dropdown--expanded() expansion on tablet+. We then layer Avocado-
 // inspired styling on top: pill-shaped tabs with a circular icon chip on
 // tablet+, centred trigger button + rounded bottom-sheet on phone.
+//
+// Wrapper carries `App-titleControl` so Flarum core's phone media query
+// (common/App.less L86) absolute-positions the trigger into the page header
+// — same trick avocado uses for its IndexPage SelectDropdown. We then
+// neutralize the absolute positioning on tablet+ so the inline pill row
+// can render in normal flow.
 .PointSystemShop-nav,
 .PointSystemDecorations-nav {
   // Breathing room above the nav so the live-preview hero (rendered just
@@ -330,7 +462,25 @@ body.ps-hide-badges-with-deco {
   margin: 20px auto;
 
   // ─── Tablet+ : tabs expanded inline (horizontal pill row) ────────────────
+  // App-titleControl is `position: absolute !important; top: 0` on phone
+  // (Flarum core) — neutralize on tablet+ so our nav lands in normal flow.
+  // We dropped the `.container` class to avoid fighting App-titleControl on
+  // phone, so re-apply the container's max-width here so the pill row stays
+  // centered with the rest of the page.
   @media @tablet-up {
+    &.App-titleControl {
+      position: static !important;
+      width: auto !important;
+      max-width: 1080px;
+      left: auto !important;
+      right: auto !important;
+      top: auto !important;
+      margin: 20px auto !important;
+      padding-left: 16px;
+      padding-right: 16px;
+      text-align: center;
+    }
+
     .Dropdown-toggle { display: none; }
 
     .Dropdown-menu {
@@ -409,25 +559,52 @@ body.ps-hide-badges-with-deco {
   }
 
   // ─── Phone : centered trigger button + rounded bottom-sheet menu ─────────
-  // SelectDropdown renders an inline `.Dropdown-toggle.Button` here; core's
-  // common/Dropdown.less converts the popup `.Dropdown-menu` into a fixed
-  // bottom-sheet on phone, which we just restyle below for the rounded-top
-  // pill look.
+  // The wrapper carries `App-titleControl`, so Flarum core's
+  // common/App.less rules (position: absolute; top: 0; left: 50%;
+  // margin-left: -100px; width: 200px) float the toggle into the page
+  // header bar — same look as UserPage's native tab-selector. We must NOT
+  // add a competing `margin` here on phone: any shorthand `margin: 0 auto`
+  // overrides Flarum's `margin-left: -100px` and breaks the centring math.
   //
-  // Historical note (2026-05): we used to apply `App-titleControl` to the
-  // SelectDropdown wrapper to float the trigger into the page header on
-  // phone. That class is positioned absolute by Avocado-style themes on
-  // EVERY breakpoint, which landed the trigger (and our inline pill row)
-  // on top of the navbar at tablet+. Removing the class fixed the overlap
-  // and only costs the phone-only "trigger in header" trick.
+  // Flarum core's "header pill" styling lives in `App-titleControl > .Button`
+  // (direct child) in common/App.less L39-51. SelectDropdown wraps the
+  // button in `.ButtonGroup.Dropdown`, so the `>` combinator misses it and
+  // the Button keeps its default opaque-pill background. Re-apply the
+  // same transparent/no-shadow header-bar look manually for our nested
+  // structure — visually identical to UserPage's tab selector pill.
   @media @phone {
-    margin: 0 auto 16px;
-    text-align: center;
-
     .Dropdown-toggle.Button {
+      float: none;
+      background: transparent !important;
+      box-shadow: none !important;
+      border: none !important;
+      height: var(--header-height-phone);
+      width: 100%;
+      padding: 13px !important;
+      margin: 0 !important;
+      color: var(--header-color) !important;
+      font-size: 16px;
+      // Match Flarum core's header nav weight (normal, not the .Button
+      // base weight of 500/bold that themes often inherit). The default
+      // `.Button` class on most Flarum themes lands at ~500-700; we want
+      // the lighter look of the native UserPage tab selector.
+      font-weight: normal !important;
+      overflow: hidden;
+      text-overflow: ellipsis;
+
+      &:hover, &:focus {
+        background: transparent !important;
+        box-shadow: none !important;
+      }
+      &:active { opacity: 0.5; }
+
       > .Button-label {
         display: block;
         text-align: center;
+        font-weight: normal !important;
+      }
+      .Button-label .Button-labelText {
+        font-weight: normal !important;
       }
       .Button-caret {
         margin-left: 6px;
@@ -435,9 +612,6 @@ body.ps-hide-badges-with-deco {
       }
     }
 
-    // Bottom-sheet polish — match avocado's rounded top, padded list,
-    // pill-style active row. Core already positions the menu fixed at the
-    // bottom; we only restyle the surface.
     .Dropdown-menu {
       border-radius: 18px 18px 0 0;
       padding-bottom: 18px;
@@ -2888,6 +3062,71 @@ body.ps-hide-badges-with-deco {
   .CommentPost[class*="ps-posthl-"],
   .Post[class*="ps-posthl-"] {
     padding: 8px 12px !important;
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Avocado theme: breathing room between the DiscussionHero banner and the OP
+// post (2026-05-17). Avocado zeroes `.Page-content { margin-top: 0 }` to kill
+// the 10px gap between the App-header and the hero — which also pulls the
+// PostStream straight against the hero's bottom edge, leaving the OP card
+// visually glued to the colored banner.
+//
+// Scoped to `html.avocado-theme` (set by Avocado's `forum/index.tsx`) so the
+// rule only applies when Avocado is the active theme. Restores ~20px on
+// desktop/tablet and 14px on phone, matching Avocado's own card padding rhythm.
+// ──────────────────────────────────────────────────────────────────────────────
+html.avocado-theme .Page.DiscussionPage .PostStream > .PostStream-item:first-child {
+  margin-top: 20px;
+}
+
+@media (max-width: 767px) {
+  html.avocado-theme .Page.DiscussionPage .PostStream > .PostStream-item:first-child {
+    margin-top: 14px;
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Avocado theme: OP post overflow fix (2026-05-17)
+//
+// In Avocado, `.PostStream > .PostStream-item:first-child > .CommentPost` is
+// already a styled card (1px border, 21px radius, 20px padding). When our
+// highlight applies an outline with `outline-offset: 4px`, the outline sits
+// 4-6px OUTSIDE the avocado card border — encroaching on the page banner
+// above and the next post below.
+//
+// Pull the outline INSIDE the avocado card using a negative offset, and match
+// the card's border-radius so the halo sits flush on the card boundary
+// instead of orbiting it. Same fix on phone (Avocado uses a 14px padding
+// version of the same card).
+// ──────────────────────────────────────────────────────────────────────────────
+.PostStream > .PostStream-item:first-child > .CommentPost[class*="ps-posthl-"] {
+  outline-offset: -1px !important;
+  border-radius: 21px;
+}
+
+// Glow presets use `box-shadow` for the pulsing halo. The same shadow rule
+// from decorations.less wraps the outer rectangle — re-spread it inward so
+// it doesn't leak past Avocado's card boundary either.
+.PostStream > .PostStream-item:first-child > .CommentPost.ps-posthl-glow-blue,
+.PostStream > .PostStream-item:first-child > .CommentPost.ps-posthl-glow-purple,
+.PostStream > .PostStream-item:first-child > .CommentPost.ps-posthl-glow-green {
+  // Inset variant — the keyframes' outer shadow still animates, but constrained
+  // to the card edge instead of bleeding into the page banner.
+  box-shadow: inset 0 0 0 2px var(--ps-posthl-color, currentColor) !important;
+  animation: none !important;
+}
+
+// Avocado padding override (see §2868) is too tight for the OP card which is
+// styled as a generous "thread view" — restore Avocado's own 20px / 14px-phone
+// padding so the highlight outline lands on the card's intended boundary.
+.PostStream > .PostStream-item:first-child > .CommentPost[class*="ps-posthl-"] {
+  padding: 20px !important;
+}
+
+@media (max-width: 767px) {
+  .PostStream > .PostStream-item:first-child > .CommentPost[class*="ps-posthl-"] {
+    padding: 14px !important;
   }
 }
 

@@ -7,6 +7,9 @@ use Illuminate\Database\Schema\Builder;
 
 return [
     'up' => function (Builder $schema) {
+        if (! $schema->hasTable('point_system_user_points')) {
+            return;
+        }
         $schema->table('point_system_user_points', function (Blueprint $table) use ($schema) {
             if (! $schema->hasColumn('point_system_user_points', 'current_title_decoration_id')) {
                 $table->unsignedInteger('current_title_decoration_id')->nullable()->after('current_cover_decoration_id');
@@ -17,6 +20,9 @@ return [
         });
     },
     'down' => function (Builder $schema) {
+        if (! $schema->hasTable('point_system_user_points')) {
+            return;
+        }
         $schema->table('point_system_user_points', function (Blueprint $table) use ($schema) {
             if ($schema->hasColumn('point_system_user_points', 'current_title_decoration_id')) {
                 $table->dropColumn('current_title_decoration_id');
