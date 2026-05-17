@@ -16,16 +16,46 @@ let count = 0;
 const offenders = [];
 
 function walk(dir) {
-  for (const name of fs.readdirSync(dir)) {
-    const full = path.join(dir, name);
-    const stat = fs.statSync(full);
-    if (stat.isDirectory()) {
+  let entries;
+  try {
+    // withFileTypes returns Dirent objects with isFile()/isDirectory(),
+    // letting us classify without a follow-up stat() — that pair was the
+    // TOCTOU window CodeQL flagged.
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) {
       walk(full);
-    } else if (/\.(ts|tsx|js|jsx)$/.test(name)) {
-      const head = fs.readFileSync(full, 'utf8').slice(0, 200);
+      continue;
+    }
+
+    if (!entry.isFile() || !/\.(ts|tsx|js|jsx)$/.test(entry.name)) {
+      continue;
+    }
+
+    // Open the file as a descriptor and read from the fd. The fd is bound
+    // to the inode opened at this instant, so even if the path is swapped
+    // mid-walk the bytes we inspect come from the file we identified.
+    let fd;
+    try {
+      fd = fs.openSync(full, 'r');
+      const buf = Buffer.alloc(200);
+      const n = fs.readSync(fd, buf, 0, 200, 0);
+      const head = buf.toString('utf8', 0, n);
       if (/^\s*(\/\/|\/\*)\s*@ts-nocheck/m.test(head)) {
         count++;
         offenders.push(path.relative(ROOT, full));
+      }
+    } catch {
+      // Unreadable file (permissions, removed mid-walk) — skip silently.
+    } finally {
+      if (fd !== undefined) {
+        try { fs.closeSync(fd); } catch {}
       }
     }
   }
