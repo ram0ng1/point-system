@@ -203,7 +203,7 @@ app.initializers.add('ramon/point-system', () => {
   // Flarum's typing of `extend()` declares one callback argument, but the
   // userControls hook actually receives `(items, user)` at runtime; cast to
   // bypass the typing mismatch.
-  extend(UserControls, 'userControls', (function (items: any, user: any) {
+  extend(UserControls, 'userControls', function (items: any, user: any) {
     const me = app.session.user;
     if (!me) return;
     if (Number(me.id?.()) === Number(user?.id?.())) return;
@@ -217,7 +217,7 @@ app.initializers.add('ramon/point-system', () => {
       </Button>,
       80
     );
-  }) as any);
+  } as any);
 
   // ── "Trades" tab on the user profile sidebar — self-only ──────────────
   // Only visible when the viewer IS the profile owner. The corresponding
@@ -537,9 +537,7 @@ function installDomObservers(): void {
     // Only ask the browser to fire on attribute mutations when something
     // actually subscribes to them. Without this every class-toggle in the
     // app would walk the (empty) handler list on the main thread.
-    ...(hasAttributeHandlers
-      ? { attributes: true as const, attributeFilter: ['class'] }
-      : {}),
+    ...(hasAttributeHandlers ? { attributes: true as const, attributeFilter: ['class'] } : {}),
   });
 }
 

@@ -173,8 +173,7 @@ export default class StartTradeModal extends Modal {
       this.highlight = 0;
     } catch (e: any) {
       this.suggestions = [];
-      const detail = e?.response?.errors?.[0]?.detail
-        || app.translator.trans('ramon-point-system.forum.trades_page.start_search_failed');
+      const detail = e?.response?.errors?.[0]?.detail || app.translator.trans('ramon-point-system.forum.trades_page.start_search_failed');
       app.alerts.show({ type: 'error' }, detail);
     } finally {
       this.searching = false;

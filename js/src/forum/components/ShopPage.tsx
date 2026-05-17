@@ -406,13 +406,11 @@ export default class ShopPage extends Page {
             <a
               className="PointSystemShop-card-creator"
               href={app.route.user({ slug: (item as any).creatorUsername } as any)}
-              title={
-                String(
-                  app.translator.trans('ramon-point-system.forum.shop.creator_tooltip', {
-                    name: (item as any).creatorDisplayName || (item as any).creatorUsername,
-                  }) ?? ''
-                )
-              }
+              title={String(
+                app.translator.trans('ramon-point-system.forum.shop.creator_tooltip', {
+                  name: (item as any).creatorDisplayName || (item as any).creatorUsername,
+                }) ?? ''
+              )}
             >
               {(item as any).creatorAvatarUrl ? (
                 <img className="PointSystemShop-card-creatorAvatar" src={(item as any).creatorAvatarUrl} alt="" />
