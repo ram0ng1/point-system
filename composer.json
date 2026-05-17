@@ -41,13 +41,14 @@
     },
     "extra": {
         "branch-alias": {
-            "dev-master": "1.0.x-dev"
+            "dev-master": "2.0.x-dev"
         },
         "flarum-extension": {
             "title": "Point System",
             "category": "feature",
             "icon": {
-                "image": "icon.svg"
+                "image": "icon.svg",
+                "backgroundColor": "transparent"
             }
         },
         "flarum-cli": {

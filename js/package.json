@@ -17,6 +17,7 @@
     "build": "webpack --mode production",
     "format": "prettier --write src",
     "format-check": "prettier --check src",
-    "check-typings": "tsc --noEmit --emitDeclarationOnly false"
+    "check-typings": "tsc --noEmit --emitDeclarationOnly false",
+    "check-nocheck": "node scripts/nocheck-floor.js"
   }
 }

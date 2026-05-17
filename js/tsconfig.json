@@ -1,12 +1,19 @@
 {
-  "extends": "flarum-tsconfig/tsconfig.json",
-  "include": ["src/**/*"],
+  "extends": "flarum-tsconfig",
+  "include": [
+    "src/**/*",
+    "../vendor/*/*/js/dist-typings/@types/**/*",
+    "../../../vendor/*/*/js/dist-typings/@types/**/*"
+  ],
   "compilerOptions": {
     "rootDir": "./src",
-    "baseUrl": "./",
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
     "paths": {
-      "flarum/*": ["node_modules/flarum/*"]
-    },
-    "ignoreDeprecations": "6.0"
+      "flarum/*": [
+        "../vendor/flarum/core/js/dist-typings/*",
+        "../../../vendor/flarum/core/js/dist-typings/*"
+      ]
+    }
   }
 }

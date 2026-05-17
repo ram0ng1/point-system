@@ -23,6 +23,12 @@ use Ramon\PointSystem\Support\SubmissionScope;
  */
 class AvatarDecorationResource extends AbstractDatabaseResource
 {
+    // No constructor: Flarum core's ApiServiceProvider populates routes via
+    // `(new ReflectionClass)->newInstanceWithoutConstructor()`, so any
+    // constructor-injected dependency is uninitialized when `endpoints()`
+    // runs. The documented pattern is to resolve services lazily inside
+    // action callbacks.
+
     #[\Override]
     public function type(): string
     {
@@ -54,14 +60,9 @@ class AvatarDecorationResource extends AbstractDatabaseResource
     public function endpoints(): array
     {
         return [
-            Endpoint\Index::make()->paginate(100, 200),
-            Endpoint\Show::make(),
+            Endpoint\Index::make()->paginate(100, 200)->eagerLoad('creator'),
+            Endpoint\Show::make()->eagerLoad('creator'),
 
-            // Create: admin uses this for the URL path (the multipart upload
-            // controller stays for file uploads). Regular users can submit
-            // via this same endpoint when user_submissions is on; their
-            // submissions are URL-only (we don't accept file uploads from
-            // non-admins to keep the disk-write surface small).
             Endpoint\Create::make()
                 ->authenticated()
                 ->action(function (Context $context) {
@@ -79,7 +80,6 @@ class AvatarDecorationResource extends AbstractDatabaseResource
                     $this->fill($deco, $attrs, isNew: true, byManager: $isManager);
 
                     if (! $isManager) {
-                        // Submissions are URL-only — image_path stays null.
                         if (empty($deco->image_url)) {
                             throw new ValidationException(['imageUrl' => 'User submissions must include an image URL']);
                         }
@@ -95,6 +95,7 @@ class AvatarDecorationResource extends AbstractDatabaseResource
                 }),
 
             Endpoint\Update::make()
+                ->authenticated()
                 ->can('manage')
                 ->action(function (Context $context) {
                     resolve(FeatureGate::class)->assertEnabled(ShopClaim::TYPE_AVATAR);
@@ -107,6 +108,7 @@ class AvatarDecorationResource extends AbstractDatabaseResource
                 }),
 
             Endpoint\Delete::make()
+                ->authenticated()
                 ->can('manage')
                 ->action(function (Context $context) {
                     resolve(FeatureGate::class)->assertEnabled(ShopClaim::TYPE_AVATAR);
@@ -121,19 +123,28 @@ class AvatarDecorationResource extends AbstractDatabaseResource
     #[\Override]
     public function fields(): array
     {
+        $managerOnly = fn (AvatarDecoration $d, \Flarum\Api\Context $context) =>
+            $context->getActor()->hasPermission('pointSystem.manage');
+        $managerOrCreator = fn (AvatarDecoration $d, \Flarum\Api\Context $context) =>
+            $context->getActor()->hasPermission('pointSystem.manage')
+            || (int) $context->getActor()->id === (int) $d->creator_id;
+
         return array_merge([
-            Schema\Str::make('name'),
-            Schema\Str::make('description')->nullable(),
+            Schema\Str::make('name')->writable(),
+            Schema\Str::make('description')->nullable()->writable(),
             Schema\Str::make('imagePath')->property('image_path')->nullable(),
-            Schema\Str::make('imageUrl')->property('image_url')->nullable(),
-            Schema\Boolean::make('isAnimated')->property('is_animated'),
-            Schema\Integer::make('price'),
-            Schema\Boolean::make('isEnabled')->property('is_enabled'),
-            Schema\Integer::make('sort'),
+            Schema\Str::make('imageUrl')->property('image_url')->nullable()->writable(),
+            Schema\Boolean::make('isAnimated')->property('is_animated')->writable($managerOnly),
+            Schema\Integer::make('price')->writable($managerOnly),
+            Schema\Boolean::make('isEnabled')->property('is_enabled')->writable($managerOnly),
+            Schema\Integer::make('sort')->writable($managerOnly),
             Schema\DateTime::make('createdAt')->property('created_at'),
-            Schema\Str::make('status'),
-            Schema\Integer::make('creatorId')->property('creator_id')->nullable(),
-            Schema\Str::make('creatorUsername')->get(fn (AvatarDecoration $d) => optional($d->creator)->username),
+            Schema\Str::make('status')->writable($managerOnly),
+            Schema\Integer::make('creatorId')->property('creator_id')->nullable()
+                ->visible($managerOrCreator),
+            Schema\Str::make('creatorUsername')
+                ->visible($managerOrCreator)
+                ->get(fn (AvatarDecoration $d) => optional($d->creator)->username),
         ], AvailabilityFields::fields());
     }
 

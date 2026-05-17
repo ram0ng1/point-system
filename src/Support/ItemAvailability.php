@@ -125,17 +125,7 @@ class ItemAvailability
                   ->orWhere('allowed_group_ids', '')
                   ->orWhere('allowed_group_ids', '[]');
                 foreach ($groupIds as $gid) {
-                    // Match the JSON column literally — works on MySQL,
-                    // PostgreSQL and SQLite without driver-specific JSON
-                    // functions. Compromise: false positives on group ids
-                    // that contain another id as a substring (e.g. "1" inside
-                    // "12"). We pad with quotes/commas to scope the match.
-                    $q->orWhere('allowed_group_ids', 'like', '%"'.$gid.'"%')
-                      ->orWhere('allowed_group_ids', 'like', '%['.$gid.']%')
-                      ->orWhere('allowed_group_ids', 'like', '%,'.$gid.',%')
-                      ->orWhere('allowed_group_ids', 'like', '%['.$gid.',%')
-                      ->orWhere('allowed_group_ids', 'like', '%,'.$gid.']%')
-                      ->orWhere('allowed_group_ids', 'like', '%, '.$gid.',%');
+                    $q->orWhereJsonContains('allowed_group_ids', (int) $gid);
                 }
             });
         } else {

@@ -171,8 +171,10 @@ export default class StartTradeModal extends Modal {
       const me = app.session.user;
       this.suggestions = me ? list.filter((u: any) => Number(u.id?.()) !== Number(me.id?.())) : list;
       this.highlight = 0;
-    } catch (e) {
+    } catch (e: any) {
       this.suggestions = [];
+      const detail = e?.response?.errors?.[0]?.detail || app.translator.trans('ramon-point-system.forum.trades_page.start_search_failed');
+      app.alerts.show({ type: 'error' }, detail);
     } finally {
       this.searching = false;
       m.redraw();

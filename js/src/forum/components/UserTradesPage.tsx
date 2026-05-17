@@ -4,6 +4,7 @@ import UserPage from 'flarum/forum/components/UserPage';
 import Button from 'flarum/common/components/Button';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import TradeModal from './TradeModal';
+import { pointsLabel } from '../../common/utils/pointsLabel';
 
 /**
  * "Trades" tab on the user profile — visible only when the viewer IS the
@@ -140,8 +141,8 @@ export default class UserTradesPage extends UserPage {
           <div className="PointSystemTradesPage-row-side">
             <span className="muted">{t('your_side')}</span>
             <span>
-              {yourPoints > 0 ? `${Number(yourPoints).toLocaleString()} pts` : ''}{' '}
-              {yourItems.length > 0 ? `+ ${yourItems.length} ${t('items_short')}` : ''}
+              {yourPoints > 0 ? `${Number(yourPoints).toLocaleString()} ${pointsLabel(app)}` : ''}{' '}
+              {yourItems.length > 0 ? `+ ${t('items_short', { count: yourItems.length })}` : ''}
               {yourPoints === 0 && yourItems.length === 0 ? <em>—</em> : ''}
             </span>
           </div>
@@ -149,8 +150,8 @@ export default class UserTradesPage extends UserPage {
           <div className="PointSystemTradesPage-row-side">
             <span className="muted">{t('their_side')}</span>
             <span>
-              {theirPoints > 0 ? `${Number(theirPoints).toLocaleString()} pts` : ''}{' '}
-              {theirItems.length > 0 ? `+ ${theirItems.length} ${t('items_short')}` : ''}
+              {theirPoints > 0 ? `${Number(theirPoints).toLocaleString()} ${pointsLabel(app)}` : ''}{' '}
+              {theirItems.length > 0 ? `+ ${t('items_short', { count: theirItems.length })}` : ''}
               {theirPoints === 0 && theirItems.length === 0 ? <em>—</em> : ''}
             </span>
           </div>

@@ -34,9 +34,10 @@ app.initializers.add('ramon/point-system', () => {
         icon: 'fas fa-eye',
         label: app.translator.trans('ramon-point-system.admin.permissions.view_others'),
         permission: 'pointSystem.viewOthers',
-        // Allow granting this to the Guest group too — Flarum's PermissionGrid
-        // hides the "Everyone" option by default; `allowGuest: true` flips it on.
-        allowGuest: true,
+        // Other users' point balances are PII-adjacent; require an
+        // explicit Members grant. Admins who want public scoreboards can
+        // still add the permission to Guest via the per-grant UI.
+        allowGuest: false,
       },
       'view'
     )

@@ -39,6 +39,7 @@ const SECTIONS: SectionDef[] = [
     fields: [
       { key: 'point-system.currency_name', transKey: 'currency_name', type: 'text' },
       { key: 'point-system.currency_icon', transKey: 'currency_icon', type: 'icon' },
+      { key: 'point-system.points_short', transKey: 'points_short', type: 'text' },
     ],
   },
   {

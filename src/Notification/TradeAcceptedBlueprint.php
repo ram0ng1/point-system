@@ -21,6 +21,8 @@ use Flarum\User\User;
  */
 class TradeAcceptedBlueprint implements BlueprintInterface, AlertableInterface
 {
+    public const TYPE = 'pointSystemTradeAccepted';
+
     public function __construct(
         public User $recipient,
         public User $acceptedBy,
@@ -48,7 +50,7 @@ class TradeAcceptedBlueprint implements BlueprintInterface, AlertableInterface
     #[\Override]
     public static function getType(): string
     {
-        return 'pointSystemTradeAccepted';
+        return self::TYPE;
     }
 
     #[\Override]

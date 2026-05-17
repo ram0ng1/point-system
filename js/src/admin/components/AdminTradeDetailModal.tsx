@@ -2,6 +2,7 @@
 import app from 'flarum/admin/app';
 import Modal from 'flarum/common/components/Modal';
 import Button from 'flarum/common/components/Button';
+import { pointsLabel } from '../../common/utils/pointsLabel';
 
 /**
  * Admin-side modal that opens when clicking a row in the AllTradesPanel.
@@ -124,7 +125,7 @@ export default class AdminTradeDetailModal extends Modal {
         </div>
         <div className="AdminTradeDetailModal-party-offer">
           <div className="AdminTradeDetailModal-party-points">
-            <i className="fas fa-coins" /> {Number(points || 0).toLocaleString()} pts
+            <i className="fas fa-coins" /> {Number(points || 0).toLocaleString()} {pointsLabel(app)}
           </div>
           {items.length === 0 ? (
             <p className="muted">{t('no_items')}</p>

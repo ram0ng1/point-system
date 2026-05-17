@@ -18,6 +18,8 @@ use Flarum\User\User;
  */
 class TierClaimedBlueprint implements BlueprintInterface, AlertableInterface
 {
+    public const TYPE = 'pointSystemTierClaimed';
+
     public function __construct(
         public User $recipient,
         public Group $group,
@@ -50,7 +52,7 @@ class TierClaimedBlueprint implements BlueprintInterface, AlertableInterface
     #[\Override]
     public static function getType(): string
     {
-        return 'pointSystemTierClaimed';
+        return self::TYPE;
     }
 
     #[\Override]

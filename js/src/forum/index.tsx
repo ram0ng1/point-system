@@ -27,6 +27,8 @@ import TradeCompletedNotification from './components/TradeCompletedNotification'
 import TradeModal from './components/TradeModal';
 import { applyAvatarDecoration } from './utils/applyAvatarDecoration';
 import { applyNameDecorationClass } from './utils/applyNameDecoration';
+import { pointsLabel } from '../common/utils/pointsLabel';
+import { safeCssUrl } from '../common/utils/safeCssUrl';
 
 declare const m: Mithril.Static;
 
@@ -151,11 +153,12 @@ app.initializers.add('ramon/point-system', () => {
           vnode.attrs.className = `${existing} ps-has-cover`.trim();
         }
         const prevStyle = vnode.attrs.style || '';
-        const styleAdd = `--ps-cover-url: url("${url.replace(/"/g, '%22')}");`;
+        const safeUrl = safeCssUrl(url);
+        const styleAdd = `--ps-cover-url: url("${safeUrl}");`;
         vnode.attrs.style =
           typeof prevStyle === 'string'
             ? `${prevStyle}${prevStyle.endsWith(';') || !prevStyle ? '' : ';'} ${styleAdd}`
-            : { ...prevStyle, '--ps-cover-url': `url("${url.replace(/"/g, '%22')}")` };
+            : { ...prevStyle, '--ps-cover-url': `url("${safeUrl}")` };
       }
     }
   });
@@ -197,10 +200,13 @@ app.initializers.add('ramon/point-system', () => {
   // `moderationControls` (admin), `destructiveControls` (delete). The earlier
   // `userActions` name was wrong — that group doesn't exist in core, so the
   // button never rendered.
-  extend(UserControls, 'userControls', function (items, user) {
+  // Flarum's typing of `extend()` declares one callback argument, but the
+  // userControls hook actually receives `(items, user)` at runtime; cast to
+  // bypass the typing mismatch.
+  extend(UserControls, 'userControls', function (items: any, user: any) {
     const me = app.session.user;
     if (!me) return;
-    if (Number(me.id?.()) === Number(user.id?.())) return;
+    if (Number(me.id?.()) === Number(user?.id?.())) return;
     if (!app.forum.attribute('pointSystemTradeEnabled')) return;
     if (!app.forum.attribute('pointSystemCanTrade')) return;
 
@@ -211,7 +217,7 @@ app.initializers.add('ramon/point-system', () => {
       </Button>,
       80
     );
-  });
+  } as any);
 
   // ── "Trades" tab on the user profile sidebar — self-only ──────────────
   // Only visible when the viewer IS the profile owner. The corresponding
@@ -322,7 +328,7 @@ function pointsBadge(user: User): Mithril.Children {
   const balance = Number(user.attribute?.('pointBalance') ?? 0);
   const icon = (app.forum.attribute('pointSystem.currency_icon') as string) || 'fas fa-coins';
   return (
-    <span className="PointSystemPostBadge" title={balance.toLocaleString() + ' pts'}>
+    <span className="PointSystemPostBadge" title={balance.toLocaleString() + ' ' + pointsLabel(app)}>
       <i className={icon} aria-hidden="true" /> {balance.toLocaleString()}
     </span>
   );
@@ -508,6 +514,8 @@ function installDomObservers(): void {
   // Initial scan of the document for handlers that registered above.
   for (const h of addedHandlers) h.scan(document);
 
+  const hasAttributeHandlers = attributeHandlers.length > 0;
+
   new MutationObserver((muts) => {
     for (const mu of muts) {
       if (mu.type === 'attributes' && mu.attributeName) {
@@ -526,8 +534,10 @@ function installDomObservers(): void {
   }).observe(document.body, {
     childList: true,
     subtree: true,
-    attributes: true,
-    attributeFilter: ['class'],
+    // Only ask the browser to fire on attribute mutations when something
+    // actually subscribes to them. Without this every class-toggle in the
+    // app would walk the (empty) handler list on the main thread.
+    ...(hasAttributeHandlers ? { attributes: true as const, attributeFilter: ['class'] } : {}),
   });
 }
 
@@ -697,7 +707,7 @@ function registerUsernameSpanTagger(): void {
     let node: Element | null = span;
     let anchor: HTMLAnchorElement | null = null;
     while (node && !anchor) {
-      const parent = node.parentElement;
+      const parent: HTMLElement | null = node.parentElement;
       if (!parent) break;
       if (parent.tagName === 'A' && /\/u\//.test(parent.getAttribute('href') || '')) {
         anchor = parent as HTMLAnchorElement;
@@ -739,16 +749,11 @@ function registerUsernameSpanTagger(): void {
     }
   });
 
-  // The user model is sometimes loaded AFTER the `.username` DOM mounts (when
-  // a discussion page boots, posts can render before the included user
-  // attributes are merged into the store). The observer above doesn't re-fire
-  // for that case because the span itself didn't change. So we re-scan a few
-  // times in the first seconds to pick those up.
-  let retries = 10;
-  const interval = setInterval(() => {
-    document.querySelectorAll('.username').forEach(decorate);
-    if (--retries <= 0) clearInterval(interval);
-  }, 400);
+  // When the user model lands AFTER its `.username` DOM mounted, the
+  // observer doesn't re-fire (the span itself didn't mutate). Two delayed
+  // re-scans cover that window without the previous 10× polling churn.
+  setTimeout(() => document.querySelectorAll('.username').forEach(decorate), 400);
+  setTimeout(() => document.querySelectorAll('.username').forEach(decorate), 1600);
 }
 
 // ─── Avocado theme: profile hero hooks ───────────────────────────────────
@@ -791,7 +796,7 @@ function registerAvocadoProfileHooks(): void {
     iconEl.className = safeIcon;
     iconEl.setAttribute('aria-hidden', 'true');
     pill.appendChild(iconEl);
-    pill.appendChild(document.createTextNode(' ' + balance.toLocaleString() + ' pts'));
+    pill.appendChild(document.createTextNode(' ' + balance.toLocaleString() + ' ' + pointsLabel(app)));
     statsEl.appendChild(pill);
   };
 
@@ -806,7 +811,7 @@ function registerAvocadoProfileHooks(): void {
     const url = resolveAssetUrl(String(coverPath));
     heroEl.dataset.psCover = '1';
     heroEl.classList.add('ps-has-cover');
-    heroEl.style.setProperty('--ps-cover-url', `url("${url.replace(/"/g, '%22')}")`);
+    heroEl.style.setProperty('--ps-cover-url', `url("${safeCssUrl(url)}")`);
   };
 
   const tagName = (el: Element) => {

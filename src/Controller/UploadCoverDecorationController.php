@@ -91,7 +91,10 @@ class UploadCoverDecorationController implements RequestHandlerInterface
         if (! $file instanceof UploadedFileInterface || $file->getError() !== UPLOAD_ERR_OK) {
             return new JsonResponse(['errors' => [['detail' => 'No image uploaded']]], 422);
         }
-        if ($file->getSize() > self::MAX_BYTES) {
+        // PSR-7 permits getSize() returning null for chunked uploads with no
+        // Content-Length header; null > MAX would silently bypass the cap.
+        $size = $file->getSize();
+        if ($size === null || $size <= 0 || $size > self::MAX_BYTES) {
             return new JsonResponse(['errors' => [['detail' => 'File too large (max 6MB)']]], 413);
         }
 
@@ -125,11 +128,19 @@ class UploadCoverDecorationController implements RequestHandlerInterface
         $destPath = $destDir.'/'.$filename;
 
         $file->moveTo($destPath);
+        @chmod($destPath, 0644);
 
-        // §11 defense-in-depth: re-detect MIME via finfo after persistence.
-        $detected = @mime_content_type($destPath) ?: '';
+        // Re-detect MIME via finfo after persistence.
+        $detected = '';
+        if (function_exists('finfo_open')) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            if ($finfo) {
+                $detected = (string) (finfo_file($finfo, $destPath) ?: '');
+                finfo_close($finfo);
+            }
+        }
         $allowedMimes = self::ALLOWED_MIMES[$ext] ?? [];
-        if (! in_array($detected, $allowedMimes, true)) {
+        if (! in_array(strtolower($detected), $allowedMimes, true)) {
             @unlink($destPath);
             return new JsonResponse(['errors' => [['detail' => 'File MIME does not match its extension']]], 422);
         }

@@ -5,7 +5,6 @@ import Tooltip from 'flarum/common/components/Tooltip';
 import LinkButton from 'flarum/common/components/LinkButton';
 import SelectDropdown from 'flarum/common/components/SelectDropdown';
 import type Mithril from 'mithril';
-import type User from 'flarum/common/models/User';
 import ConfirmPurchaseModal from './ConfirmPurchaseModal';
 
 declare const m: Mithril.Static;
@@ -146,7 +145,7 @@ export default class ShopPage extends Page {
           )}
         </div>
 
-        <nav className="PointSystemShop-nav container">
+        <nav className="PointSystemShop-nav App-titleControl">
           <SelectDropdown
             className="PointSystemShop-nav-select"
             buttonClassName="Button"
@@ -300,7 +299,7 @@ export default class ShopPage extends Page {
     m.redraw();
 
     try {
-      const apiUrl = (app.forum.attribute('apiUrl') || '/api').replace(/\/+$/, '');
+      const apiUrl = String(app.forum.attribute('apiUrl') || '/api').replace(/\/+$/, '');
       const res: any = await app.request({
         method: 'POST',
         url: `${apiUrl}/point-system/tier-claim`,
@@ -406,12 +405,12 @@ export default class ShopPage extends Page {
           {(item as any).creatorUsername && (
             <a
               className="PointSystemShop-card-creator"
-              href={app.route.user({ slug: (item as any).creatorUsername })}
-              title={
+              href={app.route.user({ slug: (item as any).creatorUsername } as any)}
+              title={String(
                 app.translator.trans('ramon-point-system.forum.shop.creator_tooltip', {
                   name: (item as any).creatorDisplayName || (item as any).creatorUsername,
-                }) as string
-              }
+                }) ?? ''
+              )}
             >
               {(item as any).creatorAvatarUrl ? (
                 <img className="PointSystemShop-card-creatorAvatar" src={(item as any).creatorAvatarUrl} alt="" />
@@ -666,24 +665,29 @@ export default class ShopPage extends Page {
   }
 
   async claim(item: ShopItem) {
+    const user = app.session.user;
+    if (!user) {
+      app.alerts.show({ type: 'error' }, app.translator.trans('ramon-point-system.forum.shop.must_login'));
+      return;
+    }
     const key = `${item.type}:${item.id}`;
     this.claiming.add(key);
     m.redraw();
 
     try {
-      const apiUrl = (app.forum.attribute('apiUrl') || '/api').replace(/\/+$/, '');
-      const res = await app.request({
+      const apiUrl = String(app.forum.attribute('apiUrl') || '/api').replace(/\/+$/, '');
+      await app.request({
         method: 'POST',
         url: `${apiUrl}/point-system/claim/${item.id}`,
         body: { type: item.type },
       });
 
       // Optimistically update local state
-      const owned = (app.session.user.attribute('ownedDecorationIds') as any[]) || [];
+      const owned = (user.attribute('ownedDecorationIds') as any[]) || [];
       owned.push({ type: item.type, id: item.id });
-      app.session.user.pushAttributes({
+      user.pushAttributes({
         ownedDecorationIds: owned,
-        pointBalance: Math.max(0, Number(app.session.user.attribute('pointBalance') ?? 0) - item.price),
+        pointBalance: Math.max(0, Number(user.attribute('pointBalance') ?? 0) - item.price),
       });
 
       app.alerts.show({ type: 'success' }, app.translator.trans('ramon-point-system.forum.shop.claimed', { name: item.name }));
@@ -697,11 +701,16 @@ export default class ShopPage extends Page {
   }
 
   async equip(item: ShopItem) {
+    const user = app.session.user;
+    if (!user) {
+      app.alerts.show({ type: 'error' }, app.translator.trans('ramon-point-system.forum.shop.must_login'));
+      return;
+    }
     const key = `${item.type}:${item.id}`;
     this.claiming.add(key);
     m.redraw();
     try {
-      const apiUrl = (app.forum.attribute('apiUrl') || '/api').replace(/\/+$/, '');
+      const apiUrl = String(app.forum.attribute('apiUrl') || '/api').replace(/\/+$/, '');
       await app.request({
         method: 'POST',
         url: `${apiUrl}/point-system/equip`,
@@ -709,28 +718,28 @@ export default class ShopPage extends Page {
       });
       // Update local cache so the rest of the UI re-renders with the new deco
       if (item.type === 'avatar_decoration') {
-        app.session.user.pushAttributes({
+        user.pushAttributes({
           equippedAvatarDecorationId: item.id,
           equippedAvatarDecorationUrl: item.imagePath,
         });
       } else if (item.type === 'cover_decoration') {
-        app.session.user.pushAttributes({
+        user.pushAttributes({
           equippedCoverDecorationId: item.id,
           equippedCoverDecorationUrl: item.imagePath,
         });
       } else if (item.type === 'title_decoration') {
-        app.session.user.pushAttributes({
+        user.pushAttributes({
           equippedTitleDecorationId: item.id,
           equippedTitleDecorationSlug: item.slug,
           equippedTitleDecorationText: item.titleText,
         });
       } else if (item.type === 'post_highlight_decoration') {
-        app.session.user.pushAttributes({
+        user.pushAttributes({
           equippedPostHighlightDecorationId: item.id,
           equippedPostHighlightDecorationSlug: item.slug,
         });
       } else {
-        app.session.user.pushAttributes({
+        user.pushAttributes({
           equippedNameDecorationId: item.id,
           equippedNameDecorationSlug: item.slug,
         });

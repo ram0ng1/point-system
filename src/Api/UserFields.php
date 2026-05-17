@@ -147,12 +147,11 @@ class UserFields
                     return $context->getActor()->id === $user->id;
                 })
                 ->get(function (User $user) {
-                    // Include `quantity` so the inventory UI can render a
-                    // stack count next to each owned decoration. Claims are
-                    // stackable since migration 2026_05_16_000005 — a user
-                    // may own N copies of the same item via repeat shop
-                    // purchases, admin grants, or accumulated trades.
+                    // Cap at 2000 to keep the UserResource payload bounded
+                    // when a user has accumulated very many claims.
                     return ShopClaim::where('user_id', $user->id)
+                        ->orderByDesc('id')
+                        ->limit(2000)
                         ->get(['item_type', 'item_id', 'quantity'])
                         ->map(fn ($c) => [
                             'type' => $c->item_type,

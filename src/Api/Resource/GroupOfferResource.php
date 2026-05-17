@@ -19,6 +19,9 @@ use Ramon\PointSystem\Support\ItemAvailability;
  */
 class GroupOfferResource extends AbstractDatabaseResource
 {
+    // Flarum populates routes via `newInstanceWithoutConstructor`, so
+    // services must be resolved inside action callbacks, not via injection.
+
     #[\Override]
     public function type(): string
     {
@@ -103,13 +106,16 @@ class GroupOfferResource extends AbstractDatabaseResource
     #[\Override]
     public function fields(): array
     {
+        $managerOnly = fn (GroupOffer $o, \Flarum\Api\Context $context) =>
+            $context->getActor()->hasPermission('pointSystem.manage');
+
         return array_merge([
-            Schema\Integer::make('groupId')->property('group_id'),
-            Schema\Integer::make('pointsRequired')->property('points_required'),
-            Schema\Integer::make('price')->property('price'),
-            Schema\Boolean::make('isAuto')->property('is_auto'),
-            Schema\Boolean::make('isPurchasable')->property('is_purchasable'),
-            Schema\Boolean::make('isEnabled')->property('is_enabled'),
+            Schema\Integer::make('groupId')->property('group_id')->writable($managerOnly),
+            Schema\Integer::make('pointsRequired')->property('points_required')->writable($managerOnly),
+            Schema\Integer::make('price')->property('price')->writable($managerOnly),
+            Schema\Boolean::make('isAuto')->property('is_auto')->writable($managerOnly),
+            Schema\Boolean::make('isPurchasable')->property('is_purchasable')->writable($managerOnly),
+            Schema\Boolean::make('isEnabled')->property('is_enabled')->writable($managerOnly),
             Schema\Relationship\ToOne::make('group')
                 ->type('groups')
                 ->includable(),

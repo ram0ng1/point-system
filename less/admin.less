@@ -6,16 +6,30 @@
   // so they never blend into a card that uses the same control-bg variable.
   .FormControl {
     background: var(--body-bg, #fff);
-    border: 1px solid var(--control-bg, #d0d0d0);
-    border-radius: 6px;
-    padding: 8px 12px;
+    border: 1px solid var(--control-bg, #d8d8dc);
+    border-radius: 8px;
+    padding: 9px 13px;
     width: 100%;
+    font-size: 13.5px;
     transition: border-color 0.15s, box-shadow 0.15s;
+
+    &::placeholder {
+      color: var(--muted-color, #9ca3af);
+    }
+
+    &:hover:not(:focus) {
+      border-color: var(--control-bg, #c4c4ca);
+    }
 
     &:focus {
       border-color: var(--primary-color, #6cc04a);
       box-shadow: 0 0 0 3px fade(#6cc04a, 18%);
       outline: none;
+    }
+
+    &:disabled {
+      background: rgba(0, 0, 0, 0.02);
+      cursor: not-allowed;
     }
   }
 
@@ -62,31 +76,43 @@
   }
 
   &-body {
-    padding-top: 24px;
+    padding-top: 20px;
+    padding-bottom: 40px;
   }
 
-  &-section {
-    background: var(--body-bg, #fff);
-    border: 1px solid var(--control-bg, #e8e8e8);
-    border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 20px;
-  }
-
-  &-section-header {
-    margin-bottom: 16px;
-
-    h2 {
-      margin: 0 0 6px;
-      font-size: 18px;
-    }
-  }
+  // (Final, authoritative `-section` + `-section-header` rules live near the
+  // bottom of this file in the "Polished admin layout" block. The earlier
+  // partial definitions here were leftovers from before that refactor —
+  // keep the early-position stubs minimal so the cascade leaves the later,
+  // more deliberate values in charge.)
 
   &-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 16px;
     margin-bottom: 16px;
+  }
+
+  &-card-body {
+    margin-top: 4px;
+  }
+
+  &-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+
+    .Button {
+      flex: 0 1 auto;
+      min-width: 0;
+      padding: 6px 10px;
+      font-size: 12px;
+
+      i {
+        margin-right: 2px;
+      }
+    }
   }
 
   &-field label {
@@ -103,17 +129,22 @@
 
   &-uploader {
     background: var(--body-bg, #fff);
-    border: 1px solid var(--control-bg, #e0e0e0);
-    border-radius: 10px;
-    padding: 18px 20px;
+    border: 1px solid var(--control-bg, #e6e6e9);
+    border-radius: 12px;
+    padding: 20px 22px 22px;
     margin-bottom: 20px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 
     h3 {
       margin-top: 0;
-      margin-bottom: 14px;
-      font-size: 15px;
-      color: var(--text-color, #222);
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: var(--muted-color, #6b7280);
+      border-bottom: 1px solid var(--control-bg, #e6e6e9);
     }
 
     .Form-group {
@@ -122,27 +153,44 @@
 
       label {
         display: block;
-        font-weight: 600;
+        font-weight: 500;
         font-size: 13px;
         margin-bottom: 6px;
-        color: var(--text-color, #333);
+        color: var(--text-color, #1f2937);
       }
 
       .helpText {
         margin-top: 4px;
         font-size: 12px;
-        color: var(--muted-color, #888);
+        color: var(--muted-color, #6b7280);
+        line-height: 1.45;
       }
     }
   }
 
+  // "Existing items" header inside every list-and-create panel — same
+  // typographic rhythm as the uploader card's h3 above so the two sections
+  // read as siblings instead of competing for attention.
+  > h3,
+  &-section > h3 {
+    margin: 22px 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--control-bg, #e6e6e9);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--muted-color, #6b7280);
+  }
+
   &-empty {
-    color: var(--muted-color, #999);
-    padding: 16px;
+    color: var(--muted-color, #6b7280);
+    padding: 24px 16px;
     text-align: center;
     background: var(--body-bg, #fff);
-    border: 1px dashed var(--control-bg, #d8d8d8);
-    border-radius: 8px;
+    border: 1px dashed var(--control-bg, #d8d8dc);
+    border-radius: 10px;
+    font-size: 13px;
   }
 
   &-decoGrid {
@@ -153,12 +201,18 @@
 
   &-decoCard {
     background: var(--body-bg, #fff);
-    border: 1px solid var(--control-bg, #e0e0e0);
-    border-radius: 10px;
-    padding: 12px;
+    border: 1px solid var(--control-bg, #e6e6e9);
+    border-radius: 12px;
+    padding: 14px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+
+    &:hover {
+      border-color: var(--control-bg, #d6d6dc);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
 
     &.is-disabled {
       opacity: 0.55;
@@ -171,8 +225,8 @@
 
     &-preview {
       aspect-ratio: 1 / 1;
-      background: var(--control-bg, #f5f5f5);
-      border-radius: 8px;
+      background: var(--control-bg, #f5f5f7);
+      border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -207,8 +261,19 @@
 
     &-actions {
       display: flex;
-      justify-content: space-between;
+      flex-wrap: wrap;
       gap: 6px;
+
+      .Button {
+        flex: 0 1 auto;
+        min-width: 0;
+        padding: 6px 10px;
+        font-size: 12px;
+
+        i {
+          margin-right: 2px;
+        }
+      }
     }
   }
 
@@ -234,6 +299,43 @@
     }
   }
 
+  // ── Post highlight preview override for admin context ──────────────────
+  // `decorations.less` caps `.ps-posthl-preview` at `max-width: 220px` so
+  // the shop card preview stays compact. In the admin card, the preview is
+  // the visual identity of the row — let it fill the card width so the
+  // outline / glow / ribbon is clearly visible. Also bumps the inner
+  // proportions (bigger avatar circle, taller body lines) so the styling
+  // reads at a glance.
+  .ps-posthl-preview {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    padding: 14px 16px !important;
+    gap: 12px !important;
+    box-sizing: border-box;
+  }
+  .ps-posthl-preview-avatar {
+    flex: 0 0 40px !important;
+    width: 40px !important;
+    height: 40px !important;
+  }
+  .ps-posthl-preview-line {
+    height: 10px !important;
+  }
+  .ps-posthl-preview-line.short {
+    width: 50% !important;
+  }
+
+  // Give the card extra inner padding so the outline-offset:4px halo of
+  // every preset has room to render without clipping against the card edge.
+  .PointSystemAdmin-grid > .PointSystemAdmin-card {
+    padding-top: 18px;
+
+    > .ps-posthl-preview {
+      margin: 4px 0 6px;
+    }
+  }
+
   &-table {
     width: 100%;
     border-collapse: collapse;
@@ -256,6 +358,124 @@
     padding: 12px;
     background: var(--success-bg, #d4edda);
     border-radius: 8px;
+  }
+}
+
+// ─── Unified button rhythm across every admin panel ────────────────────────
+// All extension panels are wrapped in `.PointSystemAdmin`. Force a single
+// visual rhythm — height, padding, font-size, border-radius — on every
+// `.Button` inside, then let Flarum's own `--primary`/`--danger` variants
+// supply color. This keeps "Editar" "Desativar" "Grant" "Excluir" visually
+// peers no matter which panel they appear in.
+.PointSystemAdmin {
+  .Button {
+    --ps-btn-radius: 8px;
+    padding: 8px 14px;
+    border-radius: var(--ps-btn-radius);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.2;
+    border: 1px solid transparent;
+    background: var(--control-bg, #f2f2f5);
+    color: var(--text-color, #1f2937);
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+
+    &:hover:not(:disabled) {
+      background: rgba(0, 0, 0, 0.06);
+    }
+    &:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px fade(#6cc04a, 25%);
+    }
+
+    i { margin-right: 6px; opacity: 0.85; }
+    &.hasIcon i { margin-right: 6px; }
+
+    &--primary {
+      background: var(--primary-color, #6cc04a);
+      color: #fff;
+      &:hover:not(:disabled) {
+        background: darken(#6cc04a, 6%);
+      }
+    }
+
+    &--danger {
+      background: rgba(220, 38, 38, 0.10);
+      color: #b91c1c;
+      &:hover:not(:disabled) {
+        background: rgba(220, 38, 38, 0.18);
+        color: #991b1b;
+      }
+    }
+
+    &--link {
+      background: transparent;
+      color: var(--primary-color, #6cc04a);
+      padding-left: 4px;
+      padding-right: 4px;
+      &:hover:not(:disabled) { background: transparent; text-decoration: underline; }
+    }
+
+    &:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+  }
+
+  // Compact variant for in-card action rows (decoration grid items). The
+  // existing `.PointSystemAdmin-decoCard-actions .Button` rule already sets
+  // the smaller height; keep that, just inherit our unified colors above.
+  &-card-actions .Button,
+  &-decoCard-actions .Button,
+  &-coverCard-actions .Button {
+    padding: 6px 10px;
+    font-size: 12px;
+    i { margin-right: 4px; }
+  }
+}
+
+// ── Edit modal: replaces the old in-grid inline edit form. Each Edit*Modal
+// extends Modal--medium by default — the form is form-shaped (single column
+// of fields), so the Flarum stock Modal--large was over-wide and produced
+// a lot of dead whitespace. We cap the inner width via CSS so the modal
+// stays comfortable even when Flarum's Modal--medium expands on wide screens.
+.EditDecorationModal {
+  .Modal-dialog {
+    max-width: 640px;
+  }
+
+  .Modal-body {
+    padding: 22px 24px 24px;
+
+    .PointSystemAdmin-decoCard-preview,
+    .PointSystemAdmin-coverCard-preview {
+      max-width: 240px;
+      margin: 0 auto 18px;
+    }
+
+    .Form-group {
+      margin-bottom: 14px;
+
+      label {
+        display: block;
+        font-weight: 500;
+        font-size: 13px;
+        margin-bottom: 6px;
+        color: var(--text-color, #1f2937);
+      }
+    }
+
+    .EditDecorationModal-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 22px;
+      padding-top: 16px;
+      border-top: 1px solid var(--control-bg, #e6e6e9);
+
+      .Button {
+        flex: 0 1 auto;
+      }
+    }
   }
 }
 
@@ -299,42 +519,43 @@
 .PointSystemAdminNav {
   display: flex;
   gap: 4px;
-  padding: 16px 28px;
-  border-bottom: 1px solid var(--control-bg, #e5e5e5);
-  background: var(--header-bg, #f7f7f7);
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--control-bg, #e6e6e9);
+  background: var(--header-bg, #fafafa);
   flex-wrap: wrap;
+  margin-bottom: 0;
 
   &-link {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 9px 16px;
+    padding: 8px 14px;
     border-radius: 999px;
-    color: var(--muted-color, #666);
+    color: var(--muted-color, #6b7280);
     text-decoration: none;
     font-weight: 500;
-    font-size: 14px;
+    font-size: 13.5px;
     transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
 
     i {
-      opacity: 0.7;
-      font-size: 13px;
+      opacity: 0.65;
+      font-size: 12.5px;
     }
 
     &:hover {
-      background: var(--control-bg, #ececec);
-      color: var(--text-color, #222);
+      background: rgba(0, 0, 0, 0.05);
+      color: var(--text-color, #1f2937);
       text-decoration: none;
+
+      i { opacity: 0.85; }
     }
 
     &.active {
       background: var(--primary-color, #6cc04a);
       color: #fff;
-      box-shadow: 0 2px 8px rgba(108, 192, 74, 0.3);
+      box-shadow: 0 2px 8px rgba(108, 192, 74, 0.25);
 
-      i {
-        opacity: 1;
-      }
+      i { opacity: 1; }
     }
   }
 }
@@ -409,13 +630,18 @@
 
 .PointSystemAdmin-coverCard {
   background: var(--body-bg, #fff);
-  border: 1px solid var(--control-bg, #e0e0e0);
+  border: 1px solid var(--control-bg, #e6e6e9);
   border-radius: 12px;
-  padding: 12px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  transition: border-color 0.15s;
+  gap: 10px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &:hover {
+    border-color: var(--control-bg, #d6d6dc);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
 
   &.is-disabled {
     opacity: 0.55;
@@ -454,6 +680,17 @@
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
+
+    .Button {
+      flex: 0 1 auto;
+      min-width: 0;
+      padding: 6px 10px;
+      font-size: 12px;
+
+      i {
+        margin-right: 2px;
+      }
+    }
   }
 }
 
@@ -486,6 +723,21 @@
       gap: 6px;
       cursor: pointer;
       font-size: 14px;
+    }
+  }
+
+  // Visually group the image-source toggle with the image-file/URL input
+  // that depends on it. Without this the two related fields drift apart
+  // and admins fail to associate them.
+  .PointSystemAdmin-imageSource {
+    border: 1px solid var(--control-bg, #e0e0e0);
+    border-radius: 8px;
+    padding: 12px 14px 4px;
+    background: fade(#000, 1.5%);
+    margin: 6px 0 14px;
+
+    > .Form-group:last-child {
+      margin-bottom: 10px;
     }
   }
 
@@ -547,9 +799,9 @@
 // layout where long help text was breaking the grid.
 .PointSystemAdmin {
   &-section {
-    max-width: 980px;
+    max-width: 1040px;
     margin: 0 auto;
-    padding: 24px 24px 48px;
+    padding: 28px 24px 56px;
   }
 
   &-section-header {
@@ -559,12 +811,41 @@
 
     h2 {
       margin: 0 0 6px;
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-color, #1f2937);
     }
     p.helpText {
       margin: 0;
       color: var(--muted-color, #6b7280);
+      font-size: 13.5px;
+      line-height: 1.5;
+    }
+
+    // Variant used by every decoration panel: title + help on the left,
+    // primary "Cadastrar" action on the right. The action opens the
+    // Create*Modal so the panel surface stays dedicated to the list.
+    &--withAction {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+
+      > div {
+        flex: 1;
+        min-width: 0;
+      }
+
+      > .Button {
+        flex: 0 0 auto;
+        align-self: flex-start;
+        white-space: nowrap;
+      }
+
+      @media (max-width: 600px) {
+        flex-direction: column;
+        align-items: stretch;
+      }
     }
   }
 
@@ -578,6 +859,18 @@
     padding: 18px 20px 20px;
     margin-bottom: 16px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    transition: border-color 0.15s, box-shadow 0.15s;
+
+    // Cards inside `.PointSystemAdmin-grid` (Title / PostHighlight decoration
+    // panels) get a subtle hover lift to match the deco/cover cards above.
+    .PointSystemAdmin-grid > & {
+      padding: 14px;
+
+      &:hover {
+        border-color: var(--control-bg, #d6d6dc);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      }
+    }
   }
 
   &-card-header {
