@@ -34,8 +34,16 @@ class PostHighlightDecorationResource extends AbstractDatabaseResource
         'gradient-edge', 'shadow-soft',
     ];
 
-    // Flarum populates routes via `newInstanceWithoutConstructor`, so
-    // services must be resolved inside action callbacks, not via injection.
+    /**
+     * Core builds the real resource through the container (constructor runs)
+     * and a separate shell via newInstanceWithoutConstructor() only to read
+     * route metadata. Injected dependencies are safe everywhere except the
+     * bare body of endpoints()/fields(); every use here is inside a request-
+     * time callback or scope(), which run only on the constructed instance.
+     */
+    public function __construct(
+        protected FeatureGate $features,
+    ) {}
 
     #[\Override]
     public function type(): string
@@ -54,7 +62,7 @@ class PostHighlightDecorationResource extends AbstractDatabaseResource
     {
         $actor = $context->getActor();
         if (! $actor->hasPermission('pointSystem.manage')) {
-            if (! resolve(FeatureGate::class)->isEnabled(ShopClaim::TYPE_POST_HL)) {
+            if (! $this->features->isEnabled(ShopClaim::TYPE_POST_HL)) {
                 $query->whereRaw('1 = 0');
                 return;
             }
@@ -75,7 +83,7 @@ class PostHighlightDecorationResource extends AbstractDatabaseResource
                 ->authenticated()
                 ->action(function (Context $context) {
                     $actor     = $context->getActor();
-                    $features  = resolve(FeatureGate::class);
+                    $features  = $this->features;
                     $isManager = $actor->hasPermission('pointSystem.manage');
 
                     $features->assertEnabled(ShopClaim::TYPE_POST_HL);
@@ -103,7 +111,7 @@ class PostHighlightDecorationResource extends AbstractDatabaseResource
                 ->can('pointSystem.manage')
                 ->action(function (Context $context) {
                     $context->getActor()->assertCan('pointSystem.manage');
-                    resolve(FeatureGate::class)->assertEnabled(ShopClaim::TYPE_POST_HL);
+                    $this->features->assertEnabled(ShopClaim::TYPE_POST_HL);
                     /** @var PostHighlightDecoration $deco */
                     $deco = PostHighlightDecoration::query()->findOrFail($context->modelId);
                     $attrs = (array) ($context->body()['data']['attributes'] ?? []);
@@ -117,7 +125,7 @@ class PostHighlightDecorationResource extends AbstractDatabaseResource
                 ->can('pointSystem.manage')
                 ->action(function (Context $context) {
                     $context->getActor()->assertCan('pointSystem.manage');
-                    resolve(FeatureGate::class)->assertEnabled(ShopClaim::TYPE_POST_HL);
+                    $this->features->assertEnabled(ShopClaim::TYPE_POST_HL);
                     /** @var PostHighlightDecoration $deco */
                     $deco = PostHighlightDecoration::query()->findOrFail($context->modelId);
                     $deco->delete();
