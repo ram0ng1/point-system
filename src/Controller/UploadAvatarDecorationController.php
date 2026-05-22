@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Ramon\PointSystem\Controller;
 
-use Flarum\Foundation\Paths;
 use Flarum\Http\RequestUtil;
+use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -14,13 +14,13 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Model\AvatarDecoration;
 use Ramon\PointSystem\Model\ShopClaim;
-use Ramon\PointSystem\Support\SafePath;
 
 /**
  * POST /api/point-system/avatar-decoration/upload
  *
  * Two entry modes share this controller so the upload pipeline (size /
- * extension / magic-byte / finfo / SafePath cleanup) only lives in one place:
+ * extension / magic-byte / finfo / flarum-assets disk write) only lives in
+ * one place:
  *
  *   • Manager (pointSystem.manage permission) — full admin upload.
  *     Accepts `replace_id` to swap an existing decoration's file. New rows
@@ -51,7 +51,7 @@ class UploadAvatarDecorationController implements RequestHandlerInterface
     ];
 
     public function __construct(
-        protected Paths $paths,
+        protected FilesystemFactory $filesystem,
         protected FeatureGate $features,
     ) {}
 
@@ -128,51 +128,52 @@ class UploadAvatarDecorationController implements RequestHandlerInterface
         // already-approved decoration.
         $replaceId = $isManager && isset($body['replace_id']) ? (int) $body['replace_id'] : 0;
 
-        $destDir = $this->paths->public.'/assets/'.self::DEST_DIR;
-        if (! is_dir($destDir)) {
-            @mkdir($destDir, 0755, true);
-        }
+        // Buffer the upload once. The magic-byte sniff above caught naive
+        // polyglots; finfo on the actual bytes closes the gap. finfo_buffer
+        // keeps the check off-disk — nothing is persisted until it passes.
+        $stream->rewind();
+        $contents = $stream->getContents();
 
-        $filename = bin2hex(random_bytes(8)).'.'.$ext;
-        $relPath  = self::DEST_DIR.'/'.$filename;
-        $destPath = $destDir.'/'.$filename;
-
-        $file->moveTo($destPath);
-        @chmod($destPath, 0644);
-
-        // Re-detect the content MIME via finfo after the upload settled on
-        // disk. The earlier magic-byte sniff catches naive polyglots, but
-        // finfo on the persisted file closes the gap where a moveTo()
-        // implementation might fail silently on a corrupted upload.
         $detected = '';
         if (function_exists('finfo_open')) {
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             if ($finfo) {
-                $detected = (string) (finfo_file($finfo, $destPath) ?: '');
+                $detected = (string) (finfo_buffer($finfo, $contents) ?: '');
                 finfo_close($finfo);
             }
         }
         $allowedMimes = self::ALLOWED_MIMES[$ext] ?? [];
         if (! in_array(strtolower($detected), $allowedMimes, true)) {
-            @unlink($destPath);
             return new JsonResponse(['errors' => [['detail' => 'File MIME does not match its extension']]], 422);
         }
+
+        // Persist through the flarum-assets disk (rooted at public/assets).
+        // The Flysystem local adapter creates the subdirectory, applies
+        // public (web-readable) visibility, and prefix-confines the path —
+        // a relative path can never escape the assets root (CLAUDE.md §54).
+        $disk     = $this->filesystem->disk('flarum-assets');
+        $filename = bin2hex(random_bytes(8)).'.'.$ext;
+        $relPath  = self::DEST_DIR.'/'.$filename;
+        $disk->put($relPath, $contents, 'public');
 
         // Replace image on an existing decoration — only swap the file fields;
         // name/price/etc are managed via the JSON:API Update endpoint.
         if ($replaceId > 0) {
             $deco = AvatarDecoration::find($replaceId);
             if (! $deco) {
-                @unlink($destPath);
+                $disk->delete($relPath);
                 return new JsonResponse(['errors' => [['detail' => 'Decoration not found']]], 404);
             }
-            // §13: confine the unlink target inside the assets dir. If the DB
-            // somehow holds a `../config.php`-style path, SafePath returns
-            // null and we just skip the delete — never touching anything
-            // outside the configured base.
-            $oldPath = SafePath::confine($this->paths->public.'/assets', (string) $deco->image_path);
-            if ($oldPath !== null && $oldPath !== $destPath && is_file($oldPath)) {
-                @unlink($oldPath);
+            // Drop the previous file. delete() is idempotent, and the local
+            // adapter rejects a traversal path with an exception rather than
+            // escaping the assets root — swallow it so a malformed legacy
+            // image_path can never abort the swap.
+            $oldPath = (string) $deco->image_path;
+            if ($oldPath !== '' && $oldPath !== $relPath) {
+                try {
+                    $disk->delete($oldPath);
+                } catch (\Throwable) {
+                }
             }
             $deco->image_path = $relPath;
             $deco->is_animated = in_array($ext, ['gif', 'apng'], true);

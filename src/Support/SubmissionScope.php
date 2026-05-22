@@ -6,7 +6,6 @@ namespace Ramon\PointSystem\Support;
 
 use Flarum\User\User;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * SQL helper applied by every decoration Resource scope() so the public
@@ -33,8 +32,8 @@ use Illuminate\Support\Facades\Schema;
  * 2026_05_16_000004 migration. If an admin upgrades the extension code
  * BEFORE running `php flarum migrate`, the table is missing those columns
  * and the SQL filter would throw "Unknown column 'status' in 'where
- * clause'". We sniff the table once via Schema::hasColumn and degrade to a
- * no-op when the migration is pending — the forum keeps rendering with
+ * clause'". We sniff the table once via the schema builder and degrade to
+ * a no-op when the migration is pending — the forum keeps rendering with
  * pre-submission semantics (every is_enabled row visible) until the admin
  * runs the migration.
  */
@@ -62,15 +61,20 @@ final class SubmissionScope
 
     /**
      * True when the `status` column exists on the table backing this
-     * query. Schema::hasColumn issues a `SHOW COLUMNS`/`information_schema`
-     * lookup; we cache per request to avoid re-issuing it once per resource.
+     * query. hasColumn issues a `SHOW COLUMNS`/`information_schema` lookup;
+     * we cache per request to avoid re-issuing it once per resource. The
+     * schema builder is taken from the query's own model connection — no
+     * facade (CLAUDE.md §54).
      */
     private static function columnsReady(Builder $query): bool
     {
-        $table = $query->getModel()->getTable();
+        $model = $query->getModel();
+        $table = $model->getTable();
         if (! array_key_exists($table, self::$columnCache)) {
             try {
-                self::$columnCache[$table] = Schema::hasColumn($table, 'status');
+                self::$columnCache[$table] = $model->getConnection()
+                    ->getSchemaBuilder()
+                    ->hasColumn($table, 'status');
             } catch (\Throwable) {
                 self::$columnCache[$table] = false;
             }

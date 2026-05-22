@@ -8,7 +8,7 @@ use Carbon\Carbon;
 use Flarum\Foundation\ValidationException;
 use Flarum\User\User;
 use Illuminate\Contracts\Events\Dispatcher;
-use Illuminate\Database\ConnectionInterface;
+use Illuminate\Database\ConnectionResolverInterface;
 use Ramon\PointSystem\Event\TradeCompleted;
 use Ramon\PointSystem\Model\PointTransaction;
 use Ramon\PointSystem\Model\ShopClaim;
@@ -40,7 +40,7 @@ use Ramon\PointSystem\Model\UserPoints;
 class TradeRepository
 {
     public function __construct(
-        protected ConnectionInterface $db,
+        protected ConnectionResolverInterface $db,
         protected Dispatcher $events,
     ) {}
 
@@ -64,7 +64,7 @@ class TradeRepository
         // THEN run the accept-flag reset in a separate transaction (or no
         // transaction — a single UPDATE is atomic enough).
         try {
-            return $this->db->transaction(function () use ($tradeId) {
+            return $this->db->connection()->transaction(function () use ($tradeId) {
                 /** @var Trade $trade */
                 $trade = Trade::query()->where('id', $tradeId)->lockForUpdate()->firstOrFail();
 
@@ -318,7 +318,7 @@ class TradeRepository
      */
     public function revert(int $tradeId, User $by): Trade
     {
-        return $this->db->transaction(function () use ($tradeId, $by) {
+        return $this->db->connection()->transaction(function () use ($tradeId, $by) {
             /** @var Trade $trade */
             $trade = Trade::query()->where('id', $tradeId)->lockForUpdate()->firstOrFail();
 
