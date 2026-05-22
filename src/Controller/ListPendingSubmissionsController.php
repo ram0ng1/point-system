@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Ramon\PointSystem\Controller;
 
 use Flarum\Http\RequestUtil;
-use Illuminate\Support\Facades\Schema;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -55,13 +54,15 @@ class ListPendingSubmissionsController implements RequestHandlerInterface
 
         foreach ($families as [$type, $modelClass]) {
             try {
-                $table = (new $modelClass())->getTable();
+                $probe = new $modelClass();
+                $table = $probe->getTable();
 
                 // Skip families whose `status` column doesn't exist yet —
                 // happens when the 2026_05_16_000004 migration is pending
                 // for a particular table. The admin sees the other
                 // families' submissions instead of a 500 on the whole queue.
-                if (! Schema::hasColumn($table, 'status')) {
+                // Schema builder comes off the model's connection — no facade.
+                if (! $probe->getConnection()->getSchemaBuilder()->hasColumn($table, 'status')) {
                     $this->logger->warning('point-system: submissions table missing `status` column, run `php flarum migrate`', [
                         'table' => $table,
                     ]);

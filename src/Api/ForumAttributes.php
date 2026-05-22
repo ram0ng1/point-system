@@ -89,11 +89,13 @@ class ForumAttributes
             // (admin upgraded code before running migrate). Cache the
             // INFORMATION_SCHEMA result per-request — without it every
             // forum page-load fires 5 schema lookups.
-            $table = $q->getModel()->getTable();
+            $model = $q->getModel();
+            $table = $model->getTable();
             if (! array_key_exists($table, $this->hasCreatorColumnCache)) {
                 try {
-                    $this->hasCreatorColumnCache[$table] =
-                        \Illuminate\Support\Facades\Schema::hasColumn($table, 'creator_id');
+                    $this->hasCreatorColumnCache[$table] = $model->getConnection()
+                        ->getSchemaBuilder()
+                        ->hasColumn($table, 'creator_id');
                 } catch (\Throwable) {
                     $this->hasCreatorColumnCache[$table] = false;
                 }

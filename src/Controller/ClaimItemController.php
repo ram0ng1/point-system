@@ -5,22 +5,17 @@ declare(strict_types=1);
 namespace Ramon\PointSystem\Controller;
 
 use Flarum\Http\RequestUtil;
-use Illuminate\Database\ConnectionInterface;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\ConnectionResolverInterface;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Ramon\PointSystem\FeatureGate;
-use Ramon\PointSystem\Model\AvatarDecoration;
-use Ramon\PointSystem\Model\CoverDecoration;
-use Ramon\PointSystem\Model\NameDecoration;
-use Ramon\PointSystem\Model\PostHighlightDecoration;
 use Ramon\PointSystem\Model\ShopClaim;
-use Ramon\PointSystem\Model\TitleDecoration;
 use Ramon\PointSystem\Model\UserPoints;
 use Ramon\PointSystem\Repository\PointsRepository;
 use Ramon\PointSystem\Support\ItemAvailability;
+use Ramon\PointSystem\Support\ShopItemLocator;
 
 /**
  * POST /api/point-system/claim/{id}
@@ -47,7 +42,7 @@ class ClaimItemController implements RequestHandlerInterface
 {
     public function __construct(
         protected PointsRepository $points,
-        protected ConnectionInterface $db,
+        protected ConnectionResolverInterface $db,
         protected FeatureGate $features,
     ) {}
 
@@ -76,14 +71,14 @@ class ClaimItemController implements RequestHandlerInterface
         $this->features->assertEnabled($type);
 
         try {
-            [$claim, $alreadyOwned] = $this->db->transaction(function () use ($actor, $type, $id) {
+            [$claim, $alreadyOwned] = $this->db->connection()->transaction(function () use ($actor, $type, $id) {
                 // Lock the user's points row so a sibling request blocks here.
                 UserPoints::where('user_id', $actor->id)->lockForUpdate()->first();
 
                 // Fetch and lock the ITEM row too — max_claims enforcement
                 // requires we read claim_count under a row lock so a parallel
                 // claim can't race past the cap.
-                $item = $this->lockItem($type, $id);
+                $item = ShopItemLocator::lock($type, $id);
                 if (! $item) {
                     return [null, false];
                 }
@@ -154,23 +149,6 @@ class ClaimItemController implements RequestHandlerInterface
         }
 
         return new JsonResponse(['data' => $this->serialize($claim)], $alreadyOwned ? 200 : 201);
-    }
-
-    /**
-     * Find + row-lock the shop item by type+id. Returns null when the row
-     * doesn't exist — callers translate that into a 404. Selecting through
-     * `lockForUpdate` requires the row to be inside the open transaction.
-     */
-    protected function lockItem(string $type, int $id): ?Model
-    {
-        $query = match ($type) {
-            ShopClaim::TYPE_AVATAR  => AvatarDecoration::query(),
-            ShopClaim::TYPE_COVER   => CoverDecoration::query(),
-            ShopClaim::TYPE_TITLE   => TitleDecoration::query(),
-            ShopClaim::TYPE_POST_HL => PostHighlightDecoration::query(),
-            default                 => NameDecoration::query(),
-        };
-        return $query->where('id', $id)->lockForUpdate()->first();
     }
 
     protected function serialize(ShopClaim $claim): array

@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Ramon\PointSystem\Controller;
 
+use Carbon\Carbon;
 use Flarum\Foundation\KnownError\RouteNotFoundException;
 use Flarum\Foundation\ValidationException;
 use Flarum\Http\RequestUtil;
-use Illuminate\Database\ConnectionInterface;
+use Illuminate\Database\ConnectionResolverInterface;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -40,7 +41,7 @@ use Ramon\PointSystem\Support\TradeSerializer;
 class UpdateTradeOfferController implements RequestHandlerInterface
 {
     public function __construct(
-        protected ConnectionInterface $db,
+        protected ConnectionResolverInterface $db,
         protected FeatureGate $features,
     ) {}
 
@@ -59,7 +60,7 @@ class UpdateTradeOfferController implements RequestHandlerInterface
         $rawPoints = $body['points'] ?? null;
         $rawItems  = $body['items']  ?? null;
 
-        $trade = $this->db->transaction(function () use ($actor, $id, $rawPoints, $rawItems) {
+        $trade = $this->db->connection()->transaction(function () use ($actor, $id, $rawPoints, $rawItems) {
             /** @var Trade|null $trade */
             $trade = Trade::query()->where('id', $id)->lockForUpdate()->first();
             if (! $trade || ! $trade->isParticipant((int) $actor->id)) {
@@ -98,12 +99,14 @@ class UpdateTradeOfferController implements RequestHandlerInterface
                 }
                 if (count($rawItems) > 12) {
                     // Cap to keep the modal tidy; also protects the lock
-                    // duration when every item is verified individually.
+                    // duration while the offer is verified.
                     throw new ValidationException(['items' => 'too_many']);
                 }
 
-                // Verify ownership for every requested item BEFORE writing
-                // anything — the validator wins or the whole update aborts.
+                // Validate + normalize every entry first — no DB hits in this
+                // loop. The composite (type|id) key also collapses an offer
+                // that lists the same decoration twice; the schema's UNIQUE
+                // key forbids a true duplicate anyway.
                 $normalized = [];
                 foreach ($rawItems as $row) {
                     if (! is_array($row)) {
@@ -123,17 +126,27 @@ class UpdateTradeOfferController implements RequestHandlerInterface
                     ], true)) {
                         throw new ValidationException(['items' => 'invalid_type']);
                     }
+                    $normalized[$type.'|'.$itemId] = ['itemType' => $type, 'itemId' => $itemId];
+                }
+                $normalized = array_values($normalized);
+                $itemIds = array_map(static fn ($r) => $r['itemId'], $normalized);
 
-                    $owned = ShopClaim::query()
-                        ->where('user_id', $actor->id)
-                        ->where('item_type', $type)
-                        ->where('item_id', $itemId)
-                        ->exists();
-                    if (! $owned) {
-                        throw new ValidationException(['items' => 'not_owned']);
+                // Verify ownership for the WHOLE offer in one query, then
+                // check each pair against the result set (CLAUDE.md §38.1/§38.5).
+                if ($normalized !== []) {
+                    $ownedSet = array_flip(
+                        ShopClaim::query()
+                            ->where('user_id', $actor->id)
+                            ->whereIn('item_id', $itemIds)
+                            ->get(['item_type', 'item_id'])
+                            ->map(static fn ($c) => $c->item_type.'|'.$c->item_id)
+                            ->all()
+                    );
+                    foreach ($normalized as $row) {
+                        if (! isset($ownedSet[$row['itemType'].'|'.$row['itemId']])) {
+                            throw new ValidationException(['items' => 'not_owned']);
+                        }
                     }
-
-                    $normalized[] = ['itemType' => $type, 'itemId' => $itemId];
                 }
 
                 // Drop the actor's existing entries and re-insert the new
@@ -143,25 +156,34 @@ class UpdateTradeOfferController implements RequestHandlerInterface
                     ->where('owner_id', $actor->id)
                     ->delete();
 
-                foreach ($normalized as $row) {
-                    // `firstOrCreate`-style guard: the UNIQUE (trade_id,
-                    // item_type, item_id) constraint will reject a row that
-                    // the OTHER side already offered. Surface a clean error
-                    // instead of letting the DB throw.
-                    $alreadyOnTable = TradeItem::query()
-                        ->where('trade_id', $trade->id)
-                        ->where('item_type', $row['itemType'])
-                        ->where('item_id', $row['itemId'])
-                        ->exists();
-                    if ($alreadyOnTable) {
-                        throw new ValidationException(['items' => 'duplicate_with_other_side']);
+                if ($normalized !== []) {
+                    // One query for the opposing side's remaining rows. The
+                    // UNIQUE (trade_id, item_type, item_id) key forbids the
+                    // same decoration appearing on both sides — surface a
+                    // clean error instead of letting the batch insert throw.
+                    $otherSideSet = array_flip(
+                        TradeItem::query()
+                            ->where('trade_id', $trade->id)
+                            ->whereIn('item_id', $itemIds)
+                            ->get(['item_type', 'item_id'])
+                            ->map(static fn ($it) => $it->item_type.'|'.$it->item_id)
+                            ->all()
+                    );
+                    foreach ($normalized as $row) {
+                        if (isset($otherSideSet[$row['itemType'].'|'.$row['itemId']])) {
+                            throw new ValidationException(['items' => 'duplicate_with_other_side']);
+                        }
                     }
-                    TradeItem::create([
-                        'trade_id'  => $trade->id,
-                        'owner_id'  => $actor->id,
-                        'item_type' => $row['itemType'],
-                        'item_id'   => $row['itemId'],
-                    ]);
+
+                    $now = Carbon::now();
+                    TradeItem::query()->insert(array_map(static fn ($row) => [
+                        'trade_id'   => $trade->id,
+                        'owner_id'   => $actor->id,
+                        'item_type'  => $row['itemType'],
+                        'item_id'    => $row['itemId'],
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ], $normalized));
                 }
             }
 
