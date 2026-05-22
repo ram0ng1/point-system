@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Ramon\PointSystem\Controller;
 
-use Flarum\Foundation\Paths;
 use Flarum\Http\RequestUtil;
+use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Laminas\Diactoros\Response\EmptyResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -13,12 +13,11 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Model\CoverDecoration;
 use Ramon\PointSystem\Model\ShopClaim;
-use Ramon\PointSystem\Support\SafePath;
 
 class DeleteCoverDecorationController implements RequestHandlerInterface
 {
     public function __construct(
-        protected Paths $paths,
+        protected FilesystemFactory $filesystem,
         protected FeatureGate $features,
     ) {}
 
@@ -36,9 +35,16 @@ class DeleteCoverDecorationController implements RequestHandlerInterface
             return new EmptyResponse(204);
         }
 
-        $diskPath = SafePath::confine($this->paths->public.'/assets', (string) $deco->image_path);
-        if ($diskPath !== null && is_file($diskPath)) {
-            @unlink($diskPath);
+        // Remove the backing file via the flarum-assets disk. delete() is
+        // idempotent; the local adapter rejects a traversal path with an
+        // exception rather than escaping the assets root — swallow it so a
+        // malformed legacy image_path never blocks the row delete.
+        $imagePath = (string) $deco->image_path;
+        if ($imagePath !== '') {
+            try {
+                $this->filesystem->disk('flarum-assets')->delete($imagePath);
+            } catch (\Throwable) {
+            }
         }
 
         $deco->delete();
