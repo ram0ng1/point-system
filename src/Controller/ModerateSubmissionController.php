@@ -8,7 +8,6 @@ use Flarum\Foundation\KnownError\RouteNotFoundException;
 use Flarum\Foundation\ValidationException;
 use Flarum\Http\RequestUtil;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Schema;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -75,8 +74,10 @@ class ModerateSubmissionController implements RequestHandlerInterface
         // Refuse early when the schema migration is pending — a write here
         // would otherwise hit a 500 with "Unknown column 'status'" and
         // leave the row in a half-updated state if other columns existed.
-        $table = (new $modelClass())->getTable();
-        if (! Schema::hasColumn($table, 'status')) {
+        // Schema builder comes off the model's own connection — no facade.
+        $probe = new $modelClass();
+        $table = $probe->getTable();
+        if (! $probe->getConnection()->getSchemaBuilder()->hasColumn($table, 'status')) {
             throw new ValidationException(['migration' => 'Submission columns not yet migrated. Run `php flarum migrate`.']);
         }
 

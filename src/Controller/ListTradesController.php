@@ -29,7 +29,11 @@ class ListTradesController implements RequestHandlerInterface
 
         // Two-pass to avoid MySQL-only ORDER BY FIELD (CLAUDE.md §39.2).
         // Pending first (typically 0-3 rows), then a capped history tail.
+        // `items`/`initiator`/`recipient` are eager-loaded here so the
+        // TradeSerializer's loadMissing() is a no-op — otherwise it fires
+        // 3 queries per trade (CLAUDE.md §38.1).
         $pending = Trade::query()
+            ->with(['items', 'initiator', 'recipient'])
             ->where(function ($q) use ($actor) {
                 $q->where('initiator_id', $actor->id)->orWhere('recipient_id', $actor->id);
             })
@@ -39,6 +43,7 @@ class ListTradesController implements RequestHandlerInterface
             ->get();
 
         $history = Trade::query()
+            ->with(['items', 'initiator', 'recipient'])
             ->where(function ($q) use ($actor) {
                 $q->where('initiator_id', $actor->id)->orWhere('recipient_id', $actor->id);
             })

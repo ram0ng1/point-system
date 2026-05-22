@@ -9,7 +9,7 @@ use Flarum\Group\Group;
 use Flarum\Http\RequestUtil;
 use Flarum\Settings\SettingsRepositoryInterface;
 use Illuminate\Contracts\Events\Dispatcher;
-use Illuminate\Database\ConnectionInterface;
+use Illuminate\Database\ConnectionResolverInterface;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -43,7 +43,7 @@ class ClaimTierController implements RequestHandlerInterface
         protected PointsRepository $points,
         protected SettingsRepositoryInterface $settings,
         protected Dispatcher $events,
-        protected ConnectionInterface $db,
+        protected ConnectionResolverInterface $db,
     ) {}
 
     #[\Override]
@@ -120,7 +120,7 @@ class ClaimTierController implements RequestHandlerInterface
         }
 
         try {
-            $this->db->transaction(function () use ($actor, $offer, $cost, $resolvedMode) {
+            $this->db->connection()->transaction(function () use ($actor, $offer, $cost, $resolvedMode) {
                 // Lock the offer row so a parallel claim cannot race past
                 // max_claims. We re-read the row inside the lock and re-check
                 // availability — the un-locked read above is a fast-fail path
