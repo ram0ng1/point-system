@@ -23,11 +23,16 @@ use Ramon\PointSystem\Support\SubmissionScope;
  */
 class AvatarDecorationResource extends AbstractDatabaseResource
 {
-    // No constructor: Flarum core's ApiServiceProvider populates routes via
-    // `(new ReflectionClass)->newInstanceWithoutConstructor()`, so any
-    // constructor-injected dependency is uninitialized when `endpoints()`
-    // runs. The documented pattern is to resolve services lazily inside
-    // action callbacks.
+    /**
+     * Core builds the real resource through the container (constructor runs)
+     * and a separate shell via newInstanceWithoutConstructor() only to read
+     * route metadata. Injected dependencies are safe everywhere except the
+     * bare body of endpoints()/fields(); every use here is inside a request-
+     * time callback or scope(), which run only on the constructed instance.
+     */
+    public function __construct(
+        protected FeatureGate $features,
+    ) {}
 
     #[\Override]
     public function type(): string
@@ -46,7 +51,7 @@ class AvatarDecorationResource extends AbstractDatabaseResource
     {
         $actor = $context->getActor();
         if (! $actor->hasPermission('pointSystem.manage')) {
-            if (! resolve(FeatureGate::class)->isEnabled(ShopClaim::TYPE_AVATAR)) {
+            if (! $this->features->isEnabled(ShopClaim::TYPE_AVATAR)) {
                 $query->whereRaw('1 = 0');
                 return;
             }
@@ -67,7 +72,7 @@ class AvatarDecorationResource extends AbstractDatabaseResource
                 ->authenticated()
                 ->action(function (Context $context) {
                     $actor     = $context->getActor();
-                    $features  = resolve(FeatureGate::class);
+                    $features  = $this->features;
                     $isManager = $actor->hasPermission('pointSystem.manage');
 
                     $features->assertEnabled(ShopClaim::TYPE_AVATAR);
@@ -98,7 +103,7 @@ class AvatarDecorationResource extends AbstractDatabaseResource
                 ->authenticated()
                 ->can('manage')
                 ->action(function (Context $context) {
-                    resolve(FeatureGate::class)->assertEnabled(ShopClaim::TYPE_AVATAR);
+                    $this->features->assertEnabled(ShopClaim::TYPE_AVATAR);
                     /** @var AvatarDecoration $deco */
                     $deco = AvatarDecoration::query()->findOrFail($context->modelId);
                     $attrs = (array) ($context->body()['data']['attributes'] ?? []);
@@ -111,7 +116,7 @@ class AvatarDecorationResource extends AbstractDatabaseResource
                 ->authenticated()
                 ->can('manage')
                 ->action(function (Context $context) {
-                    resolve(FeatureGate::class)->assertEnabled(ShopClaim::TYPE_AVATAR);
+                    $this->features->assertEnabled(ShopClaim::TYPE_AVATAR);
                     /** @var AvatarDecoration $deco */
                     $deco = AvatarDecoration::query()->findOrFail($context->modelId);
                     $deco->delete();

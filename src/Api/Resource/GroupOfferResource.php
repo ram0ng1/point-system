@@ -19,8 +19,16 @@ use Ramon\PointSystem\Support\ItemAvailability;
  */
 class GroupOfferResource extends AbstractDatabaseResource
 {
-    // Flarum populates routes via `newInstanceWithoutConstructor`, so
-    // services must be resolved inside action callbacks, not via injection.
+    /**
+     * Core builds the real resource through the container (constructor runs)
+     * and a separate shell via newInstanceWithoutConstructor() only to read
+     * route metadata. Injected dependencies are safe everywhere except the
+     * bare body of endpoints()/fields(); every use here is inside a request-
+     * time callback or scope(), which run only on the constructed instance.
+     */
+    public function __construct(
+        protected SettingsRepositoryInterface $settings,
+    ) {}
 
     #[\Override]
     public function type(): string
@@ -99,8 +107,7 @@ class GroupOfferResource extends AbstractDatabaseResource
 
     protected function autoGroupEnabled(): bool
     {
-        return (bool) resolve(SettingsRepositoryInterface::class)
-            ->get('point-system.auto_group_enabled', true);
+        return (bool) $this->settings->get('point-system.auto_group_enabled', true);
     }
 
     #[\Override]

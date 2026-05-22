@@ -7,20 +7,15 @@ namespace Ramon\PointSystem\Controller;
 use Flarum\Http\RequestUtil;
 use Flarum\User\User;
 use Illuminate\Contracts\Events\Dispatcher;
-use Illuminate\Database\ConnectionInterface;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\ConnectionResolverInterface;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Ramon\PointSystem\Event\ItemGranted;
 use Ramon\PointSystem\FeatureGate;
-use Ramon\PointSystem\Model\AvatarDecoration;
-use Ramon\PointSystem\Model\CoverDecoration;
-use Ramon\PointSystem\Model\NameDecoration;
-use Ramon\PointSystem\Model\PostHighlightDecoration;
 use Ramon\PointSystem\Model\ShopClaim;
-use Ramon\PointSystem\Model\TitleDecoration;
+use Ramon\PointSystem\Support\ShopItemLocator;
 
 /**
  * POST /api/point-system/grant (admin only)
@@ -47,7 +42,7 @@ use Ramon\PointSystem\Model\TitleDecoration;
 class GrantItemController implements RequestHandlerInterface
 {
     public function __construct(
-        protected ConnectionInterface $db,
+        protected ConnectionResolverInterface $db,
         protected FeatureGate $features,
         protected Dispatcher $events,
     ) {}
@@ -84,8 +79,8 @@ class GrantItemController implements RequestHandlerInterface
         $grantedItem = null;
 
         try {
-            [$claim, $alreadyOwned, $grantedItem] = $this->db->transaction(function () use ($recipient, $type, $itemId, $ignoreLimit) {
-                $item = $this->lockItem($type, $itemId);
+            [$claim, $alreadyOwned, $grantedItem] = $this->db->connection()->transaction(function () use ($recipient, $type, $itemId, $ignoreLimit) {
+                $item = ShopItemLocator::lock($type, $itemId);
                 if (! $item) {
                     throw new \DomainException('not_found');
                 }
@@ -155,18 +150,6 @@ class GrantItemController implements RequestHandlerInterface
         }
 
         return new JsonResponse(['data' => $this->serialize($claim)], $alreadyOwned ? 200 : 201);
-    }
-
-    protected function lockItem(string $type, int $id): ?Model
-    {
-        $query = match ($type) {
-            ShopClaim::TYPE_AVATAR  => AvatarDecoration::query(),
-            ShopClaim::TYPE_COVER   => CoverDecoration::query(),
-            ShopClaim::TYPE_TITLE   => TitleDecoration::query(),
-            ShopClaim::TYPE_POST_HL => PostHighlightDecoration::query(),
-            default                 => NameDecoration::query(),
-        };
-        return $query->where('id', $id)->lockForUpdate()->first();
     }
 
     protected function serialize(ShopClaim $claim): array
