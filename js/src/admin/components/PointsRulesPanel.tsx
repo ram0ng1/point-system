@@ -60,6 +60,7 @@ const SECTIONS: SectionDef[] = [
       { key: 'point-system.deco_in_posts', transKey: 'deco_in_posts', type: 'bool', defaultBool: true },
       { key: 'point-system.deco_in_user_card', transKey: 'deco_in_user_card', type: 'bool', defaultBool: true },
       { key: 'point-system.deco_in_lists', transKey: 'deco_in_lists', type: 'bool', defaultBool: true },
+      { key: 'point-system.avatar_deco_in_lists', transKey: 'avatar_deco_in_lists', type: 'bool', defaultBool: true },
       { key: 'point-system.hide_badges_with_avatar_deco', transKey: 'hide_badges_with_avatar_deco', type: 'bool', defaultBool: false },
     ],
   },
