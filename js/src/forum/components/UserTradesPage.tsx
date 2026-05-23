@@ -60,8 +60,20 @@ export default class UserTradesPage extends UserPage {
     if (this.loading) return <LoadingIndicator />;
     const t = (k: string, v?: any) => app.translator.trans('ramon-point-system.forum.trades_page.' + k, v);
 
-    const pending = this.trades.filter((tr) => tr.status === 'pending');
-    const history = this.trades.filter((tr) => tr.status !== 'pending');
+    /*
+     * Dedup defensivo por id — mesma justificativa de TradesPage.
+     * Veja comentário lá: relato 2026-05-23 sobre "mesma trade aparecer
+     * duas vezes na história" sem repro confiável.
+     */
+    const seen = new Set<number>();
+    const tradesUnique = this.trades.filter((tr: any) => {
+      const id = Number(tr?.id);
+      if (!Number.isFinite(id) || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+    const pending = tradesUnique.filter((tr) => tr.status === 'pending');
+    const history = tradesUnique.filter((tr) => tr.status !== 'pending');
     const canTrade = app.forum.attribute('pointSystemCanTrade') !== false;
 
     return (

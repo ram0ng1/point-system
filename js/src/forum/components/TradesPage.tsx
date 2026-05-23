@@ -60,8 +60,24 @@ export default class TradesPage extends Page {
     if (this.loading) return <LoadingIndicator />;
     const t = (k: string, v?: any) => app.translator.trans('ramon-point-system.forum.trades_page.' + k, v);
 
-    const pending = this.trades.filter((tr) => tr.status === 'pending');
-    const history = this.trades.filter((tr) => tr.status !== 'pending');
+    /*
+     * Dedup defensivo por trade.id antes de renderizar. O backend
+     * (ListTradesController) filtra pending e history em queries com
+     * status disjuntos, então a teoria diz "sem duplicata" — mas o
+     * usuário reportou ver a mesma linha duas vezes no histórico
+     * (2026-05-23). Sem um repro confiável, fechamos a hipótese mais
+     * barata: garantir que IDs duplicados sumam aqui. Idempotente
+     * caso o backend já entregue lista sem dups.
+     */
+    const seen = new Set<number>();
+    const tradesUnique = this.trades.filter((tr: any) => {
+      const id = Number(tr?.id);
+      if (!Number.isFinite(id) || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+    const pending = tradesUnique.filter((tr) => tr.status === 'pending');
+    const history = tradesUnique.filter((tr) => tr.status !== 'pending');
 
     const canTrade = app.forum.attribute('pointSystemCanTrade') !== false;
 
