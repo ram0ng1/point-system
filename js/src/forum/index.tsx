@@ -110,7 +110,17 @@ app.initializers.add('ramon/point-system', () => {
     const user = this.attrs.user as User | undefined;
     const url = user?.attribute?.('equippedAvatarDecorationUrl') as string | undefined;
     if (!url) return;
-    applyAvatarDecoration(vnode, resolveAssetUrl(url));
+
+    /*
+     * "Quadros de avatar em listas de discussões" (toggle adicionado em
+     * 2026-05-23): quando o admin desativa, marcamos o vnode pra que
+     * o nosso CSS / oncreate suprima o frame se ele cair dentro de
+     * `.DiscussionListItem`. Mithril não tem contexto de árvore
+     * disponível no `view` extender, então passamos a decisão como
+     * uma flag no vnode e finalizamos no DOM via `oncreate`.
+     */
+    const inListsAllowed = setting('pointSystem.avatar_deco_in_lists');
+    applyAvatarDecoration(vnode, resolveAssetUrl(url), { skipInDiscussionList: !inListsAllowed });
   });
 
   // ── Name decoration — append `ps-name-{slug}` to the rendered root via

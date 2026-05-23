@@ -118,6 +118,32 @@ class TradeRepository
                     ->lockForUpdate()
                     ->get();
 
+                /*
+                 * Recusa se algum item ofertado está equipado pelo doador.
+                 * O `UpdateTradeOfferController` já barra no PATCH, mas a
+                 * janela equipar→aceitar→finalize não passa por lá; aqui
+                 * é o último portão antes da transferência. Conforme regra
+                 * pedida em 2026-05-23: "caso esteja equipado, não permita
+                 * negociar".
+                 */
+                $equippedColumns = [
+                    'avatar_decoration'         => 'current_avatar_decoration_id',
+                    'name_decoration'           => 'current_name_decoration_id',
+                    'cover_decoration'          => 'current_cover_decoration_id',
+                    'title_decoration'          => 'current_title_decoration_id',
+                    'post_highlight_decoration' => 'current_post_hl_decoration_id',
+                ];
+                foreach ($tradeItems as $ti) {
+                    $ownerId = (int) $ti->owner_id;
+                    $col = $equippedColumns[(string) $ti->item_type] ?? null;
+                    if ($col === null) continue;
+                    $ownerPoints = $points[$ownerId] ?? null;
+                    if (! $ownerPoints) continue;
+                    if ((int) ($ownerPoints->{$col} ?? 0) === (int) $ti->item_id) {
+                        throw new ValidationException(['trade' => 'item_equipped']);
+                    }
+                }
+
                 // For every TradeItem we need two row-locks:
                 //   - The DONOR's claim (must exist, quantity >= 1).
                 //   - The RECIPIENT's existing claim if any (we'll increment
@@ -191,12 +217,24 @@ class TradeRepository
             //    Recipient: quantity++ on existing row, or INSERT a fresh
             //    row with quantity=1 if they don't yet own the item.
             //
-            //    The `unequip()` handling is left to the frontend / a future
-            //    tidy-up — the donor's equipped pointer may now reference a
-            //    decoration they no longer own (quantity 0, row deleted);
-            //    the equip controller already validates ownership on every
-            //    save, so an "equipped but not owned" pointer just renders
-            //    nothing on next read.
+            //    Quando o doador zera o estoque do item E o tinha equipado,
+            //    limpamos `current_*_decoration_id` no mesmo passo. Sem isso
+            //    o doador continua renderizando "Equipado" mesmo após a
+            //    transferência (relatado em 2026-05-23). UserPoints de cada
+            //    lado é carregado abaixo do loop para evitar N+1.
+            $pointsByUser = [
+                (int) $trade->initiator_id => $initiatorPoints,
+                (int) $trade->recipient_id => $recipientPoints,
+            ];
+            $equippedColumnByType = [
+                'avatar_decoration'         => 'current_avatar_decoration_id',
+                'name_decoration'           => 'current_name_decoration_id',
+                'cover_decoration'          => 'current_cover_decoration_id',
+                'title_decoration'          => 'current_title_decoration_id',
+                'post_highlight_decoration' => 'current_post_hl_decoration_id',
+            ];
+            $donorPointsDirty = [];
+
             foreach ($tradeItems as $ti) {
                 $donor = $donorClaims[(int) $ti->id];
                 $recipient = $recipientClaims[(int) $ti->id];
@@ -205,7 +243,8 @@ class TradeRepository
                     : (int) $trade->initiator_id;
 
                 $donor->quantity = (int) $donor->quantity - 1;
-                if ((int) $donor->quantity <= 0) {
+                $donorEmptied = (int) $donor->quantity <= 0;
+                if ($donorEmptied) {
                     $donor->delete();
                 } else {
                     $donor->save();
@@ -227,6 +266,25 @@ class TradeRepository
                         'price_paid' => 0,
                     ]);
                 }
+
+                /*
+                 * Desequipa o item do doador quando o estoque chega a zero
+                 * E o ponteiro `current_*_decoration_id` apontava pra ele.
+                 * Mantemos o ponteiro quando ainda sobram cópias (caso de
+                 * trade pelo segundo exemplar do mesmo decor).
+                 */
+                if ($donorEmptied) {
+                    $donorPoints = $pointsByUser[(int) $ti->owner_id] ?? null;
+                    $column = $equippedColumnByType[(string) $ti->item_type] ?? null;
+                    if ($donorPoints && $column && (int) ($donorPoints->{$column} ?? 0) === (int) $ti->item_id) {
+                        $donorPoints->{$column} = null;
+                        $donorPointsDirty[(int) $ti->owner_id] = $donorPoints;
+                    }
+                }
+            }
+
+            foreach ($donorPointsDirty as $row) {
+                $row->save();
             }
 
             // 4. Mark the trade completed.
