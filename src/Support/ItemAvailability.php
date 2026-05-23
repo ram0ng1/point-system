@@ -153,15 +153,29 @@ class ItemAvailability
      * Group offers do not have a ShopClaim equivalent — membership lives in
      * the group_user pivot — so call this helper only for the five decoration
      * families.
+     *
+     * `$preFetchedOwnedIds` é o caminho rápido para ForumAttributes, onde os
+     * cinco tipos de decoração são consultados em sequência: passe a lista
+     * já lida (uma única `SELECT item_type, item_id FROM shop_claims WHERE
+     * user_id = ?`) e este helper pula o SELECT por tipo. Quando `null`,
+     * mantém o comportamento legado de uma query interna — keeps the
+     * stand-alone callers (Resource scope, etc.) working without changes.
      */
-    public static function applyShopOrOwnedScope(Builder $query, ?User $actor, string $itemType): void
-    {
-        $ownedIds = [];
-        if ($actor instanceof User && ! $actor->isGuest()) {
+    public static function applyShopOrOwnedScope(
+        Builder $query,
+        ?User $actor,
+        string $itemType,
+        ?array $preFetchedOwnedIds = null,
+    ): void {
+        if ($preFetchedOwnedIds !== null) {
+            $ownedIds = $preFetchedOwnedIds;
+        } elseif ($actor instanceof User && ! $actor->isGuest()) {
             $ownedIds = ShopClaim::where('user_id', $actor->id)
                 ->where('item_type', $itemType)
                 ->pluck('item_id')
                 ->all();
+        } else {
+            $ownedIds = [];
         }
 
         $query->where(function (Builder $q) use ($actor, $ownedIds) {
@@ -180,6 +194,30 @@ class ItemAvailability
                 $q->orWhereIn('id', $ownedIds);
             }
         });
+    }
+
+    /**
+     * Carrega EM UMA query todos os `(item_type, item_id)` que o ator possui,
+     * devolvendo um mapa `[tipo => int[]]` pronto para alimentar cinco
+     * chamadas consecutivas de {@see applyShopOrOwnedScope} sem disparar
+     * cinco SELECTs (ForumAttributes original fazia exatamente isso).
+     * Devolve mapa vazio para guest.
+     *
+     * @return array<string, int[]>
+     */
+    public static function ownedIdsByType(?User $actor): array
+    {
+        if (! $actor instanceof User || $actor->isGuest()) {
+            return [];
+        }
+        $rows = ShopClaim::where('user_id', $actor->id)
+            ->get(['item_type', 'item_id']);
+
+        $map = [];
+        foreach ($rows as $row) {
+            $map[(string) $row->item_type][] = (int) $row->item_id;
+        }
+        return $map;
     }
 
     /**
