@@ -190,6 +190,7 @@ ramon-point-system:
       error_duplicate_with_other_side: "O outro lado já adicionou esse item."
       error_too_many: "Itens demais na oferta."
       error_cannot_trade_with_self: "Você não pode trocar consigo mesmo."
+      error_item_equipped: "Não dá pra trocar um item que você está usando. Desequipe em Minhas decorações e tente de novo."
     my_decorations:
       title: "Minhas decorações"
       preview: "Pré-visualização"
@@ -301,6 +302,8 @@ ramon-point-system:
       deco_in_user_card_help: "Aplica decorações no cartão de perfil e nos popovers."
       deco_in_lists: "Decorações em listas de discussões"
       deco_in_lists_help: "Aplica decorações no nome de usuário dentro dos itens da lista de discussões."
+      avatar_deco_in_lists: "Quadros de avatar em listas de discussões"
+      avatar_deco_in_lists_help: "Aplica o quadro de avatar nos avatares dentro das listas de discussões. Desligue para deixar a lista mais limpa."
       hide_badges_with_avatar_deco: "Ocultar badges quando moldura de avatar equipada"
       hide_badges_with_avatar_deco_help: "Quando ativo, as badges de moderador / admin / etc. ao lado do avatar ficam ocultas para usuários com moldura de avatar equipada, deixando a moldura visualmente limpa."
       trade_enabled: "Habilitar trocas entre usuários"
