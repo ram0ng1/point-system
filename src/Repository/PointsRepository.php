@@ -30,11 +30,38 @@ class PointsRepository
 {
     use DispatchEventsTrait;
 
+    /**
+     * Cache da lista de GroupOffers `is_auto` ordenada por threshold.
+     *
+     * Cada award/revert/deduct chama {@see syncAutoGroups}, que por sua vez
+     * relia uma `SELECT * FROM point_system_group_offers WHERE is_auto = 1`
+     * no banco — um burst de pontos (like + post + login bonus na mesma
+     * request) acionava 3+ leituras idênticas. Memoizamos por instância;
+     * worker leak é aceitável porque o conjunto é minúsculo e admin
+     * editando offers durante o load é evento raro e auto-corretivo
+     * (o próximo award no worker seguinte pega a versão nova). Limpar
+     * manualmente via {@see clearAutoOffersCache} quando um admin endpoint
+     * souber que mexeu na tabela.
+     *
+     * @var \Illuminate\Database\Eloquent\Collection<int, GroupOffer>|null
+     */
+    private ?\Illuminate\Database\Eloquent\Collection $cachedAutoOffers = null;
+
     public function __construct(
         protected SettingsRepositoryInterface $settings,
         protected Dispatcher $events,
         protected ConnectionResolverInterface $db,
     ) {}
+
+    /**
+     * Invalida o cache em memória de offers `is_auto`. Útil em endpoints
+     * admin (CreateGroupOffer / UpdateGroupOffer) para que workers
+     * de longa vida (Octane / queue) peguem a edição na próxima sync.
+     */
+    public function clearAutoOffersCache(): void
+    {
+        $this->cachedAutoOffers = null;
+    }
 
     public function getOrCreate(User $user): UserPoints
     {
@@ -197,7 +224,8 @@ class PointsRepository
         $points ??= $this->getOrCreate($user);
         $lifetime = $points->lifetime;
 
-        $offers = GroupOffer::where('is_enabled', true)
+        // Cache memoizado — ver docblock de $cachedAutoOffers.
+        $offers = $this->cachedAutoOffers ??= GroupOffer::where('is_enabled', true)
             ->where('is_auto', true)
             ->orderBy('points_required')
             ->get();
