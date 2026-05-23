@@ -50,8 +50,27 @@ class ForumAttributes
         protected FeatureGate $features,
     ) {}
 
-    /** @var array<string, bool> per-request memoization of creator_id column presence */
-    private array $hasCreatorColumnCache = [];
+    /**
+     * Cache estático da presença da coluna `creator_id` por tabela. Estado
+     * de schema NÃO depende do ator e só muda quando o admin roda migrate
+     * (que reinicia o worker em qualquer host minimamente competente), então
+     * cachear cross-request elimina 5 lookups `INFORMATION_SCHEMA` por
+     * page-load. Mesmo padrão de {@see SubmissionScope::$columnCache}.
+     *
+     * @var array<string, bool>
+     */
+    private static array $hasCreatorColumnCache = [];
+
+    /**
+     * Cache por-ator dos IDs possuídos agrupados por tipo. Carregado em UMA
+     * query (`SELECT item_type, item_id FROM shop_claims WHERE user_id = ?`)
+     * na primeira leitura e reusado pelos cinco fields de decoração. Sem
+     * isto a página de bootstrap dispara 5 lookups `ShopClaim` redundantes.
+     * Chave inclui `0` para guest (sempre vazio).
+     *
+     * @var array<int, array<string, int[]>>
+     */
+    private array $ownedByActor = [];
 
     public function __invoke(): array
     {
@@ -85,25 +104,26 @@ class ForumAttributes
 
         $scopeFor = function (Builder $q, Context $context, string $itemType): Builder {
             $actor = $context->getActor();
-            // Skip creator eager-load if the column doesn't exist yet
-            // (admin upgraded code before running migrate). Cache the
-            // INFORMATION_SCHEMA result per-request — without it every
-            // forum page-load fires 5 schema lookups.
             $model = $q->getModel();
             $table = $model->getTable();
-            if (! array_key_exists($table, $this->hasCreatorColumnCache)) {
+            // Cache cross-request — schema só muda em migrate, e nesse
+            // momento o worker reinicia (ver docblock de $hasCreatorColumnCache).
+            if (! array_key_exists($table, self::$hasCreatorColumnCache)) {
                 try {
-                    $this->hasCreatorColumnCache[$table] = $model->getConnection()
+                    self::$hasCreatorColumnCache[$table] = $model->getConnection()
                         ->getSchemaBuilder()
                         ->hasColumn($table, 'creator_id');
                 } catch (\Throwable) {
-                    $this->hasCreatorColumnCache[$table] = false;
+                    self::$hasCreatorColumnCache[$table] = false;
                 }
             }
-            if ($this->hasCreatorColumnCache[$table]) {
+            if (self::$hasCreatorColumnCache[$table]) {
                 $q->with('creator');
             }
-            ItemAvailability::applyShopOrOwnedScope($q, $actor, $itemType);
+            // Owned IDs vêm pré-carregados (1 query agrupada por actor) em vez
+            // de 5 SELECTs ShopClaim por page-load.
+            $ownedIds = $this->ownedIdsForActor($actor)[$itemType] ?? [];
+            ItemAvailability::applyShopOrOwnedScope($q, $actor, $itemType, $ownedIds);
             SubmissionScope::apply($q, $actor);
             return $q;
         };
@@ -289,5 +309,20 @@ class ForumAttributes
             Schema\Boolean::make('pointSystemUserSubmissionsEnabled')
                 ->get(fn () => $this->features->isUserSubmissionsEnabled()),
         ];
+    }
+
+    /**
+     * Devolve o mapa `[itemType => int[]]` de IDs possuídos pelo ator,
+     * carregado em UMA query e cacheado para o resto do request. Guests
+     * obtêm `[]` cacheado em chave 0 — evita repetir o no-op.
+     *
+     * @return array<string, int[]>
+     */
+    private function ownedIdsForActor($actor): array
+    {
+        $key = $actor && method_exists($actor, 'getKey') ? (int) ($actor->getKey() ?? 0) : 0;
+        return $this->ownedByActor[$key] ??= ItemAvailability::ownedIdsByType(
+            $actor instanceof \Flarum\User\User ? $actor : null,
+        );
     }
 }

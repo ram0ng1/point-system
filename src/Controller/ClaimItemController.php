@@ -128,20 +128,19 @@ class ClaimItemController implements RequestHandlerInterface
             });
         } catch (\DomainException $e) {
             $code = $e->getMessage();
-            // Insufficient-balance is the existing legacy code — kept as-is
-            // for backwards compatibility with the frontend handler. The new
-            // availability codes (expired / sold_out / group_restricted /
-            // not_yet_available / disabled) surface as 422 with the same
-            // string in `code` so the frontend can route to a translator key.
-            $status = in_array($code, [
-                'expired', 'sold_out', 'group_restricted', 'not_yet_available', 'disabled',
-            ], true) ? 422 : 422;
+            // Tanto os códigos de disponibilidade (`expired`, `sold_out`,
+            // `group_restricted`, `not_yet_available`, `disabled`) quanto
+            // saldo-insuficiente são 422 (Unprocessable Entity). O ternário
+            // anterior `... ? 422 : 422` era dead code (relato de auditoria
+            // 2026-05-24); um `match`/`if` sobre código semanticamente
+            // diferente não muda o status — quem distingue é o `code` no
+            // payload, que o frontend usa pra escolher a chave de tradução.
             return new JsonResponse([
                 'errors' => [[
                     'code'   => $code === 'Insufficient point balance' ? 'insufficient_balance' : $code,
                     'detail' => $code,
                 ]],
-            ], $status);
+            ], 422);
         }
 
         if (! $claim) {

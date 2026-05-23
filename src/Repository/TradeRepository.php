@@ -45,293 +45,330 @@ class TradeRepository
     ) {}
 
     /**
+     * Mapa estável `tipo de decoração → coluna em `point_system_user_points``.
+     * Usado em duas passagens dentro de execute() (validação pré-transfer e
+     * limpeza pós-transfer) — manter UMA definição evita drift entre os dois
+     * passos.
+     */
+    private const EQUIPPED_COLUMN_BY_TYPE = [
+        'avatar_decoration'         => 'current_avatar_decoration_id',
+        'name_decoration'           => 'current_name_decoration_id',
+        'cover_decoration'          => 'current_cover_decoration_id',
+        'title_decoration'          => 'current_title_decoration_id',
+        'post_highlight_decoration' => 'current_post_hl_decoration_id',
+    ];
+
+    /**
      * Try to execute a trade. Returns the trade in its post-execution state.
      * Throws ValidationException with a stable code when the trade cannot
      * commit (insufficient points, item ownership lost, etc.).
+     *
+     * O método foi quebrado em sub-rotinas privadas (refator 2026-05-24, antes
+     * eram 200+ linhas com 4 níveis de aninhamento). Cada helper corre dentro
+     * da MESMA transação externa — o try/catch aqui captura o
+     * ValidationException pra rodar o reset dos `accepted` em transação
+     * separada (necessário porque o throw rola a interna pra trás).
      */
     public function execute(int $tradeId): Trade
     {
-        // We MUST NOT call `$this->resetAccepts($trade)` inside the same
-        // transaction that we throw from — the throw rolls the transaction
-        // back, undoing the reset, so `initiator_accepted` and
-        // `recipient_accepted` stay `true` in the DB. Combined with the
-        // client polling + countdown logic that re-fires /finalize whenever
-        // it sees "both accepted, pending", that creates an infinite 422
-        // retry loop: server rejects → client refreshes → server still
-        // says both accepted → countdown → server rejects → …
-        //
-        // Capture the validation outcome, let the transaction roll back,
-        // THEN run the accept-flag reset in a separate transaction (or no
-        // transaction — a single UPDATE is atomic enough).
         try {
-            return $this->db->connection()->transaction(function () use ($tradeId) {
-                /** @var Trade $trade */
-                $trade = Trade::query()->where('id', $tradeId)->lockForUpdate()->firstOrFail();
-
-                if (! $trade->isOpen()) {
-                    throw new ValidationException(['trade' => 'not_open']);
-                }
-                if (! $trade->initiator_accepted || ! $trade->recipient_accepted) {
-                    throw new ValidationException(['trade' => 'not_both_accepted']);
-                }
-
-                // Lock both balance rows up-front and in a stable order so two
-                // simultaneous executions of the same trade (or unrelated trades
-                // sharing one participant) cannot deadlock.
-                $userIds = [(int) $trade->initiator_id, (int) $trade->recipient_id];
-                sort($userIds, SORT_NUMERIC);
-
-                $points = UserPoints::query()
-                    ->whereIn('user_id', $userIds)
-                    ->orderBy('user_id')
-                    ->lockForUpdate()
-                    ->get()
-                    ->keyBy('user_id');
-
-                // Ensure both rows exist — auto-create if a participant has
-                // somehow not been initialised yet (e.g. pre-extension users).
-                foreach ($userIds as $uid) {
-                    if (! isset($points[$uid])) {
-                        $points[$uid] = UserPoints::firstOrCreate(
-                            ['user_id' => $uid],
-                            ['balance' => 0, 'lifetime' => 0],
-                        );
-                    }
-                }
-
-                $initiatorPoints = $points[(int) $trade->initiator_id];
-                $recipientPoints = $points[(int) $trade->recipient_id];
-
-                if ((int) $initiatorPoints->balance < (int) $trade->initiator_points) {
-                    throw new ValidationException(['trade' => 'initiator_insufficient_points']);
-                }
-                if ((int) $recipientPoints->balance < (int) $trade->recipient_points) {
-                    throw new ValidationException(['trade' => 'recipient_insufficient_points']);
-                }
-
-                // Lock & verify every offered ShopClaim. Each row must currently
-                // belong to its declared owner — if the user un-claimed (deleted
-                // an upload?) or had ownership flipped by an admin between
-                // accept and execute, the trade can't proceed.
-                $tradeItems = TradeItem::query()
-                    ->where('trade_id', $trade->id)
-                    ->lockForUpdate()
-                    ->get();
-
-                /*
-                 * Recusa se algum item ofertado está equipado pelo doador.
-                 * O `UpdateTradeOfferController` já barra no PATCH, mas a
-                 * janela equipar→aceitar→finalize não passa por lá; aqui
-                 * é o último portão antes da transferência. Conforme regra
-                 * pedida em 2026-05-23: "caso esteja equipado, não permita
-                 * negociar".
-                 */
-                $equippedColumns = [
-                    'avatar_decoration'         => 'current_avatar_decoration_id',
-                    'name_decoration'           => 'current_name_decoration_id',
-                    'cover_decoration'          => 'current_cover_decoration_id',
-                    'title_decoration'          => 'current_title_decoration_id',
-                    'post_highlight_decoration' => 'current_post_hl_decoration_id',
-                ];
-                foreach ($tradeItems as $ti) {
-                    $ownerId = (int) $ti->owner_id;
-                    $col = $equippedColumns[(string) $ti->item_type] ?? null;
-                    if ($col === null) continue;
-                    $ownerPoints = $points[$ownerId] ?? null;
-                    if (! $ownerPoints) continue;
-                    if ((int) ($ownerPoints->{$col} ?? 0) === (int) $ti->item_id) {
-                        throw new ValidationException(['trade' => 'item_equipped']);
-                    }
-                }
-
-                // For every TradeItem we need two row-locks:
-                //   - The DONOR's claim (must exist, quantity >= 1).
-                //   - The RECIPIENT's existing claim if any (we'll increment
-                //     its quantity instead of running into the UNIQUE key).
-                //
-                // Claims are stackable (`quantity` column added in migration
-                // 2026_05_16_000005). Transfer is "1 unit from donor to
-                // recipient" — donor.quantity--, recipient.quantity++ (or
-                // insert recipient with quantity=1 when absent).
-                $donorClaims = [];     // [tradeItemId => ShopClaim]
-                $recipientClaims = []; // [tradeItemId => ?ShopClaim]
-
-                foreach ($tradeItems as $ti) {
-                    /** @var ShopClaim|null $donor */
-                    $donor = ShopClaim::query()
-                        ->where('user_id', $ti->owner_id)
-                        ->where('item_type', $ti->item_type)
-                        ->where('item_id', $ti->item_id)
-                        ->lockForUpdate()
-                        ->first();
-                    if (! $donor || (int) $donor->quantity < 1) {
-                        throw new ValidationException(['trade' => 'item_unavailable']);
-                    }
-                    $donorClaims[(int) $ti->id] = $donor;
-
-                    $newOwnerId = (int) $ti->owner_id === (int) $trade->initiator_id
-                        ? (int) $trade->recipient_id
-                        : (int) $trade->initiator_id;
-                    /** @var ShopClaim|null $recipient */
-                    $recipient = ShopClaim::query()
-                        ->where('user_id', $newOwnerId)
-                        ->where('item_type', $ti->item_type)
-                        ->where('item_id', $ti->item_id)
-                        ->lockForUpdate()
-                        ->first();
-                    $recipientClaims[(int) $ti->id] = $recipient; // may be null
-                }
-
-            // ── COMMIT ──────────────────────────────────────────────────
-            // 1. Move points between balance rows. Lifetime stays put on
-            //    BOTH sides — gifting/trading shouldn't inflate the lifetime
-            //    metric (that's reserved for forum-action rewards).
-            $delta = (int) $trade->recipient_points - (int) $trade->initiator_points;
-            $initiatorPoints->balance = (int) $initiatorPoints->balance + $delta;
-            $recipientPoints->balance = (int) $recipientPoints->balance - $delta;
-            $initiatorPoints->save();
-            $recipientPoints->save();
-
-            // 2. Write a PointTransaction row per side for audit. Sign = net
-            //    movement; reason carries the trade id for traceability.
-            if ($delta !== 0) {
-                PointTransaction::create([
-                    'user_id'        => $trade->initiator_id,
-                    'amount'         => $delta,
-                    'reason'         => 'trade',
-                    'reference_type' => 'trade',
-                    'reference_id'   => $trade->id,
-                ]);
-                PointTransaction::create([
-                    'user_id'        => $trade->recipient_id,
-                    'amount'         => -$delta,
-                    'reason'         => 'trade',
-                    'reference_type' => 'trade',
-                    'reference_id'   => $trade->id,
-                ]);
-            }
-
-            // 3. Transfer 1 unit per TradeItem from donor to recipient.
-            //    Donor: quantity-- ; if it falls to 0, delete the row so we
-            //    don't leave a zero-quantity ghost in the user's inventory.
-            //    Recipient: quantity++ on existing row, or INSERT a fresh
-            //    row with quantity=1 if they don't yet own the item.
-            //
-            //    Quando o doador zera o estoque do item E o tinha equipado,
-            //    limpamos `current_*_decoration_id` no mesmo passo. Sem isso
-            //    o doador continua renderizando "Equipado" mesmo após a
-            //    transferência (relatado em 2026-05-23). UserPoints de cada
-            //    lado é carregado abaixo do loop para evitar N+1.
-            $pointsByUser = [
-                (int) $trade->initiator_id => $initiatorPoints,
-                (int) $trade->recipient_id => $recipientPoints,
-            ];
-            $equippedColumnByType = [
-                'avatar_decoration'         => 'current_avatar_decoration_id',
-                'name_decoration'           => 'current_name_decoration_id',
-                'cover_decoration'          => 'current_cover_decoration_id',
-                'title_decoration'          => 'current_title_decoration_id',
-                'post_highlight_decoration' => 'current_post_hl_decoration_id',
-            ];
-            $donorPointsDirty = [];
-
-            foreach ($tradeItems as $ti) {
-                $donor = $donorClaims[(int) $ti->id];
-                $recipient = $recipientClaims[(int) $ti->id];
-                $newOwnerId = (int) $ti->owner_id === (int) $trade->initiator_id
-                    ? (int) $trade->recipient_id
-                    : (int) $trade->initiator_id;
-
-                $donor->quantity = (int) $donor->quantity - 1;
-                $donorEmptied = (int) $donor->quantity <= 0;
-                if ($donorEmptied) {
-                    $donor->delete();
-                } else {
-                    $donor->save();
-                }
-
-                if ($recipient) {
-                    $recipient->quantity = (int) $recipient->quantity + 1;
-                    $recipient->save();
-                } else {
-                    ShopClaim::create([
-                        'user_id'    => $newOwnerId,
-                        'item_type'  => (string) $ti->item_type,
-                        'item_id'    => (int) $ti->item_id,
-                        'quantity'   => 1,
-                        // price_paid=0 because the recipient didn't spend
-                        // points — they received the item via a trade.
-                        // The actual point movement is captured in the
-                        // PointTransaction rows above.
-                        'price_paid' => 0,
-                    ]);
-                }
-
-                /*
-                 * Desequipa o item do doador quando o estoque chega a zero
-                 * E o ponteiro `current_*_decoration_id` apontava pra ele.
-                 * Mantemos o ponteiro quando ainda sobram cópias (caso de
-                 * trade pelo segundo exemplar do mesmo decor).
-                 */
-                if ($donorEmptied) {
-                    $donorPoints = $pointsByUser[(int) $ti->owner_id] ?? null;
-                    $column = $equippedColumnByType[(string) $ti->item_type] ?? null;
-                    if ($donorPoints && $column && (int) ($donorPoints->{$column} ?? 0) === (int) $ti->item_id) {
-                        $donorPoints->{$column} = null;
-                        $donorPointsDirty[(int) $ti->owner_id] = $donorPoints;
-                    }
-                }
-            }
-
-            foreach ($donorPointsDirty as $row) {
-                $row->save();
-            }
-
-            // 4. Mark the trade completed.
-            $trade->status = Trade::STATUS_COMPLETED;
-            $trade->completed_at = Carbon::now();
-            $trade->save();
-
-            // 5. Dispatch event AFTER the transaction commits — actually,
-            //    dispatching here is inside the transaction. The listener
-            //    sends a notification which talks to NotificationSyncer;
-            //    sync runs its own DB writes and shouldn't fail under
-            //    normal conditions. If it does throw, the trade rolls back
-            //    too — that's the conservative trade-off vs the verified
-            //    "notify outside transaction" pattern. We pick rollback
-            //    here because half-traded state is worse than a missed
-            //    notification.
-            $this->events->dispatch(new TradeCompleted($trade));
-
-            return $trade;
-            });
+            return $this->db->connection()->transaction(fn () => $this->doExecute($tradeId));
         } catch (ValidationException $e) {
-            // Transaction has already rolled back at this point — including
-            // any `resetAccepts()` we might have called inside it. Run a
-            // standalone UPDATE so the trade row reflects "no longer both
-            // accepted" and the client's countdown logic doesn't loop on
-            // /finalize. The reset is a no-op when the failure mode is
-            // `not_both_accepted` (flags were already false going in).
-            //
-            // We skip the reset for `not_open` because by that point the
-            // trade is completed or cancelled — touching the accept flags
-            // would muddy the audit trail. Every other validation code
-            // (insufficient points, item unavailable, recipient_already_owns_item)
-            // is a "fix your offer and try again" condition that warrants
-            // re-prompting the user to re-accept.
-            $attrs = $e->getAttributes();
-            $code = (string) ($attrs['trade'] ?? '');
-            if ($code !== '' && $code !== 'not_open') {
-                Trade::query()
-                    ->where('id', $tradeId)
-                    ->update([
-                        'initiator_accepted' => false,
-                        'recipient_accepted' => false,
-                        'updated_at' => Carbon::now(),
-                    ]);
-            }
+            $this->resetAcceptsAfterFailure($tradeId, $e);
             throw $e;
         }
+    }
+
+    /** Núcleo de execute() — corre dentro de uma transação externa. */
+    private function doExecute(int $tradeId): Trade
+    {
+        $trade           = $this->loadAndLockTrade($tradeId);
+        $points          = $this->loadAndLockPoints($trade);
+        $this->assertBalances($trade, $points);
+
+        $tradeItems      = $this->loadAndLockTradeItems($trade);
+        $this->assertNothingEquipped($tradeItems, $points);
+
+        [$donorClaims, $recipientClaims] = $this->loadAndLockClaimsForTransfer($trade, $tradeItems);
+
+        $this->movePoints($trade, $points);
+        $this->writePointAuditRows($trade);
+        $this->transferClaims($trade, $tradeItems, $donorClaims, $recipientClaims, $points);
+        $this->markCompleted($trade);
+
+        // Dispatch dentro da transação ainda — mantém o trade-off
+        // "rollback se a notificação falhar" descrito no comentário antigo.
+        $this->events->dispatch(new TradeCompleted($trade));
+
+        return $trade;
+    }
+
+    /** Carrega e tranca a row do trade. Falha em `not_open` ou `not_both_accepted`. */
+    private function loadAndLockTrade(int $tradeId): Trade
+    {
+        /** @var Trade $trade */
+        $trade = Trade::query()->where('id', $tradeId)->lockForUpdate()->firstOrFail();
+
+        if (! $trade->isOpen()) {
+            throw new ValidationException(['trade' => 'not_open']);
+        }
+        if (! $trade->initiator_accepted || ! $trade->recipient_accepted) {
+            throw new ValidationException(['trade' => 'not_both_accepted']);
+        }
+        return $trade;
+    }
+
+    /**
+     * Tranca AMBAS as linhas de UserPoints em ordem estável (anti-deadlock)
+     * e cria-as caso o usuário ainda não tenha sido inicializado.
+     *
+     * @return array<int, UserPoints> chaveado por user_id
+     */
+    private function loadAndLockPoints(Trade $trade): array
+    {
+        $userIds = [(int) $trade->initiator_id, (int) $trade->recipient_id];
+        sort($userIds, SORT_NUMERIC);
+
+        $points = UserPoints::query()
+            ->whereIn('user_id', $userIds)
+            ->orderBy('user_id')
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('user_id')
+            ->all();
+
+        foreach ($userIds as $uid) {
+            if (! isset($points[$uid])) {
+                $points[$uid] = UserPoints::firstOrCreate(
+                    ['user_id' => $uid],
+                    ['balance' => 0, 'lifetime' => 0],
+                );
+            }
+        }
+        return $points;
+    }
+
+    /** @param array<int, UserPoints> $points */
+    private function assertBalances(Trade $trade, array $points): void
+    {
+        if ((int) $points[(int) $trade->initiator_id]->balance < (int) $trade->initiator_points) {
+            throw new ValidationException(['trade' => 'initiator_insufficient_points']);
+        }
+        if ((int) $points[(int) $trade->recipient_id]->balance < (int) $trade->recipient_points) {
+            throw new ValidationException(['trade' => 'recipient_insufficient_points']);
+        }
+    }
+
+    /** Lock + load do conjunto de TradeItem da transação. */
+    private function loadAndLockTradeItems(Trade $trade): \Illuminate\Database\Eloquent\Collection
+    {
+        return TradeItem::query()
+            ->where('trade_id', $trade->id)
+            ->lockForUpdate()
+            ->get();
+    }
+
+    /**
+     * Recusa se algum item ofertado está equipado pelo doador. O
+     * UpdateTradeOfferController já barra no PATCH, mas a janela
+     * equipar→aceitar→finalize não passa por lá — aqui é o portão final
+     * (regra pedida em 2026-05-23).
+     *
+     * @param array<int, UserPoints> $points
+     */
+    private function assertNothingEquipped(
+        \Illuminate\Database\Eloquent\Collection $tradeItems,
+        array $points,
+    ): void {
+        foreach ($tradeItems as $ti) {
+            $col = self::EQUIPPED_COLUMN_BY_TYPE[(string) $ti->item_type] ?? null;
+            if ($col === null) continue;
+            $ownerPoints = $points[(int) $ti->owner_id] ?? null;
+            if (! $ownerPoints) continue;
+            if ((int) ($ownerPoints->{$col} ?? 0) === (int) $ti->item_id) {
+                throw new ValidationException(['trade' => 'item_equipped']);
+            }
+        }
+    }
+
+    /**
+     * Tranca o claim do DOADOR e o claim do DESTINATÁRIO (se existir) de cada
+     * TradeItem. Devolve `[donorClaims, recipientClaims]` chaveados por
+     * tradeItem.id. Lança `item_unavailable` se o doador não tem o item
+     * (race com unclaim/admin entre accept e execute).
+     *
+     * @return array{0: array<int, ShopClaim>, 1: array<int, ShopClaim|null>}
+     */
+    private function loadAndLockClaimsForTransfer(
+        Trade $trade,
+        \Illuminate\Database\Eloquent\Collection $tradeItems,
+    ): array {
+        $donorClaims     = [];
+        $recipientClaims = [];
+
+        foreach ($tradeItems as $ti) {
+            $donor = ShopClaim::query()
+                ->where('user_id', $ti->owner_id)
+                ->where('item_type', $ti->item_type)
+                ->where('item_id', $ti->item_id)
+                ->lockForUpdate()
+                ->first();
+            if (! $donor || (int) $donor->quantity < 1) {
+                throw new ValidationException(['trade' => 'item_unavailable']);
+            }
+            $donorClaims[(int) $ti->id] = $donor;
+
+            $newOwnerId = $this->resolveCounterparty($trade, (int) $ti->owner_id);
+            $recipient = ShopClaim::query()
+                ->where('user_id', $newOwnerId)
+                ->where('item_type', $ti->item_type)
+                ->where('item_id', $ti->item_id)
+                ->lockForUpdate()
+                ->first();
+            $recipientClaims[(int) $ti->id] = $recipient;
+        }
+        return [$donorClaims, $recipientClaims];
+    }
+
+    /**
+     * Movimenta pontos entre os dois saldos. Lifetime fica intacto — trade
+     * não conta como conquista de forum (essa métrica é reservada pra
+     * pontos ganhos por ação).
+     *
+     * @param array<int, UserPoints> $points
+     */
+    private function movePoints(Trade $trade, array $points): void
+    {
+        $delta = (int) $trade->recipient_points - (int) $trade->initiator_points;
+        $initiator = $points[(int) $trade->initiator_id];
+        $recipient = $points[(int) $trade->recipient_id];
+
+        $initiator->balance = (int) $initiator->balance + $delta;
+        $recipient->balance = (int) $recipient->balance - $delta;
+        $initiator->save();
+        $recipient->save();
+    }
+
+    /** Grava 2 linhas de PointTransaction (uma por lado) refletindo o net delta. */
+    private function writePointAuditRows(Trade $trade): void
+    {
+        $delta = (int) $trade->recipient_points - (int) $trade->initiator_points;
+        if ($delta === 0) return;
+
+        PointTransaction::create([
+            'user_id'        => $trade->initiator_id,
+            'amount'         => $delta,
+            'reason'         => 'trade',
+            'reference_type' => 'trade',
+            'reference_id'   => $trade->id,
+        ]);
+        PointTransaction::create([
+            'user_id'        => $trade->recipient_id,
+            'amount'         => -$delta,
+            'reason'         => 'trade',
+            'reference_type' => 'trade',
+            'reference_id'   => $trade->id,
+        ]);
+    }
+
+    /**
+     * Transfere 1 unidade por TradeItem do doador pro destinatário.
+     * Decremento do doador, incremento (ou INSERT) no destinatário. Quando
+     * o estoque do doador zera E o item estava equipado, limpa o ponteiro
+     * `current_*_decoration_id` no mesmo passo (sem isso o doador continua
+     * vendo botão "Equipado" pós-trade).
+     *
+     * @param array<int, ShopClaim>      $donorClaims
+     * @param array<int, ShopClaim|null> $recipientClaims
+     * @param array<int, UserPoints>     $points
+     */
+    private function transferClaims(
+        Trade $trade,
+        \Illuminate\Database\Eloquent\Collection $tradeItems,
+        array $donorClaims,
+        array $recipientClaims,
+        array $points,
+    ): void {
+        $dirtyPointsRows = [];
+
+        foreach ($tradeItems as $ti) {
+            $donor       = $donorClaims[(int) $ti->id];
+            $recipient   = $recipientClaims[(int) $ti->id];
+            $newOwnerId  = $this->resolveCounterparty($trade, (int) $ti->owner_id);
+
+            $donor->quantity = (int) $donor->quantity - 1;
+            $donorEmptied = (int) $donor->quantity <= 0;
+            if ($donorEmptied) {
+                $donor->delete();
+            } else {
+                $donor->save();
+            }
+
+            if ($recipient) {
+                $recipient->quantity = (int) $recipient->quantity + 1;
+                $recipient->save();
+            } else {
+                ShopClaim::create([
+                    'user_id'    => $newOwnerId,
+                    'item_type'  => (string) $ti->item_type,
+                    'item_id'    => (int) $ti->item_id,
+                    'quantity'   => 1,
+                    // Recipient não pagou — pontos movem via PointTransaction.
+                    'price_paid' => 0,
+                ]);
+            }
+
+            if ($donorEmptied) {
+                $donorPoints = $points[(int) $ti->owner_id] ?? null;
+                $column = self::EQUIPPED_COLUMN_BY_TYPE[(string) $ti->item_type] ?? null;
+                if ($donorPoints && $column && (int) ($donorPoints->{$column} ?? 0) === (int) $ti->item_id) {
+                    $donorPoints->{$column} = null;
+                    $dirtyPointsRows[(int) $ti->owner_id] = $donorPoints;
+                }
+            }
+        }
+
+        foreach ($dirtyPointsRows as $row) {
+            $row->save();
+        }
+    }
+
+    private function markCompleted(Trade $trade): void
+    {
+        $trade->status = Trade::STATUS_COMPLETED;
+        $trade->completed_at = Carbon::now();
+        $trade->save();
+    }
+
+    /** Dada uma id de uma das partes do trade, devolve a id da outra. */
+    private function resolveCounterparty(Trade $trade, int $ownerId): int
+    {
+        return $ownerId === (int) $trade->initiator_id
+            ? (int) $trade->recipient_id
+            : (int) $trade->initiator_id;
+    }
+
+    /**
+     * Após uma falha de validação dentro de execute(), a transação inteira
+     * já foi revertida — inclusive um eventual `resetAccepts()` interno. Esta
+     * função roda UM UPDATE atômico (sem transação) limpando os accept flags,
+     * para que o client (que continua disparando /finalize enquanto vê
+     * "both accepted, pending") pare o loop. Pulamos `not_open` pra não
+     * sujar a audit trail de trade já completo/cancelado.
+     */
+    private function resetAcceptsAfterFailure(int $tradeId, ValidationException $e): void
+    {
+        $code = (string) ($e->getAttributes()['trade'] ?? '');
+        if ($code === '' || $code === 'not_open') {
+            return;
+        }
+        Trade::query()
+            ->where('id', $tradeId)
+            ->update([
+                'initiator_accepted' => false,
+                'recipient_accepted' => false,
+                'updated_at' => Carbon::now(),
+            ]);
     }
 
     /** Reset both accept flags in-place. Used when an offer mutation
