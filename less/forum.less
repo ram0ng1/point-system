@@ -11,8 +11,18 @@
   --ps-radius-lg: 12px;
   --ps-radius-xl: 14px;
 
-  --ps-border:        var(--control-bg, #e6e6e9);
-  --ps-border-subtle: rgba(0, 0, 0, 0.06);
+  /*
+   * Bordas dos cards precisam ser visíveis em light E dark mode. O valor
+   * antigo `rgba(0, 0, 0, 0.06)` era preto-quase-transparente — invisível
+   * sobre fundo escuro (relato 2026-05-23: "no modo noturno, não tenho
+   * como saber onde acaba o card do item"). `color-mix` com a cor de
+   * texto produz uma linha que herda o contraste correto em cada tema:
+   * em claro, `--text-color` é escuro → tinta escura; em escuro, o
+   * texto é claro → tinta clara. Funciona em qualquer tema que respeite
+   * `--text-color` (Avocado, Flarum base, etc.).
+   */
+  --ps-border:        color-mix(in srgb, var(--text-color, currentColor) 18%, transparent);
+  --ps-border-subtle: color-mix(in srgb, var(--text-color, currentColor) 12%, transparent);
   --ps-surface:       var(--body-bg, #fff);
   --ps-surface-muted: var(--control-bg, #f5f5f7);
   --ps-text-muted:    var(--muted-color, #6b7280);
@@ -175,6 +185,17 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1.4;
+  /*
+   * O badge é um filho inline-flex do `.PostUser-name` ul. Sem `flex` /
+   * `min-width: 0`, ele empurra os irmãos (nickname + Badge de rank) e
+   * pode sobrepor o ícone de cargo em larguras médias (relato 2026-05-23).
+   * `flex: 0 0 auto` mantém o tamanho do conteúdo; `vertical-align:
+   * middle` resolve casos onde o tema renderiza o ul como `display:
+   * block` em vez de flex.
+   */
+  flex: 0 0 auto;
+  vertical-align: middle;
+  white-space: nowrap;
   transition: background-color var(--ps-t, 0.16s ease), transform var(--ps-t, 0.16s ease);
 
   &:hover {
@@ -184,6 +205,19 @@
   i {
     font-size: 10px;
   }
+}
+
+/*
+ * O `.PostUser-name` precisa permitir wrap para que, quando há cargo
+ * + nickname + pílula de pontos + título customizado, a pílula caia
+ * pra próxima linha em vez de empurrar os irmãos pra fora da viewport.
+ * Avocado renderiza o ul como flex; alguns temas como `inline-block`
+ * — em ambos os casos `flex-wrap: wrap` é seguro (no inline-block o
+ * `flex-wrap` é ignorado mas o `min-width: 0` ajuda a evitar overflow).
+ */
+.PostUser-name {
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 // Points pill injected into Avocado's user profile hero stats row. Matches
@@ -721,6 +755,14 @@ body.ps-hide-badges-with-deco {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 14px;
+    /*
+     * `align-items: start` — sem isso, grid esticava todas as células
+     * pra altura da maior, fazendo cards de post-highlight (que têm
+     * preview de ~100px) ficarem com bloco vazio embaixo do tamanho
+     * de cards-avatar (preview 200px). Relato 2026-05-23: "na página
+     * destaques de post está bem grande".
+     */
+    align-items: start;
 
     // ── Per-tab grid density ──────────────────────────────────────────────
     // Name styles and titles are text-only — they don't need a square preview
@@ -796,7 +838,14 @@ body.ps-hide-badges-with-deco {
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, #fafafa, #f0f0f0);
+      /*
+       * Fundo do preview do card via tokens do tema, não via cor fixa.
+       * O gradiente fixo `#fafafa → #f0f0f0` aparecia como bloco branco
+       * em dark mode (relato 2026-05-23). `--ps-surface-muted` segue a
+       * paleta do host (Avocado escuro, Flarum claro, etc.) e mantém
+       * o contraste com a `--ps-surface` do corpo do card.
+       */
+      background: var(--ps-surface-muted, #f5f5f7);
     }
 
     // ── Per-type preview shape ───────────────────────────────────────────
@@ -804,6 +853,17 @@ body.ps-hide-badges-with-deco {
     // name / title rows drop the fixed aspect so the chip hugs its content
     // and the body sits directly under it. Post highlights use a tighter
     // box so the mock-post wireframe doesn't waste vertical space.
+    //
+    // Cap o preview do avatar em 200px de altura — sem isso, cards que
+    // cresceram além de 220px viraram quadrados gigantes onde o frame
+    // de 96px ficava nadando num bloco quase do tamanho da tela
+    // (relato 2026-05-23 sobre "ocupa muito espaço comparado ao item").
+    &--avatar > .PointSystemShop-card-preview {
+      aspect-ratio: auto;
+      height: 200px;
+      max-height: 200px;
+    }
+
     &--cover > .PointSystemShop-card-preview {
       aspect-ratio: 16 / 9;
       background: none;
@@ -816,9 +876,19 @@ body.ps-hide-badges-with-deco {
       padding: 14px 10px;
     }
 
+    /*
+     * Atenção: `PointSystemShop-card--{type}` é gerado em ShopPage.tsx
+     * por `item.type.replace(/_decoration$/, '').replace(/_/g, '-')`,
+     * o que devolve `post-highlight` (não `post-hl`). O sufixo `post-hl`
+     * só é usado pelo grid container (`.PointSystemShop-grid--post-hl`,
+     * onde `post-hl` é o slug do tab). Cobrimos os dois nomes pra não
+     * depender do nome interno do tab no futuro.
+     */
+    &--post-highlight > .PointSystemShop-card-preview,
     &--post-hl > .PointSystemShop-card-preview {
       aspect-ratio: auto;
       min-height: 90px;
+      max-height: 160px;
       background: none;
       padding: 14px;
     }
@@ -1148,6 +1218,19 @@ body.ps-hide-badges-with-deco {
   padding: 2px 10px;
 }
 
+/*
+ * Stats row do hero (Avocado): contém data de entrada, pontos, "Editado",
+ * etc. Sem `flex-wrap`, em larguras médias a injeção da pílula de pontos
+ * empurra "Изменено" pra fora da viewport (relato 2026-05-23). Aplicamos
+ * wrap + gap consistente; o `min-width: 0` impede que pílulas longas
+ * estourem o pai. Idempotente — se Avocado já fizer wrap, é no-op.
+ */
+.AvocadoUserPage-hero-stats {
+  flex-wrap: wrap;
+  min-width: 0;
+  row-gap: 6px;
+}
+
 // Title chip displayed inline next to the username on the Avocado profile
 // hero (injected via `registerAvocadoProfileHooks.injectTitle`). The hero
 // name is an H1 with the displayName + verified popover anchor; our chip
@@ -1168,8 +1251,22 @@ body.ps-hide-badges-with-deco {
 // narrow viewports. Drops tab labels under icons, lets the balance pill
 // wrap, and shrinks card sizes so two columns still fit on a phone.
 @media (max-width: 767px) {
+  /*
+   * Padding horizontal defensivo em mobile. Em alguns temas (Avocado em
+   * algumas configurações) o `.container` perde o padding lateral no
+   * @phone, fazendo os cards encostarem nas bordas da tela (relato
+   * 2026-05-24). Não é universal — pode ser CSS do tema — mas garantir
+   * 12px aqui é mais barato do que depender do host.
+   */
+  .PointSystemShop,
+  .PointSystemDecorations,
+  .PointSystemTradesPage {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
   .PointSystemShop {
-    padding: 16px 0 48px;
+    padding: 16px 12px 48px;
 
     &-header h1 { font-size: 22px; }
     &-subtitle { font-size: 13px; }
@@ -1277,7 +1374,12 @@ body.ps-hide-badges-with-deco {
 
   &-item {
     background: var(--body-bg, #fff);
-    border: 1px solid var(--control-bg, #e8e8e8);
+    /*
+     * Borda usa `--ps-border` (color-mix da text-color) pra ficar
+     * visível em dark mode também. O fallback de `--control-bg`
+     * sumia em temas escuros (relato 2026-05-23).
+     */
+    border: 1px solid var(--ps-border);
     border-radius: 10px;
     padding: 12px;
     text-align: center;
@@ -1378,7 +1480,9 @@ body.ps-hide-badges-with-deco {
 }
 .PointSystemDecorations-coverItem {
   background: var(--body-bg, #fff);
-  border: 1px solid var(--control-bg, #e0e0e0);
+  /* Mesma justificativa do PointSystemDecorations-item — borda
+   * theme-aware para sobreviver ao dark mode. */
+  border: 1px solid var(--ps-border);
   border-radius: 12px;
   padding: 10px;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -2612,15 +2716,48 @@ body.ps-hide-badges-with-deco {
 // Tier card refinement.
 .PointSystemShop-tier {
   transition: transform var(--ps-t-med), box-shadow var(--ps-t-med), border-color var(--ps-t-fast);
+  /*
+   * Layout robusto: wrap em coluna quando a coluna do grid é estreita —
+   * sem isso, em cards de ~240px o botão "Comprar acesso" sobrepunha
+   * o preço (relato 2026-05-23). Em desktop largo o cluster permanece
+   * em linha (flex row), só faz wrap quando comprime. `flex-wrap`
+   * combinado com `min-width: 0` no body é o ajuste padrão para
+   * "linha de 3 colunas que pode quebrar".
+   */
+  flex-wrap: wrap;
+  row-gap: 8px;
 
   &-name {
     font-size: 15px;
     letter-spacing: -0.005em;
   }
 
+  &-body {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+
   &-points {
     font-size: 12px;
     font-variant-numeric: tabular-nums;
+    /*
+     * Quando o card é estreito o texto longo "1.000 pontos para comprar"
+     * costumava quebrar em três linhas e ainda ser sobreposto pelo botão
+     * à direita. `flex-wrap: wrap` no card já move o botão pra próxima
+     * linha; aqui só evitamos overflow horizontal explicitamente.
+     */
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  &-action {
+    /*
+     * Ação fica do tamanho do botão (não esmaga, não estica) e cai pra
+     * próxima linha quando o body precisar do espaço todo.
+     */
+    flex: 0 0 auto;
+    margin-left: auto;
+    align-self: center;
   }
 
   &.is-reached {
@@ -2819,6 +2956,18 @@ body.ps-hide-badges-with-deco {
 // ──────────────────────────────────────────────────────────────────────────────
 .PointSystemDecorations-previewHero {
   position: relative;
+  /*
+   * Width budget explícito. Sem `width: 100%; max-width: 100%; box-sizing:
+   * border-box`, o hero ficava sujeito ao width default do filho de flex
+   * (que com `min-content` em alguns navegadores estoura o pai). Relato
+   * 2026-05-24: "a largura da página do perfil está quebrada — nem todos
+   * os elementos são visíveis". Os 3 tokens juntos garantem que o hero
+   * nunca seja mais largo do que o pai e que `padding: 24px` não some
+   * ao cálculo (box-sizing: border-box).
+   */
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   border-radius: var(--ps-radius-xl, 14px);
   overflow: hidden;
   background: linear-gradient(180deg,
@@ -2912,16 +3061,28 @@ body.ps-hide-badges-with-deco {
   }
 
   .PointSystemProfilePill {
-    background: rgba(255, 255, 255, 0.9);
+    /*
+     * Pílula com fundo branco precisa de texto escuro fixo — sem isso o
+     * tema escuro herdava `--text-color` claro e a pílula virava texto
+     * branco em fundo branco (relato 2026-05-23). Ícone também precisa
+     * ficar âmbar sólido independente do modo, e a sombra ganha um anel
+     * sutil pra demarcar a borda quando o hero atrás é claro também.
+     */
+    background: #ffffff;
     padding: 4px 12px;
     border-radius: 999px;
     font-size: 12.5px;
     font-weight: 600;
-    color: var(--text-color, #333);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    color: #1f2937;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 2px 6px rgba(0, 0, 0, 0.10);
+
+    i {
+      color: #d6a200;
+    }
 
     .ps-has-cover & {
       background: rgba(255, 255, 255, 0.95);
+      color: #1f2937;
     }
   }
 

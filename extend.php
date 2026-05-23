@@ -147,6 +147,7 @@ return [
         ->serializeToForum('pointSystem.deco_in_posts', 'point-system.deco_in_posts', 'boolval')
         ->serializeToForum('pointSystem.deco_in_user_card', 'point-system.deco_in_user_card', 'boolval')
         ->serializeToForum('pointSystem.deco_in_lists', 'point-system.deco_in_lists', 'boolval')
+        ->serializeToForum('pointSystem.avatar_deco_in_lists', 'point-system.avatar_deco_in_lists', 'boolval')
         ->serializeToForum('pointSystem.hide_badges_with_avatar_deco', 'point-system.hide_badges_with_avatar_deco', 'boolval')
         ->serializeToForum('pointSystem.trade_enabled', 'point-system.trade_enabled', 'boolval')
         ->serializeToForum('pointSystem.user_submissions_enabled', 'point-system.user_submissions_enabled', 'boolval')
@@ -172,6 +173,7 @@ return [
         ->default('point-system.deco_in_posts', true)
         ->default('point-system.deco_in_user_card', true)
         ->default('point-system.deco_in_lists', true)
+        ->default('point-system.avatar_deco_in_lists', true)
         ->default('point-system.hide_badges_with_avatar_deco', false)
         ->default('point-system.trade_enabled', true)
         ->default('point-system.user_submissions_enabled', false),
