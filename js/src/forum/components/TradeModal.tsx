@@ -310,6 +310,8 @@ export default class TradeModal extends Modal {
       }
       if (code === 'recipient_already_owns_item') {
         this.err = app.translator.trans('ramon-point-system.forum.trade.error_recipient_owns_item') as string;
+      } else if (code === 'item_equipped') {
+        this.err = app.translator.trans('ramon-point-system.forum.trade.error_item_equipped') as string;
       } else if (code === 'not_both_accepted') {
         this.err = app.translator.trans('ramon-point-system.forum.trade.error_not_both_accepted') as string;
       } else if (code === 'initiator_insufficient_points' || code === 'recipient_insufficient_points') {
@@ -552,9 +554,31 @@ export default class TradeModal extends Modal {
   renderItemPicker(yourItems: OfferItem[], owner?: { id?: number; username?: string; displayName?: string; avatarUrl?: string | null }) {
     const owned = (app.session.user?.attribute('ownedDecorationIds') as any[]) || [];
     const onTable = new Set(yourItems.map((i) => `${i.itemType}:${i.itemId}`));
+
+    // Itens atualmente equipados pelo ator não podem ser oferecidos —
+    // o servidor recusaria com `item_equipped`, e exibir um picker que
+    // engaja-erra confunde o usuário. Filtramos por (tipo, id) batendo
+    // contra o `current_*_decoration_id` de cada família.
+    const me = app.session.user;
+    const equippedSet = new Set<string>();
+    if (me) {
+      const pairs: [string, any][] = [
+        ['avatar_decoration', me.attribute('equippedAvatarDecorationId')],
+        ['name_decoration', me.attribute('equippedNameDecorationId')],
+        ['cover_decoration', me.attribute('equippedCoverDecorationId')],
+        ['title_decoration', me.attribute('equippedTitleDecorationId')],
+        ['post_highlight_decoration', me.attribute('equippedPostHighlightDecorationId')],
+      ];
+      for (const [type, id] of pairs) {
+        const n = Number(id ?? 0);
+        if (n > 0) equippedSet.add(`${type}:${n}`);
+      }
+    }
+
     const candidates = owned
       .map((o: any) => this.resolveItem(o.type, Number(o.id)))
-      .filter((it: any) => it && !onTable.has(`${it.itemType}:${it.itemId}`));
+      .filter((it: any) => it && !onTable.has(`${it.itemType}:${it.itemId}`))
+      .filter((it: any) => !equippedSet.has(`${it.itemType}:${it.itemId}`));
 
     return (
       <div className="PointSystemTradeModal-picker">
@@ -822,7 +846,17 @@ export default class TradeModal extends Modal {
     const givenAway = this.trade.items.filter((it: any) => Number(it.ownerId) === meId);
     const received = this.trade.items.filter((it: any) => Number(it.ownerId) !== meId);
 
-    const filtered = owned.filter((o: any) => !givenAway.some((g: any) => g.itemType === o.type && Number(g.itemId) === Number(o.id)));
+    const filtered = owned.filter(
+      (o: any) =>
+        !givenAway.some((g: any) => {
+          if (g.itemType !== o.type || Number(g.itemId) !== Number(o.id)) return false;
+          // Backend só apaga a linha quando `quantity` chega a zero — se
+          // sobra cópia, o claim continua na lista (apenas com quantity--).
+          // Removemos do array local apenas quando NÃO há outra cópia
+          // declarada; estoque > 1 sobrevive ao trade.
+          return Number(o.quantity ?? 1) <= 1;
+        })
+    );
     for (const r of received) {
       filtered.push({ type: r.itemType, id: r.itemId });
     }
@@ -831,6 +865,38 @@ export default class TradeModal extends Modal {
     const theirPoints = this.trade.youAre === 'initiator' ? this.trade.recipientPoints : this.trade.initiatorPoints;
     const balance = Math.max(0, Number(user.attribute('pointBalance') ?? 0) - Number(myPoints) + Number(theirPoints));
 
-    user.pushAttributes({ ownedDecorationIds: filtered, pointBalance: balance });
+    /*
+     * Limpa o ponteiro `equipped*` do doador quando o item transferido
+     * era o equipado. Acompanha a limpeza que o backend faz em
+     * TradeRepository::execute(); sem isso o frontend continua exibindo
+     * o botão "Equipado" até o próximo refresh completo do user model.
+     */
+    const equippedPatch: Record<string, any> = {};
+    const equippedMap: Record<string, { id: string; extras: string[] }> = {
+      avatar_decoration: { id: 'equippedAvatarDecorationId', extras: ['equippedAvatarDecorationUrl'] },
+      name_decoration: { id: 'equippedNameDecorationId', extras: ['equippedNameDecorationSlug'] },
+      cover_decoration: { id: 'equippedCoverDecorationId', extras: ['equippedCoverDecorationUrl'] },
+      title_decoration: {
+        id: 'equippedTitleDecorationId',
+        extras: ['equippedTitleDecorationSlug', 'equippedTitleDecorationText'],
+      },
+      post_highlight_decoration: {
+        id: 'equippedPostHighlightDecorationId',
+        extras: ['equippedPostHighlightDecorationSlug'],
+      },
+    };
+    for (const g of givenAway) {
+      const meta = equippedMap[g.itemType];
+      if (!meta) continue;
+      // Só desequipa quando o estoque local também foi a zero (já refletido em `filtered`).
+      const stillOwned = filtered.some((o: any) => o.type === g.itemType && Number(o.id) === Number(g.itemId));
+      if (stillOwned) continue;
+      if (Number(user.attribute(meta.id) ?? 0) === Number(g.itemId)) {
+        equippedPatch[meta.id] = null;
+        for (const k of meta.extras) equippedPatch[k] = null;
+      }
+    }
+
+    user.pushAttributes({ ownedDecorationIds: filtered, pointBalance: balance, ...equippedPatch });
   }
 }

@@ -147,6 +147,38 @@ class UpdateTradeOfferController implements RequestHandlerInterface
                             throw new ValidationException(['items' => 'not_owned']);
                         }
                     }
+
+                    /*
+                     * Bloqueia adicionar itens atualmente equipados à oferta.
+                     *
+                     * Motivo: o usuário pediu explicitamente "caso esteja
+                     * equipado, não permita negociar" (relato 2026-05-23).
+                     * Permitir negociar um equipado deixa o doador com um
+                     * `current_*_decoration_id` apontando para item que ele
+                     * não possui mais — o frontend ainda renderiza o botão
+                     * "Equipado" mesmo após a transferência.
+                     *
+                     * Estratégia: leitura única do UserPoints do ator,
+                     * comparação contra cada itemType→coluna correspondente.
+                     */
+                    $userPoints = UserPoints::query()
+                        ->where('user_id', $actor->id)
+                        ->first();
+                    if ($userPoints) {
+                        $equippedMap = [
+                            ShopClaim::TYPE_AVATAR  => (int) ($userPoints->current_avatar_decoration_id ?? 0),
+                            ShopClaim::TYPE_NAME    => (int) ($userPoints->current_name_decoration_id ?? 0),
+                            ShopClaim::TYPE_COVER   => (int) ($userPoints->current_cover_decoration_id ?? 0),
+                            ShopClaim::TYPE_TITLE   => (int) ($userPoints->current_title_decoration_id ?? 0),
+                            ShopClaim::TYPE_POST_HL => (int) ($userPoints->current_post_hl_decoration_id ?? 0),
+                        ];
+                        foreach ($normalized as $row) {
+                            $eqId = $equippedMap[$row['itemType']] ?? 0;
+                            if ($eqId > 0 && $eqId === (int) $row['itemId']) {
+                                throw new ValidationException(['items' => 'item_equipped']);
+                            }
+                        }
+                    }
                 }
 
                 // Drop the actor's existing entries and re-insert the new
