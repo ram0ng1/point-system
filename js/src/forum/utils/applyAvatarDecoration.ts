@@ -47,29 +47,32 @@ export function applyAvatarDecoration(vnode: any, frameUrl: string, opts: ApplyA
     'data-ps-deco': '1',
   };
 
-  if (opts.skipInDiscussionList) {
-    /*
-     * Mithril não dá contexto de árvore no view extender, então a única
-     * forma confiável de saber "este Avatar está dentro de um item de
-     * lista" é olhar o DOM real após mount. `closest()` cobre tanto a
-     * lista padrão do Flarum (.DiscussionListItem) quanto a versão da
-     * Avocado (.AvocadoHome-thread*). Quando bate, transformamos o
-     * wrapper de volta no nó original (retiramos a classe + o frame).
-     */
-    const LIST_SELECTOR = '.DiscussionListItem, [class*="AvocadoHome-thread"]';
-    vnode.attrs.oncreate = (n: any) => {
-      const el = n.dom as HTMLElement | null;
-      if (el && el.closest?.(LIST_SELECTOR)) {
-        el.classList.remove('ps-avatar-deco-wrap');
-        el.removeAttribute('data-ps-deco');
-        const frame = el.querySelector(':scope > .ps-avatar-deco');
-        frame?.remove();
-      }
-      previousOncreate?.(n);
-    };
-  } else if (previousOncreate) {
-    vnode.attrs.oncreate = previousOncreate;
-  }
+  /*
+   * `skipInDiscussionList` é o ÚNICO contexto que precisa de JS — está
+   * gated por uma configuração do admin que pode ser ligada/desligada.
+   * Os contextos NEVER_DECORATE (PostPreview, Post-mentionedBy*) viviam
+   * aqui também mas geravam "avatar duplicado": ao remover a classe
+   * `.ps-avatar-deco-wrap`, perdíamos a regra `background: transparent`
+   * E o wrap (que tem `.Avatar` herdado do className do inner) virava
+   * um SEGUNDO avatar visível ao lado do inner por causa do
+   * `.PostPreview .Avatar { float: left; margin-left: -50px }` de
+   * Flarum core (Post.less:348) que aplicava em BOTH wrap e inner.
+   * Movido para CSS em forum.less (`.PostPreview .ps-avatar-deco-wrap
+   * { display: contents }`) — assim o wrap some do layout e só o inner
+   * recebe o estilo do PostPreview. Sem flicker em updates de Mithril,
+   * sem duplicação visual.
+   */
+  const LIST_SELECTOR = '.DiscussionListItem, [class*="AvocadoHome-thread"]';
+  vnode.attrs.oncreate = (n: any) => {
+    const el = n.dom as HTMLElement | null;
+    if (el && opts.skipInDiscussionList && el.closest?.(LIST_SELECTOR)) {
+      el.classList.remove('ps-avatar-deco-wrap');
+      el.removeAttribute('data-ps-deco');
+      const frame = el.querySelector(':scope > .ps-avatar-deco');
+      frame?.remove();
+    }
+    previousOncreate?.(n);
+  };
 
   vnode.text = undefined;
   vnode.children = [
