@@ -248,12 +248,20 @@
   overflow: visible !important;
 }
 
-// Default behaviour — the inner element fills the wrapper. We keep this
-// rule loose (no `!important`, no forced box-sizing/margin reset) so we
-// don't fight Flarum/theme layout rules in normal post/profile contexts.
-// Specific contexts (session dropdown below) get their own overrides.
-.ps-avatar-deco-wrap > img,
-.ps-avatar-deco-wrap > span:not(.ps-avatar-deco) {
+// Default behaviour — o inner <img> precisa preencher 100% do wrap (core
+// já garante isso via `.Avatar img { width:100%; height:100% }` mas
+// mantemos a regra como segurança contra temas que mexem nesse seletor).
+//
+// IMPORTANTE: NÃO aplique a regra ao `<span>` interno do Avatar de
+// usuário sem foto (Flarum core renderiza `<span class="Avatar">R</span>`
+// quando `user.avatarUrl()` é null). O `.Avatar` core usa `display:
+// inline-flex; align-items:center; justify-content:center` para centrar
+// a letra inicial — forçar `display:block` quebrava a centralização e
+// jogava a letra para o canto superior-esquerdo (relato 2026-05-25,
+// "texto inicial R mal posicionado" em avatares default). O span interno
+// já herda `.Avatar` (mesmo width/height/border-radius do wrap), então
+// nenhum override é necessário.
+.ps-avatar-deco-wrap > img {
   display: block;
   width: 100%;
   height: 100%;
@@ -382,26 +390,15 @@
   pointer-events: auto;
 }
 
-// Non-fixed-avatar fallback: badge lives in `.Post-header > .PostUser`
-// (PostUser has `display: contents`, so the badge participates in the
-// header's flex row). Anchor it to the AVATAR position via the Post-side
-// containing block instead — using `:has()` to find posts where the
-// badges are NOT cloned into Post-side-inner.
-@media (min-width: 768px) {
-  .Page.DiscussionPage .CommentPost:not(.CommentPost--fixedAvatar) .Post-header .PostUser-badges {
-    position: absolute !important;
-    top: -4px !important;
-    left: var(--post-padding, 14px) !important;
-    right: auto !important;
-    bottom: auto !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    width: var(--avatar-column-width, 64px) !important;
-    text-align: right !important;
-    z-index: 5;
-    pointer-events: auto;
-  }
-}
+// Nenhuma reposicionagem do `.PostUser-badges` em `.Post-header` aqui —
+// quando a configuração "Ocultar badges quando moldura de avatar equipada"
+// está LIGADA, o cluster é escondido por `body.ps-hide-badges-with-deco`
+// abaixo; quando está DESLIGADA, o usuário quer o badge na posição padrão
+// do tema (core: `float: left; margin-left: calc(5px - --avatar-column-
+// width)` ancorando ao canto do avatar; Avocado: rule própria com
+// `left: calc(83px - --disc-avatar - --disc-gap)`). Override anterior
+// jogava o cluster para `left: 14px` em todos os posts e sobrepunha a
+// `.PointSystemPostBadge` no tema padrão — relato 2026-05-25.
 
 // When admin has the "hide badges with avatar deco" setting on, the badge
 // is hidden anyway by the broader `body.ps-hide-badges-with-deco` rule below.
@@ -942,18 +939,29 @@ body.ps-hide-badges-with-deco {
     width: 96px;
     height: 96px;
 
+    /*
+     * Espelha a proporção real do `.ps-avatar-deco` ao vivo: o frame ocupa
+     * 132% do avatar (width:132%; offset -16%). Para que a prévia mostre o
+     * mesmo tamanho relativo do perfil, o container é o bounding box do
+     * frame (100%) e o avatar = 100/132 ≈ 75.76% — inset = (1-0.7576)/2 ≈
+     * 12.12%. Sem fundo no <img> para que PNGs transparentes não fiquem
+     * com aquele cinza claro vazado por trás do retrato.
+     */
     &-img,
     &-placeholder {
       position: absolute;
-      inset: 8%;
-      width: 84%;
-      height: 84%;
+      inset: 12.12%;
+      width: 75.76%;
+      height: 75.76%;
       border-radius: 50%;
       object-fit: cover;
-      background: #ddd;
+    }
+
+    &-placeholder {
       display: flex;
       align-items: center;
       justify-content: center;
+      background: #ddd;
       color: #aaa;
       font-size: 36px;
     }
