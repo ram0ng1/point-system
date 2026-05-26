@@ -246,6 +246,52 @@
 .ps-avatar-deco-wrap {
   position: relative !important;  // anchor the absolutely-positioned frame
   overflow: visible !important;
+  /*
+   * O wrap HERDA o `className` do vnode original (linha 64 de
+   * applyAvatarDecoration.ts) — então carrega a classe `.Avatar` do Flarum
+   * core, que aplica `background-color: var(--avatar-bg)`. Para usuários
+   * cujo avatar carregado é um PNG com áreas transparentes (ou WEBP com
+   * alpha), essa cor de fundo VAZA pelos pixels transparentes e aparece
+   * como um "segundo avatar" sob a moldura — relato 2026-05-25: "tenho
+   * um avatar acima do outro". Forçamos `transparent` aqui; o `<img>`
+   * filho (com bg próprio se for default-text) continua visível normal.
+   */
+  background-color: transparent !important;
+}
+
+/*
+ * Em contextos de PROSA/PREVIEW onde o avatar aparece como acessório (não
+ * como cabeçalho autoral), suprimimos a moldura E removemos o wrap do
+ * layout. Sem essas regras, Flarum core's `.PostPreview .Avatar { float:
+ * left; margin-left: -50px; .Avatar--size(32px) }` (vendor/flarum/core/
+ * less/forum/Post.less:348) aplicava tanto no WRAP quanto no INNER (ambos
+ * têm `.Avatar`), gerando DOIS círculos flutuantes lado-a-lado — relato
+ * 2026-05-25: "tenho o avatar duplicado em alguns itens".
+ *
+ *   - `.PostPreview`               card do popover de "X replied to this"
+ *                                  + MentionedByModal + SearchResult
+ *   - `.Post-mentionedBy-preview`  dropdown IRMÃO (anexado via
+ *                                  this.$().append(...) por flarum/mentions)
+ *   - `.Post-mentionedBy`          bloco "X replied to this" no rodapé
+ *   - `.Post-mentionedBy-summary`  span dentro do bloco acima
+ *
+ * `display: contents` faz o wrap sumir do layout — seus filhos (o
+ * <img>/<span> do avatar real) ficam como se fossem filhos diretos do
+ * `.PostPreview`, recebendo o estilo de avatar de Flarum core uma única
+ * vez. Em paralelo escondemos o overlay `.ps-avatar-deco` (a moldura).
+ */
+.PostPreview .ps-avatar-deco-wrap,
+.Post-mentionedBy .ps-avatar-deco-wrap,
+.Post-mentionedBy-preview .ps-avatar-deco-wrap,
+.Post-mentionedBy-summary .ps-avatar-deco-wrap {
+  display: contents !important;
+}
+
+.PostPreview .ps-avatar-deco-wrap > .ps-avatar-deco,
+.Post-mentionedBy .ps-avatar-deco-wrap > .ps-avatar-deco,
+.Post-mentionedBy-preview .ps-avatar-deco-wrap > .ps-avatar-deco,
+.Post-mentionedBy-summary .ps-avatar-deco-wrap > .ps-avatar-deco {
+  display: none !important;
 }
 
 // Default behaviour — o inner <img> precisa preencher 100% do wrap (core

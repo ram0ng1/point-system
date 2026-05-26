@@ -448,8 +448,11 @@ function injectNameDecorationStyles(): void {
     // notably `.Post-likedBy .username` ("Ramon liked this") and quoted
     // content. Exclude those via `:not(.Post-likedBy *)` etc. so the
     // current actor's name decoration doesn't bleed onto unrelated
-    // usernames embedded in the post body.
-    const inDescendant = `.ps-name-${cls} .username:not(.Post-likedBy *):not(.Post-mentionedBy *):not(blockquote *):not(.UserMention *)`;
+    // usernames embedded in the post body. `.Post-mentionedBy-preview`
+    // e `.PostPreview` são listados separadamente porque o preview é
+    // ANEXADO como IRMÃO do `.Post-mentionedBy` (não descendente) por
+    // flarum/mentions, então `:not(.Post-mentionedBy *)` não cobre.
+    const inDescendant = `.ps-name-${cls} .username:not(.Post-likedBy *):not(.Post-mentionedBy *):not(.Post-mentionedBy-preview *):not(.PostPreview *):not(blockquote *):not(.UserMention *)`;
     const selectors = `.ps-name-preview.ps-name-${cls},` + `${inDescendant},` + `.username.ps-name-${cls},` + `a.ps-name-${cls}`;
     const css = String(d.customCss).trim();
 
@@ -636,6 +639,15 @@ function registerPerLetterRewriter(): void {
 const SECONDARY_USERNAME_CONTAINERS = [
   '.Post-likedBy',
   '.Post-mentionedBy',
+  // O dropdown de preview do `Post-mentionedBy` é anexado como IRMÃO
+  // (não descendente) do `.Post-mentionedBy` via `this.$().append(...)`
+  // em flarum/mentions/.../addMentionedByList.js — `.closest(
+  // '.Post-mentionedBy')` aqui NÃO pega ele. Lista explícita.
+  '.Post-mentionedBy-preview',
+  // `.PostPreview` é o card que aparece dentro do dropdown acima e
+  // também em MentionedByModal / SearchResult — é prosa, não cabeçalho
+  // autoral. Decorar o nome aqui sangra para fora do contexto autoral.
+  '.PostPreview',
   '.PostMention',
   '.Post-quoteButtonContainer',
   '.Post-actions',
