@@ -15,11 +15,27 @@
 // preset blocks below) is what makes our rules win the cascade against
 // theme overrides (avocado's `.Page.DiscussionPage .PostUser-name .username`,
 // etc.). Specificity-bumping tricks were brittle across less.php paths.
+//
+// Os `:not(...)` no descendente abaixo previnem vazamento da decoração
+// para usernames renderizados em contextos NÃO autorais dentro do mesmo
+// post decorado:
+//   - `.Post-likedBy *`           "Ramon liked this"
+//   - `.Post-mentionedBy *`       "X replied to this" (resumo)
+//   - `.Post-mentionedBy-preview *`  dropdown irmão (anexado via
+//                                    this.$().append(...) por
+//                                    flarum/mentions — NÃO é descendente
+//                                    do `.Post-mentionedBy`)
+//   - `.PostPreview *`            card de preview dentro do dropdown
+//                                    e em MentionedByModal / SearchResult
+//   - `blockquote *`              citações dentro do corpo do post
+//   - `.UserMention *`            menções inline `@usuario`
+// Relato 2026-05-25: decoração de nome aparecia no nome do replier no
+// rodapé "X respondeu a isto" e no card de preview do dropdown.
 .ps-deco(@class, @rules) {
   .ps-name-preview.@{class},
   // Wrapper containing the username (CommentPost root, UserCard, etc.) —
   // descendant selector hits `.username` inside.
-  .@{class} .username,
+  .@{class} .username:not(.Post-likedBy *):not(.Post-mentionedBy *):not(.Post-mentionedBy-preview *):not(.PostPreview *):not(blockquote *):not(.UserMention *),
   // Direct hit when `setupUsernameSpanTagger` tagged the span itself.
   .username.@{class},
   a.@{class},
@@ -31,10 +47,12 @@
 }
 
 // Pseudo-element helper. Pass `before` or `after` as @pseudo.
+// `:not()` (pseudo-class) precisa vir ANTES do pseudo-elemento `:before`/
+// `:after` na ordem da selector — pseudo-elementos sempre vão ao final.
 .ps-deco-pseudo(@class, @pseudo, @rules) {
   @sel: ~":@{pseudo}";
   .ps-name-preview.@{class}@{sel},
-  .@{class} .username@{sel},
+  .@{class} .username:not(.Post-likedBy *):not(.Post-mentionedBy *):not(.Post-mentionedBy-preview *):not(.PostPreview *):not(blockquote *):not(.UserMention *)@{sel},
   .username.@{class}@{sel},
   a.@{class}@{sel},
   .ps-name-text.@{class}@{sel} {
