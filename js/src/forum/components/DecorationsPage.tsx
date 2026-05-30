@@ -108,14 +108,19 @@ export default class DecorationsPage extends Page {
       <div className="PointSystemDecorations container">
         <div className="PointSystemDecorations-pageHeader">
           <h1>{app.translator.trans('ramon-point-system.forum.my_decorations.title')}</h1>
-          {canSubmit && (
-            <Button
-              className="Button Button--primary"
-              onclick={() => app.modal.show(SubmitDecorationModal, { type: submitType, onSubmitted: () => m.redraw() })}
-            >
-              <i className="fas fa-paper-plane" /> {app.translator.trans('ramon-point-system.forum.my_decorations.submit_cta')}
-            </Button>
-          )}
+          <div className="PointSystemDecorations-pageHeader-actions">
+            <LinkButton className="Button" href={app.route('pointSystem.shop')}>
+              <i className="fas fa-store" /> {app.translator.trans('ramon-point-system.forum.my_decorations.shop_link')}
+            </LinkButton>
+            {canSubmit && (
+              <Button
+                className="Button Button--primary"
+                onclick={() => app.modal.show(SubmitDecorationModal, { type: submitType, onSubmitted: () => m.redraw() })}
+              >
+                <i className="fas fa-paper-plane" /> {app.translator.trans('ramon-point-system.forum.my_decorations.submit_cta')}
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Live preview — mirrors the user-profile hero so users see exactly
