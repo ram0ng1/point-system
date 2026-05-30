@@ -70,7 +70,12 @@ export default class UsernameAutocomplete extends Component {
           placeholder={this.attrs.placeholder || ''}
           autofocus={this.attrs.autofocus || false}
           oninput={(e: Event) => this.onInput((e.target as HTMLInputElement).value)}
-          onblur={() => setTimeout(() => { this.open = false; m.redraw(); }, 150)}
+          onblur={() =>
+            setTimeout(() => {
+              this.open = false;
+              m.redraw();
+            }, 150)
+          }
         />
         {this.open && (
           <ul className="UsernameAutocomplete-dropdown">
@@ -80,14 +85,9 @@ export default class UsernameAutocomplete extends Component {
               const avatarUrl = user.avatarUrl?.();
               return (
                 <li key={user.id()} onmousedown={() => this.select(user)}>
-                  {avatarUrl
-                    ? <img className="Avatar" src={avatarUrl} alt="" />
-                    : <span className="Avatar">{username.charAt(0).toUpperCase()}</span>
-                  }
+                  {avatarUrl ? <img className="Avatar" src={avatarUrl} alt="" /> : <span className="Avatar">{username.charAt(0).toUpperCase()}</span>}
                   <span className="UsernameAutocomplete-name">{displayName}</span>
-                  {displayName !== username && (
-                    <span className="UsernameAutocomplete-username">@{username}</span>
-                  )}
+                  {displayName !== username && <span className="UsernameAutocomplete-username">@{username}</span>}
                 </li>
               );
             })}

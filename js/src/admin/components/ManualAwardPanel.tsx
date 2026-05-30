@@ -29,11 +29,7 @@ export default class ManualAwardPanel extends Component {
 
         <div className="Form-group">
           <label>{t('field_username')}</label>
-          <UsernameAutocomplete
-            value={this.username}
-            onchange={(v: string) => (this.username = v)}
-            placeholder={t('field_username') as string}
-          />
+          <UsernameAutocomplete value={this.username} onchange={(v: string) => (this.username = v)} placeholder={t('field_username') as string} />
         </div>
 
         <div className="Form-group">
@@ -66,8 +62,12 @@ export default class ManualAwardPanel extends Component {
         {this.lastResult && (
           <div className="PointSystemAdmin-result">
             <h4>{t('result')}</h4>
-            <p><strong>{t('balance')}:</strong> {this.lastResult.balance}</p>
-            <p><strong>{t('lifetime')}:</strong> {this.lastResult.lifetime}</p>
+            <p>
+              <strong>{t('balance')}:</strong> {this.lastResult.balance}
+            </p>
+            <p>
+              <strong>{t('lifetime')}:</strong> {this.lastResult.lifetime}
+            </p>
           </div>
         )}
 
@@ -90,11 +90,7 @@ export default class ManualAwardPanel extends Component {
 
         <div className="Form-group">
           <label>{t('field_reason')}</label>
-          <input
-            className="FormControl"
-            value={this.bulkReason}
-            oninput={(e: Event) => (this.bulkReason = (e.target as HTMLInputElement).value)}
-          />
+          <input className="FormControl" value={this.bulkReason} oninput={(e: Event) => (this.bulkReason = (e.target as HTMLInputElement).value)} />
         </div>
 
         {!this.bulkConfirm ? (
@@ -102,26 +98,29 @@ export default class ManualAwardPanel extends Component {
             <Button
               className="Button Button--danger"
               disabled={this.bulkAmount === 0 || this.bulkBusy}
-              onclick={() => { this.bulkConfirm = true; m.redraw(); }}
+              onclick={() => {
+                this.bulkConfirm = true;
+                m.redraw();
+              }}
             >
               <i className="fas fa-users" /> {t('bulk_submit')}
             </Button>
           </div>
         ) : (
           <div className="PointSystemAdmin-bulkConfirm">
-            <p><strong>{t('bulk_confirm')}</strong></p>
-            <Button
-              className="Button Button--danger"
-              loading={this.bulkBusy}
-              onclick={() => this.submitBulk()}
-            >
+            <p>
+              <strong>{t('bulk_confirm')}</strong>
+            </p>
+            <Button className="Button Button--danger" loading={this.bulkBusy} onclick={() => this.submitBulk()}>
               <i className="fas fa-check" /> {t('bulk_confirm_yes')}
-            </Button>
-            {' '}
+            </Button>{' '}
             <Button
               className="Button"
               disabled={this.bulkBusy}
-              onclick={() => { this.bulkConfirm = false; m.redraw(); }}
+              onclick={() => {
+                this.bulkConfirm = false;
+                m.redraw();
+              }}
             >
               {t('bulk_confirm_no')}
             </Button>
@@ -131,9 +130,13 @@ export default class ManualAwardPanel extends Component {
         {this.bulkResult && (
           <div className="PointSystemAdmin-result">
             <h4>{t('bulk_result')}</h4>
-            <p><strong>{t('bulk_awarded')}:</strong> {this.bulkResult.awarded}</p>
+            <p>
+              <strong>{t('bulk_awarded')}:</strong> {this.bulkResult.awarded}
+            </p>
             {this.bulkResult.errors > 0 && (
-              <p><strong>{t('bulk_errors')}:</strong> {this.bulkResult.errors}</p>
+              <p>
+                <strong>{t('bulk_errors')}:</strong> {this.bulkResult.errors}
+              </p>
             )}
           </div>
         )}
