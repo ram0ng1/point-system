@@ -2,6 +2,7 @@
 import app from 'flarum/admin/app';
 import Modal from 'flarum/common/components/Modal';
 import Button from 'flarum/common/components/Button';
+import UsernameAutocomplete from './UsernameAutocomplete';
 
 /**
  * Admin modal: grant a specific shop item directly to a user.
@@ -43,13 +44,11 @@ export default class GrantItemModal extends Modal {
 
         <div className="Form-group">
           <label>{t('username_label')}</label>
-          <input
-            type="text"
-            className="FormControl"
+          <UsernameAutocomplete
             value={this.username}
-            oninput={(e: Event) => (this.username = (e.target as HTMLInputElement).value)}
+            onchange={(v: string) => (this.username = v)}
             placeholder={t('username_placeholder') as string}
-            autofocus
+            autofocus={true}
           />
           <p className="helpText">{t('username_help')}</p>
         </div>

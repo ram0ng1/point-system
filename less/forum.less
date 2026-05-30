@@ -80,7 +80,7 @@
     height: 38px;
     border-radius: 50%;
     background: var(--control-bg, #cccccc);
-    color: #fff;
+    color: var(--text-color, #fff);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -865,7 +865,7 @@ body.ps-hide-badges-with-deco {
       right: 12px;
       z-index: 3;
       background: var(--primary-color, #6cc04a);
-      color: #fff;
+      color: var(--button-primary-color, #fff);
       padding: 4px 10px;
       border-radius: 999px;
       font-size: 11px;
@@ -1381,7 +1381,7 @@ body.ps-hide-badges-with-deco {
   cursor: default !important;
   opacity: 1 !important;
   background: var(--primary-color, #6cc04a) !important;
-  color: #fff !important;
+  color: var(--button-primary-color, #fff) !important;
 }
 
 // ─── My decorations page ─────────────────────────────────────────────────────
@@ -2058,6 +2058,13 @@ body.ps-hide-badges-with-deco {
   flex-wrap: wrap;
 
   h1 { margin: 0; }
+
+  &-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
 }
 
 .PointSystemSubmitModal {
@@ -2278,7 +2285,7 @@ body.ps-hide-badges-with-deco {
     gap: var(--ps-space-1);
     padding: 3px 10px;
     background: var(--primary-color, #6cc04a);
-    color: #fff;
+    color: var(--button-primary-color, #fff);
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.06em;
@@ -2747,7 +2754,7 @@ body.ps-hide-badges-with-deco {
 
     &--primary {
       background: var(--primary-color, #6cc04a);
-      color: #fff;
+      color: var(--button-primary-color, #fff);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 1px 2px rgba(0, 0, 0, 0.06);
 
       &:hover:not(:disabled) {
@@ -3103,7 +3110,7 @@ body.ps-hide-badges-with-deco {
     // the username to white so it stays readable. The `ps-name-{slug}`
     // class still wins via the `!important` in the deco CSS.
     .ps-has-cover & {
-      color: #fff;
+      color: var(--text-on-dark, #fff);
       text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
     }
   }
@@ -3122,12 +3129,12 @@ body.ps-hide-badges-with-deco {
      * ficar âmbar sólido independente do modo, e a sombra ganha um anel
      * sutil pra demarcar a borda quando o hero atrás é claro também.
      */
-    background: #ffffff;
+    background: var(--control-bg, #ffffff);
     padding: 4px 12px;
     border-radius: 999px;
     font-size: 12.5px;
     font-weight: 600;
-    color: #1f2937;
+    color: var(--text-color, #1f2937);
     box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 2px 6px rgba(0, 0, 0, 0.10);
 
     i {
@@ -3388,4 +3395,44 @@ body:has(.PointSystemTradeModal) .ModalManager-invisibleBackdrop {
   position: relative !important;
   z-index: 9999 !important;
   pointer-events: auto !important;
+}
+
+// ─── Mobile layout fixes ──────────────────────────────────────────────────────
+@media (max-width: 768px) {
+  .PointSystemDecorations {
+    padding-left: 12px;
+    padding-right: 12px;
+    box-sizing: border-box;
+  }
+
+  .PointSystemDecorations-previewHero,
+  .PointSystemDecorations section,
+  .PointSystemDecorations-pageHeader {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .PointSystemDecorations .PointSystemDecorations-nav.App-titleControl {
+    position: static !important;
+    top: auto !important;
+    right: auto !important;
+    margin-bottom: 8px;
+  }
+
+  .PointSystemDecorations-pageHeader {
+    flex-direction: column;
+    align-items: flex-start;
+
+    &-actions {
+      align-self: flex-start;
+    }
+  }
+
+  .PointSystemShop .PointSystemShop-nav.App-titleControl {
+    position: static !important;
+    top: auto !important;
+    right: auto !important;
+    padding: 0 12px;
+    margin-bottom: 8px;
+  }
 }
