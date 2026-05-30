@@ -99,6 +99,7 @@ return [
         ->post('/point-system/cover-decoration/upload', 'pointSystem.coverDeco.upload', Controller\UploadCoverDecorationController::class)
         ->delete('/point-system/cover-decoration/{id}', 'pointSystem.coverDeco.delete', Controller\DeleteCoverDecorationController::class)
         ->post('/point-system/award', 'pointSystem.award', Controller\ManualAwardController::class)
+        ->post('/point-system/bulk-award', 'pointSystem.bulkAward', Controller\BulkAwardController::class)
         ->post('/point-system/grant', 'pointSystem.grant', Controller\GrantItemController::class)
         // ── Trades ──────────────────────────────────────────────────────
         ->get('/point-system/trades', 'pointSystem.trades.list', Controller\ListTradesController::class)
