@@ -18,7 +18,8 @@ export default class UsersPointsPanel extends Component {
   loading = false;
   users: any[] = [];
   total = 0;
-  page = 0; // zero-indexed
+  hasNextPage = false;
+  page = 0;
   search = '';
   filter: 'all' | 'positive' | 'zero' = 'all';
   sort: 'balance' | 'lifetime' | 'username' = 'balance';
@@ -47,10 +48,9 @@ export default class UsersPointsPanel extends Component {
     try {
       const res = await app.store.find('users', params);
       let arr = Array.isArray(res) ? res.slice() : [];
-      this.total = (res as any)?.payload?.meta?.total ?? arr.length;
+      const rawTotal = (res as any)?.payload?.meta?.total ?? arr.length;
+      this.hasNextPage = arr.length === PAGE_SIZE;
 
-      // Filter & sort client-side (the API doesn't expose pointBalance as a
-      // sortable column, so we sort/filter the current page locally).
       if (this.filter === 'positive') arr = arr.filter((u: any) => Number(u.attribute('pointBalance') ?? 0) > 0);
       else if (this.filter === 'zero') arr = arr.filter((u: any) => Number(u.attribute('pointBalance') ?? 0) === 0);
 
@@ -60,6 +60,7 @@ export default class UsersPointsPanel extends Component {
         return String(a.username() || '').localeCompare(String(b.username() || ''));
       });
 
+      this.total = this.filter === 'all' ? rawTotal : arr.length + this.page * PAGE_SIZE;
       this.users = arr;
     } catch (e: any) {
       app.alerts.show({ type: 'error' }, e?.response?.errors?.[0]?.detail || 'Failed to load users');
@@ -162,7 +163,7 @@ export default class UsersPointsPanel extends Component {
           <span className="PointSystemAdmin-pageInfo">{t('page_x_of_y', { x: this.page + 1, y: totalPages })}</span>
           <Button
             className="Button"
-            disabled={this.page + 1 >= totalPages || this.loading}
+            disabled={!this.hasNextPage || this.loading}
             onclick={() => {
               this.page = this.page + 1;
               this.load();
