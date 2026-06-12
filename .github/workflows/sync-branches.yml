@@ -53,6 +53,11 @@ jobs:
 
             git checkout -B "$branch" "origin/$branch"
 
+            if ! git merge-base origin/main "origin/$branch" >/dev/null 2>&1; then
+              echo "Branch '$branch' sem histórico comum com main (pré-reescrita) — pulando"
+              continue
+            fi
+
             if git merge origin/main --no-edit -m "chore: sync with main"; then
               if git push origin "$branch"; then
                 echo "✅ Branch '$branch' sincronizada com sucesso"
@@ -64,7 +69,7 @@ jobs:
             else
               echo "⚠️  Conflito ao sincronizar '$branch' com main — pulando"
               FAILED_BRANCHES+=("$branch")
-              git merge --abort
+              git merge --abort 2>/dev/null || true
             fi
           done
 
