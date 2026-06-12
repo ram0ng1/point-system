@@ -3,7 +3,6 @@ import app from 'flarum/forum/app';
 import Page from 'flarum/common/components/Page';
 import Button from 'flarum/common/components/Button';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
-import LinkButton from 'flarum/common/components/LinkButton';
 import TradeModal from './TradeModal';
 import StartTradeModal from './StartTradeModal';
 import { pointsLabel } from '../../common/utils/pointsLabel';
