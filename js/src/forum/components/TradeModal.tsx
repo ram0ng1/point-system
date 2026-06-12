@@ -95,7 +95,7 @@ export default class TradeModal extends Modal {
   }
 
   title() {
-    const t = (k: string) => app.translator.trans('ramon-point-system.forum.trade.' + k);
+    const t = (k: string, v?: any) => app.translator.trans('ramon-point-system.forum.trade.' + k, v);
     if (!this.trade) return t('title_loading');
     const youAre = this.trade.youAre as Side;
     const other = youAre === 'initiator' ? this.trade.recipient : this.trade.initiator;
@@ -349,7 +349,6 @@ export default class TradeModal extends Modal {
 
     const t = (k: string, v?: any) => app.translator.trans('ramon-point-system.forum.trade.' + k, v);
     const youAre = this.trade.youAre as Side;
-    const yourPoints = youAre === 'initiator' ? this.trade.initiatorPoints : this.trade.recipientPoints;
     const theirPoints = youAre === 'initiator' ? this.trade.recipientPoints : this.trade.initiatorPoints;
     const yourAccept = youAre === 'initiator' ? this.trade.initiatorAccepted : this.trade.recipientAccepted;
     const theirAccept = youAre === 'initiator' ? this.trade.recipientAccepted : this.trade.initiatorAccepted;
