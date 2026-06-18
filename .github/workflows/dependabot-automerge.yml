@@ -1,0 +1,84 @@
+name: Dependabot auto-merge
+
+# Auto-merge dos PRs do Dependabot de patch/minor: aprova e liga o auto-merge,
+# e o GitHub funde sozinho QUANDO os checks obrigatórios (CI) passam — se a CI
+# acusar quebra, o PR NÃO é mesclado. A branch é apagada após o merge
+# (--delete-branch). Major fica para revisão manual.
+#
+# Requer, nas Settings do repo (não dá pra configurar por workflow):
+#   • General → "Allow auto-merge" LIGADO (senão `gh pr merge --auto` falha);
+#   • Branch protection em `main` exigindo os checks do workflow CI verdes —
+#     é isso que faz o auto-merge ESPERAR a CI em vez de fundir na hora;
+#   • General → "Automatically delete head branches" (opcional; o
+#     --delete-branch abaixo já cobre o caso do Dependabot).
+on: pull_request_target
+
+# §35.13 C1 — default-deny.
+permissions: {}
+
+concurrency:
+  group: dependabot-automerge-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  automerge:
+    name: Auto-merge (patch/minor)
+    runs-on: ubuntu-latest
+    # Só roda para PRs abertos pelo próprio Dependabot. NÃO faz checkout do
+    # código do PR (pull_request_target roda no contexto do base) — então não
+    # há execução de código não-confiável com o token de escrita.
+    if: github.actor == 'dependabot[bot]'
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411  # v2.19.4
+        with:
+          egress-policy: audit
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+
+      - name: Metadados do update
+        id: meta
+        uses: dependabot/fetch-metadata@08eff52bf64351f401fb50d4972fa95b9f2c2d1b  # v2.4.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # O GITHUB_TOKEN do Actions não pode mesclar PR que altera
+      # .github/workflows/** (escopo `workflows`, não concedível via
+      # `permissions:`). Sem este guarda, o auto-merge é habilitado mas
+      # nunca conclui e o PR fica preso. Esses ficam para merge manual.
+      - name: Detectar alteração em workflow
+        id: wf
+        run: |
+          set -uo pipefail
+          if gh pr view "$PR_URL" --json files --jq '.files[].path' | grep -q '^\.github/workflows/'; then
+            echo "touches=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::PR altera .github/workflows/ — auto-merge pulado; mescle manualmente."
+          else
+            echo "touches=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Aprova o PR para que o auto-merge consiga concluir mesmo quando o branch
+      # protection exige um review aprovado. Gated em patch/minor — major nunca
+      # é aprovado nem mesclado automaticamente.
+      - name: Aprovar (patch + minor)
+        if: steps.wf.outputs.touches == 'false' && (steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor')
+        run: gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # --auto: o GitHub funde sozinho quando os checks obrigatórios passarem
+      # (CI verde). --delete-branch: remove a branch do Dependabot após o merge.
+      - name: Habilitar auto-merge (patch + minor)
+        if: steps.wf.outputs.touches == 'false' && (steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor')
+        run: gh pr merge --auto --squash --delete-branch "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
