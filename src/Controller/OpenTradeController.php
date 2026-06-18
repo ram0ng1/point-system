@@ -113,7 +113,7 @@ class OpenTradeController implements RequestHandlerInterface
         // a session they'd started earlier (or had dismissed the first
         // alert). The dispatch is synchronous: NotificationSyncer commits
         // the row + fans out to drivers (DB always, websocket when
-        // kyrne/websocket is installed) before this method returns, so the
+        // flarum/realtime is installed) before this method returns, so the
         // recipient sees the alert on their next poll OR immediately via
         // WebSocket if that's wired up.
         $this->events->dispatch(new TradeRequested($trade));

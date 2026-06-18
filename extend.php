@@ -49,7 +49,7 @@ return [
         ->listen(UserRegistered::class, Listener\InitUserPoints::class)
         ->listen(UserLoggedIn::class, Listener\AwardDailyLoginBonus::class)
         // ── Notification dispatch (mirrors verified's event→listener pattern;
-        //    NotificationSyncer fans out to all drivers incl. kyrne/websocket) ──
+        //    NotificationSyncer fans out to all drivers incl. flarum/realtime) ──
         ->listen(\Ramon\PointSystem\Event\PointsManuallyChanged::class, Listener\SendNotificationWhenPointsChanged::class)
         ->listen(\Ramon\PointSystem\Event\TierClaimed::class, Listener\SendNotificationWhenTierClaimed::class)
         ->listen(\Ramon\PointSystem\Event\ItemGranted::class, Listener\SendNotificationWhenItemGranted::class)

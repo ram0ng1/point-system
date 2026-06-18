@@ -65,5 +65,8 @@
                 "editorConfig": true
             }
         }
+    },
+    "require-dev": {
+        "flarum/realtime": "^2.0.0"
     }
 }

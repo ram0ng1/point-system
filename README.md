@@ -27,7 +27,7 @@ There are 24 built in username decorations, from gold and neon to glitch and rai
 - Username decorations with live preview in the shop, in the admin form and in the post stream
 - Group tiers purchasable with points, attached permanently on claim
 - Admin tools for manual credit and debit with reasons, plus a users panel with search and sorting
-- Notifications when points change or a tier is joined, websocket pushed if `kyrne/websocket` is around
+- Notifications when points change or a tier is joined, websocket pushed if `flarum/realtime` is around
 - Events fired on every change, so other extensions can react
 
 ## Installation
@@ -40,7 +40,7 @@ php flarum cache:clear
 
 Enable Point System on the Extensions page. Rules, catalog, tiers and permissions are all managed in the admin panel.
 
-Optional companions: `flarum/likes` unlocks the like related rules and `kyrne/websocket` makes notifications land in real time.
+Optional companions: `flarum/likes` unlocks the like related rules and `flarum/realtime` makes notifications land in real time.
 
 ## License
 
