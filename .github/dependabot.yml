@@ -1,4 +1,7 @@
-# Dependabot para composer, npm e github-actions.
+# 🟡 R1 — Dependabot para composer, npm, e github-actions.
+# Os labels devem bater com `.github/pr-labeler.yml` para o changelog agrupar
+# corretamente (release-drafter).
+
 version: 2
 updates:
   - package-ecosystem: composer
@@ -9,8 +12,6 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - dependencias
-    commit-message:
-      prefix: "deps"
 
   - package-ecosystem: npm
     directory: /js
@@ -20,10 +21,7 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - dependencias
-    commit-message:
-      prefix: "deps"
 
-  # Mantém os SHAs dos uses: atualizados (Dependabot rebumpa preservando o pin).
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -32,5 +30,3 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - dependencias
-    commit-message:
-      prefix: "ci"
