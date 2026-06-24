@@ -1,6 +1,6 @@
 {
     "name": "ramon/point-system",
-    "description": "Sistema avançado de pontos para Flarum 2.0 com auto-group por tiers, loja, decorações de avatar (estilo Discord) e decorações CSS de nome de usuário.",
+    "description": "Points, avatar frames and group tiers for Flarum 2",
     "keywords": [
         "flarum",
         "points",
@@ -65,5 +65,8 @@
                 "editorConfig": true
             }
         }
+    },
+    "require-dev": {
+        "flarum/realtime": "^2.0.0"
     }
 }

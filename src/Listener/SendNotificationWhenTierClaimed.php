@@ -13,7 +13,7 @@ use Throwable;
 /**
  * Listens for `TierClaimed` and dispatches the notification to the user that
  * just joined the group. NotificationSyncer fan-outs to every driver — the
- * websocket driver (kyrne/websocket) pushes a Pusher event on the user's
+ * websocket driver (flarum/realtime) pushes a Pusher event on the user's
  * private channel so the bell-icon refreshes in real time.
  *
  * PSR-3 LoggerInterface is injected directly — never via the

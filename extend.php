@@ -49,7 +49,7 @@ return [
         ->listen(UserRegistered::class, Listener\InitUserPoints::class)
         ->listen(UserLoggedIn::class, Listener\AwardDailyLoginBonus::class)
         // ── Notification dispatch (mirrors verified's event→listener pattern;
-        //    NotificationSyncer fans out to all drivers incl. kyrne/websocket) ──
+        //    NotificationSyncer fans out to all drivers incl. flarum/realtime) ──
         ->listen(\Ramon\PointSystem\Event\PointsManuallyChanged::class, Listener\SendNotificationWhenPointsChanged::class)
         ->listen(\Ramon\PointSystem\Event\TierClaimed::class, Listener\SendNotificationWhenTierClaimed::class)
         ->listen(\Ramon\PointSystem\Event\ItemGranted::class, Listener\SendNotificationWhenItemGranted::class)
@@ -99,6 +99,7 @@ return [
         ->post('/point-system/cover-decoration/upload', 'pointSystem.coverDeco.upload', Controller\UploadCoverDecorationController::class)
         ->delete('/point-system/cover-decoration/{id}', 'pointSystem.coverDeco.delete', Controller\DeleteCoverDecorationController::class)
         ->post('/point-system/award', 'pointSystem.award', Controller\ManualAwardController::class)
+        ->post('/point-system/bulk-award', 'pointSystem.bulkAward', Controller\BulkAwardController::class)
         ->post('/point-system/grant', 'pointSystem.grant', Controller\GrantItemController::class)
         // ── Trades ──────────────────────────────────────────────────────
         ->get('/point-system/trades', 'pointSystem.trades.list', Controller\ListTradesController::class)

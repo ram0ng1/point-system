@@ -101,7 +101,7 @@ class AcceptTradeController implements RequestHandlerInterface
         // should fire after the DB commit so a half-rolled-back state can
         // never produce a phantom alert). The listener is synchronous —
         // by the time the response goes out, the notifications table has
-        // the row and any kyrne/websocket subscribers have been pinged.
+        // the row and any flarum/realtime subscribers have been pinged.
         if ($shouldNotifyOtherSide && $trade) {
             $this->events->dispatch(new TradeAccepted($trade, $actor));
         }

@@ -17,7 +17,7 @@ use Throwable;
  *
  * The NotificationSyncer routes through every registered driver — that means
  * the `alert` driver (DB row + bell-icon UI) AND any push driver (e.g.
- * kyrne/websocket if installed). The frontend's websocket listener bumps the
+ * flarum/realtime if installed). The frontend's websocket listener bumps the
  * unread count and clears the notification list to force a refetch, so the
  * recipient sees it in real time.
  *
