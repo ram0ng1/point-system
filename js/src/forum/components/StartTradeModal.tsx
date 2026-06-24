@@ -123,12 +123,7 @@ export default class StartTradeModal extends Modal {
           // We pass the @handle as a child so it renders to the right — useful
           // for telling apart users who share a display name. `.active` mirrors
           // the keyboard highlight; hover is handled in CSS.
-          <UserSearchResult
-            user={u}
-            query={this.query}
-            className={i === this.highlight ? 'active' : ''}
-            onclick={() => this.pick(u)}
-          >
+          <UserSearchResult user={u} query={this.query} className={i === this.highlight ? 'active' : ''} onclick={() => this.pick(u)}>
             <span className="PointSystemStartTradeModal-handle">@{u.username?.()}</span>
           </UserSearchResult>
         ))}
