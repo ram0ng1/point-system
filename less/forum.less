@@ -1,37 +1,82 @@
 @import 'common/decorations.less';
 
-// ─── Design tokens (Linear-inspired, scoped to the extension) ─────────────────
-// We don't redefine Flarum's palette — we layer subtler defaults on top of it.
-// Every component below uses these vars so a host theme can override the look
-// in one place. Spacing follows a 4px grid; radii are conservative (10/12px);
-// borders are nearly invisible single-pixel lines; shadows are short and flat.
+// ─── Design tokens — bridged to the Avocado design system ─────────────────────
+// Single source of truth for the extension's look. Every `--ps-*` token maps to
+// an Avocado theme token (`--avocado-*`, `--shadow-*`, `--font-sans`, …) so the
+// point system inherits Avocado's palette, elevation, radii, motion and DARK
+// MODE automatically — no more "design brusco" where our cards clash with the
+// surrounding theme. Each token keeps a Flarum-core fallback (`--body-bg`,
+// `--control-bg`, `--muted-color`, `--primary-color`) so the extension still
+// looks coherent on stock Flarum or any other theme that respects core vars.
+//
+// Reference: workbench/avocado-v2/less/common/variables.less (the live tokens)
+// + the Avocado Design System doc (colors_and_type.css).
 :root {
-  --ps-radius-sm: 8px;
-  --ps-radius:    10px;
-  --ps-radius-lg: 12px;
-  --ps-radius-xl: 14px;
+  // ── Radii — Avocado's rounded scale (theme base @border-radius = 14px) ──────
+  --ps-radius-sm:   10px;   // chips, small controls, inputs
+  --ps-radius:      14px;   // base — list rows, buttons, small cards
+  --ps-radius-lg:   16px;   // panels, dropdowns
+  --ps-radius-xl:   18px;   // cards
+  --ps-radius-hero: 20px;   // hero / large banners
+  --ps-radius-pill: 999px;
 
-  /*
-   * Bordas dos cards precisam ser visíveis em light E dark mode. O valor
-   * antigo `rgba(0, 0, 0, 0.06)` era preto-quase-transparente — invisível
-   * sobre fundo escuro (relato 2026-05-23: "no modo noturno, não tenho
-   * como saber onde acaba o card do item"). `color-mix` com a cor de
-   * texto produz uma linha que herda o contraste correto em cada tema:
-   * em claro, `--text-color` é escuro → tinta escura; em escuro, o
-   * texto é claro → tinta clara. Funciona em qualquer tema que respeite
-   * `--text-color` (Avocado, Flarum base, etc.).
-   */
-  --ps-border:        color-mix(in srgb, var(--text-color, currentColor) 18%, transparent);
-  --ps-border-subtle: color-mix(in srgb, var(--text-color, currentColor) 12%, transparent);
-  --ps-surface:       var(--body-bg, #fff);
-  --ps-surface-muted: var(--control-bg, #f5f5f7);
-  --ps-text-muted:    var(--muted-color, #6b7280);
+  // ── Surfaces ────────────────────────────────────────────────────────────────
+  --ps-surface:        var(--body-bg, #fff);                                   // cards / panels
+  --ps-surface-sunken: var(--avocado-surface-1, var(--control-bg, #f4f4f7));   // inputs / wells
+  --ps-surface-muted:  var(--avocado-surface-1, var(--control-bg, #f4f4f7));   // hover tints / sunken rows
 
-  --ps-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --ps-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.06);
-  --ps-shadow-3: 0 8px 24px rgba(0, 0, 0, 0.08);
+  // ── Borders — Avocado subtle/soft; color-mix fallback stays dark-mode-aware ──
+  // (light: --text-color is dark → dark hairline; dark: light text → light line)
+  --ps-border:        var(--avocado-border-subtle, color-mix(in srgb, var(--text-color, currentColor) 14%, transparent));
+  --ps-border-subtle: var(--avocado-border-soft,   color-mix(in srgb, var(--text-color, currentColor) 9%,  transparent));
 
-  --ps-t: 0.16s ease;
+  // ── Text ────────────────────────────────────────────────────────────────────
+  --ps-text:       var(--text-color, #1f2025);
+  --ps-text-muted: var(--muted-color, #6b6b72);
+  --ps-text-icon:  var(--avocado-muted-icon, var(--muted-color, #767680));
+
+  // ── Accent (Flarum primary; Avocado-green fallback) ─────────────────────────
+  --ps-accent:      var(--primary-color, #6cc04a);
+  --ps-accent-soft: color-mix(in srgb, var(--primary-color, #6cc04a) 12%, transparent);
+  --ps-accent-ring: color-mix(in srgb, var(--primary-color, #6cc04a) 40%, transparent);
+
+  // ── Dark CTA (Avocado "New Thread" pill) ────────────────────────────────────
+  --ps-cta-dark:       var(--avocado-btn-dark, #0d0d10);
+  --ps-cta-dark-hover: var(--avocado-btn-dark-hover, #23252b);
+  --ps-on-dark:        var(--text-on-dark, rgba(255, 255, 255, 0.92));
+
+  // ── Elevation — Avocado's 3-tier shadow scale ───────────────────────────────
+  --ps-shadow-1: var(--shadow-subtle, 0 1px 6px rgba(0, 0, 0, 0.06));
+  --ps-shadow-2: var(--shadow-medium, 0 8px 24px rgba(0, 0, 0, 0.12));
+  --ps-shadow-3: var(--shadow-lifted, 0 12px 32px rgba(0, 0, 0, 0.18));
+  // The exact card-hover lift Avocado uses on its category/thread cards
+  // (workbench/avocado-v2/less/forum/HomePage.less) — softer than --shadow-2,
+  // so our cards lift identically to the surrounding theme.
+  --ps-shadow-card-hover: 0 10px 20px rgba(26, 26, 36, 0.06);
+  --ps-border-hover: #dfdfe6;
+  // Aliases for the second token block / older rules.
+  --ps-elevate-1: var(--ps-shadow-1);
+  --ps-elevate-2: var(--ps-shadow-2);
+  --ps-elevate-3: var(--ps-shadow-3);
+  --ps-ring: 0 0 0 2px var(--body-bg, #fff), 0 0 0 4px var(--ps-accent-ring);
+
+  // ── Spacing — 4px grid ──────────────────────────────────────────────────────
+  --ps-space-1: 4px;
+  --ps-space-2: 8px;
+  --ps-space-3: 12px;
+  --ps-space-4: 16px;
+  --ps-space-5: 20px;
+  --ps-space-6: 24px;
+  --ps-space-8: 32px;
+
+  // ── Motion — Avocado easings/durations ──────────────────────────────────────
+  --ps-ease:   cubic-bezier(0.22, 1, 0.36, 1);
+  --ps-t:      var(--avocado-t-medium, 0.2s ease);
+  --ps-t-fast: var(--avocado-t-fast, 0.15s ease);
+  --ps-t-med:  var(--avocado-t-medium, 0.2s ease);
+
+  // ── Type ────────────────────────────────────────────────────────────────────
+  --ps-font: var(--font-sans, inherit);
 
   --ps-num-tabular: 'tnum' 1, 'lnum' 1;
 }
@@ -63,11 +108,6 @@
   border-radius: var(--ps-radius);
   position: relative;
   transition: border-color var(--ps-t), box-shadow var(--ps-t), transform var(--ps-t);
-
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--ps-shadow-2);
-  }
 
   &.is-reached {
     border-color: var(--primary-color, #6cc04a);
@@ -124,25 +164,6 @@
 }
 
 // ─── My Decorations preview header ────────────────────────────────────────────
-.PointSystemDecorations-preview {
-  background: var(--control-bg, #f7f7f7);
-  padding: 20px;
-  border-radius: 12px;
-  margin-bottom: 24px;
-
-  h2 { margin: 0 0 12px; font-size: 16px; }
-}
-
-.PointSystemDecorations-previewBody {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  font-size: 24px;
-  font-weight: 700;
-
-  .Avatar { width: 64px; height: 64px; font-size: 28px; }
-}
-
 // ─── Manage-points modal (User profile Controls dropdown action) ─────────────
 .AwardPointsModal-current {
   display: flex;
@@ -920,11 +941,6 @@ body.ps-hide-badges-with-deco {
     position: relative;
     transition: transform var(--ps-t), box-shadow var(--ps-t), border-color var(--ps-t);
 
-    &:hover {
-      transform: translateY(-1px);
-      box-shadow: var(--ps-shadow-2);
-      border-color: var(--ps-border-subtle);
-    }
 
     &.is-equipped {
       border-color: var(--primary-color, #2f81f7);
@@ -1338,8 +1354,7 @@ body.ps-hide-badges-with-deco {
 // since the surrounding avatar is much larger than in a post column.
 .UserCard .PointSystemUserTitle,
 .UserHero .PointSystemUserTitle,
-.AvocadoUserPage-hero .PointSystemUserTitle,
-.PointSystemDecorations-previewAvatar .PointSystemUserTitle {
+.AvocadoUserPage-hero .PointSystemUserTitle {
   font-size: 12px;
   padding: 2px 10px;
 }
@@ -2242,41 +2257,14 @@ body.ps-hide-badges-with-deco {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// LINEAR-STYLE POLISH PASS (2026-05-16)
+// COMPONENT REFINEMENT PASS
 //
-// Cohesive refinement across every PointSystem forum surface. Touches:
-//   - Spacing tokens + hover/focus motion
-//   - ShopPage cards (hover lift, refined price typography, tighter badge row)
-//   - DecorationsPage grid items + preview band
-//   - TradesPage list rows + status pills
-//   - Modals (Trade, Submit, AwardPoints, ConfirmPurchase)
-//   - Buttons inside our scoped components (subtle inset highlight on primary)
-//   - Focus rings (accessible, primary-tinted)
-//
-// Everything below is additive — pre-existing rules stay. Where a previous
-// rule needs a tweak, we override with the same specificity at the bottom
-// so the cascade picks our refined version.
+// Per-surface refinement across every PointSystem forum surface (ShopPage cards,
+// DecorationsPage grid, TradesPage rows, modals, buttons, focus rings). All
+// tokens live in the Avocado-bridged `:root` block at the top of the file; the
+// final hover/radius standardisation lives in the AVOCADO FINISH LAYER at the
+// very bottom (single source of truth — additive, wins via source order).
 // ──────────────────────────────────────────────────────────────────────────────
-
-:root {
-  --ps-space-1: 4px;
-  --ps-space-2: 8px;
-  --ps-space-3: 12px;
-  --ps-space-4: 16px;
-  --ps-space-5: 20px;
-  --ps-space-6: 24px;
-  --ps-space-8: 32px;
-
-  --ps-elevate-1: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.02);
-  --ps-elevate-2: 0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.03);
-  --ps-elevate-3: 0 12px 32px rgba(0, 0, 0, 0.10), 0 4px 8px rgba(0, 0, 0, 0.04);
-
-  --ps-ring: 0 0 0 2px var(--body-bg, #fff), 0 0 0 4px color-mix(in srgb, var(--primary-color, #6cc04a) 40%, transparent);
-
-  --ps-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --ps-t-fast: 0.12s var(--ps-ease);
-  --ps-t-med: 0.18s var(--ps-ease);
-}
 
 // ShopPage refinement.
 .PointSystemShop {
@@ -2339,11 +2327,6 @@ body.ps-hide-badges-with-deco {
   box-shadow: var(--ps-elevate-1);
   transition: transform var(--ps-t-med), box-shadow var(--ps-t-med), border-color var(--ps-t-fast);
 
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--ps-elevate-2);
-    border-color: color-mix(in srgb, var(--primary-color, #6cc04a) 18%, var(--ps-border));
-  }
 
   &.is-equipped {
     border-color: var(--primary-color, #6cc04a);
@@ -2484,11 +2467,6 @@ body.ps-hide-badges-with-deco {
     text-align: center;
     transition: transform var(--ps-t-med), box-shadow var(--ps-t-med), border-color var(--ps-t-fast);
 
-    &:hover {
-      transform: translateY(-1px);
-      box-shadow: var(--ps-elevate-1);
-      border-color: color-mix(in srgb, var(--primary-color, #6cc04a) 15%, var(--ps-border));
-    }
 
     &.is-equipped {
       border-color: var(--primary-color, #6cc04a);
@@ -2509,11 +2487,6 @@ body.ps-hide-badges-with-deco {
     border-radius: var(--ps-radius);
     padding: var(--ps-space-3);
     transition: transform var(--ps-t-med), box-shadow var(--ps-t-med);
-
-    &:hover {
-      transform: translateY(-1px);
-      box-shadow: var(--ps-elevate-1);
-    }
 
     &.is-equipped {
       border-color: var(--primary-color, #6cc04a);
@@ -2537,11 +2510,6 @@ body.ps-hide-badges-with-deco {
 
   &-row {
     transition: transform var(--ps-t-fast), box-shadow var(--ps-t-fast), border-color var(--ps-t-fast);
-
-    &:hover {
-      transform: translateY(-1px);
-      box-shadow: var(--ps-elevate-1);
-    }
 
     &.is-pending {
       border-color: color-mix(in srgb, var(--primary-color, #6cc04a) 35%, var(--ps-border));
@@ -2807,14 +2775,22 @@ body.ps-hide-badges-with-deco {
   100% { box-shadow: 0 0 0 12px color-mix(in srgb, var(--primary-color, #6cc04a) 0%, transparent); }
 }
 
-// Button refinement inside our scoped components.
+// Button refinement inside our scoped components. The selector list MUST cover
+// EVERY point-system surface — a missing component left its buttons on the
+// theme's default radius while the rest used ours, which is exactly the
+// "square button in one corner, round in another" inconsistency reported.
+// Radius is `--ps-radius` (14px) so our buttons match Avocado's `.Button`
+// radius everywhere on the forum.
 .PointSystemShop,
 .PointSystemDecorations,
 .PointSystemTradesPage,
 .PointSystemTradeModal,
-.PointSystemSubmitModal {
+.PointSystemSubmitModal,
+.PointSystemStartTradeModal,
+.ConfirmPurchaseModal,
+.AwardPointsModal {
   .Button {
-    border-radius: var(--ps-radius-sm);
+    border-radius: var(--ps-radius-pill);
     font-weight: 600;
     letter-spacing: -0.005em;
     transition: transform var(--ps-t-fast), box-shadow var(--ps-t-fast), background-color var(--ps-t-fast);
@@ -2956,17 +2932,6 @@ body.ps-hide-badges-with-deco {
   &:hover {
     background: color-mix(in srgb, var(--primary-color, #6cc04a) 10%, transparent);
     color: var(--primary-color, #6cc04a);
-  }
-}
-
-// Decorations preview body refinement.
-.PointSystemDecorations-previewBody {
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-
-  .Avatar {
-    box-shadow: var(--ps-elevate-2);
   }
 }
 
@@ -3546,4 +3511,116 @@ body:has(.PointSystemTradeModal) .ModalManager-invisibleBackdrop {
     padding: 0 12px;
     margin-bottom: 8px;
   }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AVOCADO FINISH LAYER — reuse Avocado's component language across the system
+// ══════════════════════════════════════════════════════════════════════════════
+// Loaded last so it refines (never fights) the rules above. Goal: bring the
+// extension's off-pattern surfaces onto the Avocado design system by mirroring
+// its real components (workbench/avocado-v2/less/forum/*): the category-card
+// shell, the hero stat-pill, bold display headings. Everything is token-driven
+// so it tracks the active theme + dark mode.
+
+// ── Display headings — Avocado's bold, tightly-tracked type ───────────────────
+// Avocado h1/h2 are weight 800–900 with negative letter-spacing. Align our page
+// + section titles so they read as part of the same family.
+.PointSystemShop-header h1,
+.PointSystemDecorations-pageHeader h1,
+.PointSystemTradesPage-header h1,
+.PointSystemTradesPage-header-titleRow h1 {
+  font-family: var(--ps-font);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--ps-text);
+}
+
+.PointSystemShop h2,
+.PointSystemDecorations h2,
+.PointSystemTradesPage h2 {
+  font-family: var(--ps-font);
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: var(--ps-text);
+}
+
+.PointSystemShop-card-title,
+.PointSystemDecorations-item-name,
+.PointSystemShop-tier-name,
+.PointSystemDecorations-previewHero-name {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+// ── ONE hover for every interactive surface ───────────────────────────────────
+// Mirror `.AvocadoHome-categoryCard` exactly: a single gentle lift —
+// translateY(-1px) + the soft category-card shadow — applied to EVERY hoverable
+// card / row in the system. Previously these used three different shadows
+// (--ps-elevate-1, --ps-shadow-2, --ps-shadow-card-hover), so cards, decoration
+// tiles and trade rows all lifted differently. Now they're identical.
+.PointSystemShop-card,
+.PointSystemShop-tier,
+.PointSystemDecorations-item,
+.PointSystemDecorations-coverItem,
+.PointSystemTradesPage-row {
+  transition: box-shadow var(--ps-t), transform var(--ps-t), border-color var(--ps-t);
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--ps-shadow-card-hover);
+  }
+}
+
+// Plain cards (no state-driven border) also pick up Avocado's neutral
+// border-hover. Trade rows keep their own state border (is-pending / is-completed)
+// so the hover doesn't wipe the status cue.
+.PointSystemShop-card,
+.PointSystemShop-tier,
+.PointSystemDecorations-item,
+.PointSystemDecorations-coverItem {
+  border: 1px solid var(--ps-border);
+
+  &:hover {
+    border-color: var(--ps-border-hover);
+  }
+}
+
+// Radius family — cards XL, tiles/rows LG — consistent across the system.
+.PointSystemShop-card { border-radius: var(--ps-radius-xl); }
+.PointSystemShop-tier,
+.PointSystemDecorations-item,
+.PointSystemDecorations-coverItem,
+.PointSystemTradesPage-row { border-radius: var(--ps-radius-lg); }
+
+// ── Round icon chip — mirror `.AvocadoHome-categoryIcon` ──────────────────────
+// The tier medal sits in Avocado's pill-shaped icon chip (surface-1 bg, muted
+// glyph) instead of a bare square.
+.PointSystemShop-tier-badge {
+  border-radius: var(--ps-radius-pill);
+  background: var(--ps-surface-sunken);
+  color: var(--ps-text-icon);
+}
+
+// ── Stat / metric pills — mirror `.AvocadoUserPage-hero-statPill` ─────────────
+// inline-flex · gap 5px · 13px · weight 600, with a heavier <strong>. Keeps the
+// points pills visually identical to Avocado's profile-hero stats.
+.PointSystemProfilePill,
+.PointSystemShop-balance-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+
+  strong { font-weight: 700; }
+}
+
+// ── Focus visibility — Avocado-style accent ring on interactive controls ──────
+.PointSystemShop-card a:focus-visible,
+.PointSystemShop-tier-action .Button:focus-visible,
+.PointSystemDecorations-item .Button:focus-visible {
+  outline: none;
+  box-shadow: var(--ps-ring);
 }
