@@ -720,12 +720,15 @@ export default class ShopPage extends Page {
       if (item.type === 'avatar_decoration') {
         user.pushAttributes({
           equippedAvatarDecorationId: item.id,
-          equippedAvatarDecorationUrl: item.imagePath,
+          // Remote-hosted frames carry `imageUrl` and no `imagePath`; using
+          // `imagePath` alone left the optimistic frame blank until a reload.
+          // Mirror DecorationsPage.equip's `imageUrl || imagePath` fallback.
+          equippedAvatarDecorationUrl: item.imageUrl || item.imagePath,
         });
       } else if (item.type === 'cover_decoration') {
         user.pushAttributes({
           equippedCoverDecorationId: item.id,
-          equippedCoverDecorationUrl: item.imagePath,
+          equippedCoverDecorationUrl: item.imageUrl || item.imagePath,
         });
       } else if (item.type === 'title_decoration') {
         user.pushAttributes({

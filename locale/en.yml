@@ -58,6 +58,7 @@ ramon-point-system:
       start_help: "Type the username (or display name) of who you want to trade with."
       start_username_label: "Username"
       start_username_placeholder: "e.g. ramon"
+      start_clear: "Clear search"
       start_submit: "Open trade window"
       start_cancel: "Cancel"
       start_not_found: "No user matches that name."
@@ -194,6 +195,7 @@ ramon-point-system:
     my_decorations:
       title: "My decorations"
       preview: "Live preview"
+      back_to_shop: "Rewards"
       submit_cta: "Submit your own"
       tab_all: "All"
       avatar: "Avatar frames"

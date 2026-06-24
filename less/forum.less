@@ -520,6 +520,78 @@ body.ps-hide-badges-with-deco {
   // later sibling of our wrap, so it naturally renders above the frame.
 }
 
+// ─── Frame alignment inside hover-cards / user popovers ───────────────────────
+//
+// The frame (`.ps-avatar-deco`) is sized and centred against the WRAP, so it
+// only stays aligned while the inner avatar coincides with the wrap. Theme
+// hover-cards / profile popovers (the small window that pops up on avatar
+// hover) commonly apply a margin, transform or `--size` to `.Avatar` for a
+// ring/zoom effect — and because the inner avatar ALSO carries `.Avatar`, that
+// offset slides it inside the wrap and the frame looks pushed to one side
+// (reported 2026-06: "avatar frame on the hover window shifts a bit to the
+// side"). Same class of bug already fixed for `.SessionDropdown` above.
+//
+// Fix: inside the common popover/card containers, force the inner avatar to
+// fill and centre the wrap (margin/transform/size neutralised) so it coincides
+// with the wrap and the frame is centred again. Scoped to these containers so
+// it never touches the post stream, discussion lists, or the `display:contents`
+// preview contexts. THEMES WITH A CUSTOM HOVER-CARD: add your container class
+// to this selector list (e.g. `.MyTheme-userHovercard`).
+//
+// NOTE: Flarum's LESS compiler (wikimedia/less.php) does NOT support the CSS
+// Level 4 case-insensitive attribute flag (`[class*="x" i]`) — it throws a
+// parse error. So each substring match is listed in its common casings
+// (PascalCase / camelCase / kebab-case) instead of one `i`-flagged selector.
+.UserCard,
+.Dropdown-menu,
+.Tooltip,
+.tooltip,
+.popover,
+[class*="hovercard"],
+[class*="hoverCard"],
+[class*="HoverCard"],
+[class*="Hovercard"],
+[class*="userPopup"],
+[class*="UserPopup"],
+[class*="user-popup"],
+[class*="profilePopup"],
+[class*="ProfilePopup"],
+[class*="profile-popup"],
+[class*="profileCard"],
+[class*="ProfileCard"],
+[class*="profile-card"],
+[class*="userCard"],
+[class*="user-card"] {
+  .ps-avatar-deco-wrap {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    // Core's `.UserCard-avatar .Avatar` adds `border: 4px solid #fff` +
+    // box-shadow. That selector hits the wrap (it carries `.Avatar`) AND the
+    // inner avatar, double-ringing the element and throwing the frame off the
+    // avatar's true centre. The equipped frame already IS the decorative ring,
+    // so drop the white border/shadow on decorated avatars (undecorated ones
+    // have no `.ps-avatar-deco-wrap`, so they keep core's ring).
+    border: 0 !important;
+    box-shadow: none !important;
+
+    > img.Avatar,
+    > span.Avatar:not(.ps-avatar-deco) {
+      // Neutralise everything that can slide the inner avatar inside the wrap:
+      // a margin/transform the card uses to overlap the avatar onto the banner,
+      // the duplicated border, or a `--size` override.
+      margin: 0 !important;
+      transform: none !important;
+      inset: auto !important;
+      border: 0 !important;
+      box-shadow: none !important;
+      width: 100% !important;
+      height: 100% !important;
+      --size: 100% !important;
+    }
+  }
+}
+
 // ─── Section nav (Shop + Decorations) ────────────────────────────────────────
 // Uses Flarum core's `.sideNav` infrastructure so we inherit the bottom-sheet
 // dropdown behaviour on `@phone` (defined in core/less/common/Dropdown.less)
@@ -2058,6 +2130,16 @@ body.ps-hide-badges-with-deco {
   flex-wrap: wrap;
 
   h1 { margin: 0; }
+
+  // Right-aligned cluster holding the "Rewards" back-link and the
+  // "Submit your own" CTA — keeps them grouped when the header wraps on
+  // narrow screens instead of one drifting under the title.
+  &-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
 }
 
 .PointSystemSubmitModal {
@@ -2930,66 +3012,102 @@ body.ps-hide-badges-with-deco {
 // was getting cropped against that boundary on small modals.
 .PointSystemStartTradeModal-search {
   position: relative;
+
+  // The field is the core `Input` component (magnifier prefix icon + clear
+  // button), so it reads as Flarum v2's native search bar. We only slim the
+  // box: 4px radius (themes like Avocado bump `--border-radius` to 14px → fat
+  // pill) and a 1px border (core's 2px primary focus ring was too loud here).
+  // No `padding` override — core's `.Input--withPrefix/--withClear .FormControl`
+  // owns the left/right padding that makes room for the icon and the × button.
+  .FormControl {
+    border-radius: 4px;
+    border-width: 1px;
+    height: 36px;
+    font-size: 13px;
+  }
 }
 
 .PointSystemStartTradeModal-suggestions {
-  margin-top: 8px;
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 4px;
   max-height: 280px;
   overflow-y: auto;
   background: var(--ps-surface, #fff);
+  // Slim, native-Flarum-style results panel: 1px border, 4px radius, soft
+  // shadow — mirrors the forum's search results dropdown.
   border: 1px solid var(--ps-border, #e6e6e9);
-  border-radius: 10px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-  padding: 4px;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+
+  // Rows are core's `UserSearchResult` (avatar + query-highlighted name +
+  // badges). Core ships it with `margin: 0 -16px` for the SearchModal's padded
+  // body — neutralise that and give a compact, self-contained row.
+  .UserSearchResult {
+    margin: 0;
+    border-radius: 4px;
+
+    > a,
+    > button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 6px 8px;
+      border: 0;
+      background: transparent;
+      border-radius: 4px;
+      text-align: left;
+      cursor: pointer;
+      font: inherit;
+      color: inherit;
+      transition: background-color 80ms ease;
+    }
+
+    &.active > a,
+    &.active > button,
+    > a:hover,
+    > button:hover {
+      background: var(--ps-surface-muted, rgba(0, 0, 0, 0.04));
+    }
+
+    .Avatar {
+      --size: 28px;
+      width: 28px;
+      height: 28px;
+      flex: 0 0 28px;
+    }
+
+    &-name {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .username {
+      font-size: 14px;
+    }
+  }
 }
 
-.PointSystemStartTradeModal-suggestionEmpty {
+// `@handle` rendered to the right of the name (passed as UserSearchResult
+// children) so users who share a display name stay distinguishable.
+.PointSystemStartTradeModal-handle {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-left: 8px;
+  color: var(--ps-text-muted, #6b7280);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.PointSystemStartTradeModal-suggestionStatus {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   padding: 12px;
   color: var(--ps-text-muted, #6b7280);
   font-size: 13px;
-}
-
-.PointSystemStartTradeModal-suggestion {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  background: transparent;
-  border: 0;
-  border-radius: 8px;
-  text-align: left;
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
-  transition: background-color 80ms ease;
-
-  &:hover,
-  &.is-highlight {
-    background: var(--ps-surface-muted, rgba(0, 0, 0, 0.04));
-  }
-}
-
-.PointSystemStartTradeModal-suggestionAvatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  flex: 0 0 28px;
-}
-
-.PointSystemStartTradeModal-suggestionText {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
-
-  strong { font-size: 14px; }
-  small {
-    color: var(--ps-text-muted, #6b7280);
-    font-size: 12px;
-  }
 }
 
 .PointSystemStartTradeModal-actions {
