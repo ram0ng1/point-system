@@ -8,7 +8,7 @@ use Flarum\Foundation\ValidationException;
 use Flarum\Http\RequestUtil;
 use Flarum\User\User;
 use Illuminate\Contracts\Events\Dispatcher;
-use Illuminate\Database\ConnectionResolverInterface;
+use Illuminate\Database\ConnectionInterface;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -37,7 +37,7 @@ use Ramon\PointSystem\Support\TradeSerializer;
 class OpenTradeController implements RequestHandlerInterface
 {
     public function __construct(
-        protected ConnectionResolverInterface $db,
+        protected ConnectionInterface $db,
         protected Dispatcher $events,
         protected FeatureGate $features,
     ) {}
@@ -66,7 +66,7 @@ class OpenTradeController implements RequestHandlerInterface
             throw new ValidationException(['recipientId' => 'user_not_found']);
         }
 
-        $trade = $this->db->connection()->transaction(function () use ($actor, $recipient) {
+        $trade = $this->db->transaction(function () use ($actor, $recipient) {
             $a = (int) $actor->id;
             $b = (int) $recipient->id;
 

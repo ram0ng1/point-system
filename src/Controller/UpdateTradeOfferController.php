@@ -8,7 +8,7 @@ use Carbon\Carbon;
 use Flarum\Foundation\KnownError\RouteNotFoundException;
 use Flarum\Foundation\ValidationException;
 use Flarum\Http\RequestUtil;
-use Illuminate\Database\ConnectionResolverInterface;
+use Illuminate\Database\ConnectionInterface;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -41,7 +41,7 @@ use Ramon\PointSystem\Support\TradeSerializer;
 class UpdateTradeOfferController implements RequestHandlerInterface
 {
     public function __construct(
-        protected ConnectionResolverInterface $db,
+        protected ConnectionInterface $db,
         protected FeatureGate $features,
     ) {}
 
@@ -60,7 +60,7 @@ class UpdateTradeOfferController implements RequestHandlerInterface
         $rawPoints = $body['points'] ?? null;
         $rawItems  = $body['items']  ?? null;
 
-        $trade = $this->db->connection()->transaction(function () use ($actor, $id, $rawPoints, $rawItems) {
+        $trade = $this->db->transaction(function () use ($actor, $id, $rawPoints, $rawItems) {
             /** @var Trade|null $trade */
             $trade = Trade::query()->where('id', $id)->lockForUpdate()->first();
             if (! $trade || ! $trade->isParticipant((int) $actor->id)) {

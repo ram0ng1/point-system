@@ -8,7 +8,7 @@ use Flarum\Foundation\DispatchEventsTrait;
 use Flarum\Settings\SettingsRepositoryInterface;
 use Flarum\User\User;
 use Illuminate\Contracts\Events\Dispatcher;
-use Illuminate\Database\ConnectionResolverInterface;
+use Illuminate\Database\ConnectionInterface;
 use Ramon\PointSystem\Event\PointsAwarded;
 use Ramon\PointSystem\Model\GroupOffer;
 use Ramon\PointSystem\Model\PointTransaction;
@@ -50,7 +50,7 @@ class PointsRepository
     public function __construct(
         protected SettingsRepositoryInterface $settings,
         protected Dispatcher $events,
-        protected ConnectionResolverInterface $db,
+        protected ConnectionInterface $db,
     ) {}
 
     /**
@@ -90,7 +90,7 @@ class PointsRepository
         }
 
         $tx = null;
-        $points = $this->db->connection()->transaction(function () use ($user, $amount, $reason, $referenceType, $referenceId, $meta, &$tx) {
+        $points = $this->db->transaction(function () use ($user, $amount, $reason, $referenceType, $referenceId, $meta, &$tx) {
             $points = $this->getOrCreate($user);
             $points->lifetime += $amount;
             $points->balance  += $amount;
@@ -130,7 +130,7 @@ class PointsRepository
             return;
         }
 
-        $points = $this->db->connection()->transaction(function () use ($user, $reason, $referenceType, $referenceId) {
+        $points = $this->db->transaction(function () use ($user, $reason, $referenceType, $referenceId) {
             $tx = PointTransaction::where('user_id', $user->id)
                 ->where('reason', $reason)
                 ->where('reference_type', $referenceType)
@@ -183,7 +183,7 @@ class PointsRepository
         }
 
         $tx = null;
-        $points = $this->db->connection()->transaction(function () use ($user, $amount, $reason, $referenceType, $referenceId, &$tx) {
+        $points = $this->db->transaction(function () use ($user, $amount, $reason, $referenceType, $referenceId, &$tx) {
             $points = $this->getOrCreate($user);
             if ($points->balance < $amount) {
                 throw new \DomainException('Insufficient point balance');

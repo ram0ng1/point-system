@@ -42,4 +42,27 @@ class ShopClaim extends AbstractModel
     {
         return $this->belongsTo(User::class);
     }
+
+    /**
+     * Representação JSON:API da claim. Vive no model porque os endpoints de
+     * claim e de grant devolvem exatamente o mesmo shape — antes cada um tinha
+     * um `serialize()` idêntico (§38.6: lógica compartilhada entre call sites
+     * mora no model, não duplicada).
+     *
+     * @return array{type: string, id: string, attributes: array<string, mixed>}
+     */
+    public function toApiResource(): array
+    {
+        return [
+            'type' => 'point-system-claims',
+            'id' => (string) $this->id,
+            'attributes' => [
+                'itemType' => $this->item_type,
+                'itemId' => $this->item_id,
+                'quantity' => (int) $this->quantity,
+                'pricePaid' => $this->price_paid,
+                'claimedAt' => optional($this->claimed_at)->toIso8601String(),
+            ],
+        ];
+    }
 }

@@ -8,7 +8,7 @@ use Flarum\Foundation\KnownError\RouteNotFoundException;
 use Flarum\Foundation\ValidationException;
 use Flarum\Http\RequestUtil;
 use Illuminate\Contracts\Events\Dispatcher;
-use Illuminate\Database\ConnectionResolverInterface;
+use Illuminate\Database\ConnectionInterface;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -33,7 +33,7 @@ use Ramon\PointSystem\Support\TradeSerializer;
 class AcceptTradeController implements RequestHandlerInterface
 {
     public function __construct(
-        protected ConnectionResolverInterface $db,
+        protected ConnectionInterface $db,
         protected FeatureGate $features,
         protected Dispatcher $events,
     ) {}
@@ -60,7 +60,7 @@ class AcceptTradeController implements RequestHandlerInterface
         // reads stale `accepted=false` would be wrong).
         $shouldNotifyOtherSide = false;
 
-        $this->db->connection()->transaction(function () use ($actor, $id, $explicit, $value, &$tradeId, &$shouldNotifyOtherSide) {
+        $this->db->transaction(function () use ($actor, $id, $explicit, $value, &$tradeId, &$shouldNotifyOtherSide) {
             /** @var Trade|null $trade */
             $trade = Trade::query()->where('id', $id)->lockForUpdate()->first();
             if (! $trade || ! $trade->isParticipant((int) $actor->id)) {
