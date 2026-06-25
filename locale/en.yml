@@ -195,7 +195,7 @@ ramon-point-system:
     my_decorations:
       title: "My decorations"
       preview: "Live preview"
-      back_to_shop: "Rewards"
+      back_to_shop: "Back to shop"
       submit_cta: "Submit your own"
       tab_all: "All"
       avatar: "Avatar frames"

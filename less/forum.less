@@ -53,7 +53,6 @@
   // (workbench/avocado-v2/less/forum/HomePage.less) — softer than --shadow-2,
   // so our cards lift identically to the surrounding theme.
   --ps-shadow-card-hover: 0 10px 20px rgba(26, 26, 36, 0.06);
-  --ps-border-hover: #dfdfe6;
   // Aliases for the second token block / older rules.
   --ps-elevate-1: var(--ps-shadow-1);
   --ps-elevate-2: var(--ps-shadow-2);
@@ -2146,14 +2145,39 @@ body.ps-hide-badges-with-deco {
 
   h1 { margin: 0; }
 
-  // Right-aligned cluster holding the "Rewards" back-link and the
-  // "Submit your own" CTA — keeps them grouped when the header wraps on
-  // narrow screens instead of one drifting under the title.
+  // Right-aligned cluster holding the "Submit your own" CTA.
   &-actions {
     display: flex;
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+  }
+}
+
+// "Back to shop" link — sits in the page-header actions cluster (top-right),
+// next to the "Submit your own" CTA. A back arrow + a clear (not muted) colour
+// so it reads as a proper "voltar" affordance — the previous version rendered
+// as faint grey and didn't look like a back button. Avocado tokens; accent on
+// hover.
+.PointSystemDecorations-back.Button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ps-text-muted);
+  font-weight: 600;
+  font-size: 13px;
+
+  i { font-size: 11px; }
+
+  &:hover:not(:disabled),
+  &:focus-visible {
+    background: transparent;
+    box-shadow: none;
+    color: var(--ps-accent);
+    text-decoration: none;
   }
 }
 
@@ -3572,18 +3596,27 @@ body:has(.PointSystemTradeModal) .ModalManager-invisibleBackdrop {
   }
 }
 
-// Plain cards (no state-driven border) also pick up Avocado's neutral
-// border-hover. Trade rows keep their own state border (is-pending / is-completed)
-// so the hover doesn't wipe the status cue.
 .PointSystemShop-card,
 .PointSystemShop-tier,
 .PointSystemDecorations-item,
 .PointSystemDecorations-coverItem {
   border: 1px solid var(--ps-border);
+}
 
-  &:hover {
-    border-color: var(--ps-border-hover);
-  }
+// Hover border ONLY for cards in their default state. Two reasons it's an
+// accent tint and not Avocado's faint neutral hover border (#dfdfe6):
+//   1. The neutral #dfdfe6 was so close to the resting border it read as the
+//      border "disappearing" on hover (reported 2026-06). A 35% accent tint is
+//      clearly visible and hints at the equipped/owned accent state.
+//   2. Equipped / owned / reached cards already carry a full-accent state
+//      border as a status cue — excluding them here means the hover never swaps
+//      that visible border for a fainter one. Trade rows keep their state
+//      border the same way (not listed here at all).
+.PointSystemShop-card:not(.is-equipped):not(.is-owned):hover,
+.PointSystemShop-tier:not(.is-reached):not(.is-owned):hover,
+.PointSystemDecorations-item:not(.is-equipped):hover,
+.PointSystemDecorations-coverItem:not(.is-equipped):hover {
+  border-color: color-mix(in srgb, var(--ps-accent) 35%, var(--ps-border));
 }
 
 // Radius family — cards XL, tiles/rows LG — consistent across the system.
