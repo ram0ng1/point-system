@@ -6,7 +6,7 @@ namespace Ramon\PointSystem\Listener;
 
 use Carbon\Carbon;
 use Flarum\User\Event\LoggedIn;
-use Illuminate\Database\ConnectionResolverInterface;
+use Illuminate\Database\ConnectionInterface;
 use Ramon\PointSystem\Model\UserPoints;
 use Ramon\PointSystem\Repository\PointsRepository;
 
@@ -33,7 +33,7 @@ class AwardDailyLoginBonus
 {
     public function __construct(
         protected PointsRepository $points,
-        protected ConnectionResolverInterface $db,
+        protected ConnectionInterface $db,
     ) {}
 
     public function handle(LoggedIn $event): void
@@ -46,7 +46,7 @@ class AwardDailyLoginBonus
         $user = $event->user;
         $today = Carbon::now()->startOfDay();
 
-        $this->db->connection()->transaction(function () use ($user, $amount, $today) {
+        $this->db->transaction(function () use ($user, $amount, $today) {
             /*
              * Lê e tranca a linha — race entre tabs cai no segundo lock e
              * aí vê o `last_daily_bonus_at` já bumped pelo primeiro.

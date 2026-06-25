@@ -2,8 +2,8 @@
 import app from 'flarum/forum/app';
 import Modal from 'flarum/common/components/Modal';
 import Button from 'flarum/common/components/Button';
-import Avatar from 'flarum/common/components/Avatar';
-import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
+import Input from 'flarum/common/components/Input';
+import UserSearchResult from 'flarum/common/components/UserSearchResult';
 import TradeModal from './TradeModal';
 
 const SEARCH_DEBOUNCE_MS = 200;
@@ -55,21 +55,34 @@ export default class StartTradeModal extends Modal {
 
         <div className="Form-group PointSystemStartTradeModal-search">
           <label>{t('start_username_label')}</label>
-          <input
-            type="text"
-            className="FormControl"
-            value={this.selected ? this.formatPicked(this.selected) : this.query}
-            oninput={(e: Event) => this.onQueryInput((e.target as HTMLInputElement).value)}
+          {/* Flarum v2's native search bar: the core `Input` component renders
+              a magnifier prefix icon, a clear (×) button, and an inline loading
+              spinner — same look as the forum's global search. */}
+          <Input
+            className="PointSystemStartTradeModal-searchInput"
+            type="search"
+            prefixIcon="fas fa-magnifying-glass"
+            clearable={!!(this.query || this.selected)}
+            clearLabel={t('start_clear') as string}
+            loading={this.searching}
+            ariaLabel={t('start_username_label') as string}
             placeholder={t('start_username_placeholder') as string}
-            autocomplete="off"
-            autofocus
-            onkeydown={(e: KeyboardEvent) => this.onKeyDown(e)}
-            onfocus={() => {
-              if (this.selected) {
-                // Clear selection on re-focus so the user can search again.
-                this.query = String(this.selected.username?.() ?? '');
-                this.selected = null;
-              }
+            value={this.selected ? this.formatPicked(this.selected) : this.query}
+            onchange={(value: string) => this.onQueryInput(value)}
+            inputAttrs={{
+              autocomplete: 'off',
+              autofocus: true,
+              role: 'combobox',
+              'aria-autocomplete': 'list',
+              'aria-expanded': showSuggestions,
+              onkeydown: (e: KeyboardEvent) => this.onKeyDown(e),
+              onfocus: () => {
+                if (this.selected) {
+                  // Clear selection on re-focus so the user can search again.
+                  this.query = String(this.selected.username?.() ?? '');
+                  this.selected = null;
+                }
+              },
             }}
           />
           {showSuggestions && this.renderSuggestions()}
@@ -95,41 +108,26 @@ export default class StartTradeModal extends Modal {
 
   renderSuggestions() {
     const t = (k: string) => app.translator.trans('ramon-point-system.forum.trades_page.' + k);
+    const hasResults = this.suggestions.length > 0;
+    const showNotFound = !this.searching && !hasResults && this.query.trim().length >= 2;
+
+    // While searching with nothing to show yet, the search bar's own inline
+    // spinner is the loading affordance — don't also render an empty box.
+    if (!hasResults && !showNotFound) return null;
+
     return (
-      <div className="PointSystemStartTradeModal-suggestions" role="listbox">
-        {this.searching && (
-          <div className="PointSystemStartTradeModal-suggestionEmpty">
-            <LoadingIndicator size="small" />
-          </div>
-        )}
-        {!this.searching && this.suggestions.length === 0 && this.query.trim().length >= 2 && (
-          <div className="PointSystemStartTradeModal-suggestionEmpty">{t('start_not_found')}</div>
-        )}
-        {!this.searching &&
-          this.suggestions.map((u, i) => (
-            <button
-              type="button"
-              role="option"
-              key={`s-${u.id?.() ?? i}`}
-              className={'PointSystemStartTradeModal-suggestion ' + (i === this.highlight ? 'is-highlight' : '')}
-              onmousedown={(e: MouseEvent) => {
-                // mousedown (not click) so the input doesn't blur first
-                e.preventDefault();
-                this.pick(u);
-              }}
-              onmouseenter={() => {
-                this.highlight = i;
-                m.redraw();
-              }}
-            >
-              <Avatar user={u} className="PointSystemStartTradeModal-suggestionAvatar" />
-              <span className="PointSystemStartTradeModal-suggestionText">
-                <strong>{u.displayName?.() || u.username?.() || '—'}</strong>
-                <small>@{u.username?.()}</small>
-              </span>
-            </button>
-          ))}
-      </div>
+      <ul className="PointSystemStartTradeModal-suggestions">
+        {showNotFound && <li className="PointSystemStartTradeModal-suggestionStatus">{t('start_not_found')}</li>}
+        {this.suggestions.map((u, i) => (
+          // Native search-result row (avatar + query-highlighted name + badges).
+          // We pass the @handle as a child so it renders to the right — useful
+          // for telling apart users who share a display name. `.active` mirrors
+          // the keyboard highlight; hover is handled in CSS.
+          <UserSearchResult user={u} query={this.query} className={i === this.highlight ? 'active' : ''} onclick={() => this.pick(u)}>
+            <span className="PointSystemStartTradeModal-handle">@{u.username?.()}</span>
+          </UserSearchResult>
+        ))}
+      </ul>
     );
   }
 

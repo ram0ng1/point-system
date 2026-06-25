@@ -8,7 +8,7 @@ use Carbon\Carbon;
 use Flarum\Foundation\ValidationException;
 use Flarum\User\User;
 use Illuminate\Contracts\Events\Dispatcher;
-use Illuminate\Database\ConnectionResolverInterface;
+use Illuminate\Database\ConnectionInterface;
 use Ramon\PointSystem\Event\TradeCompleted;
 use Ramon\PointSystem\Model\PointTransaction;
 use Ramon\PointSystem\Model\ShopClaim;
@@ -40,7 +40,7 @@ use Ramon\PointSystem\Model\UserPoints;
 class TradeRepository
 {
     public function __construct(
-        protected ConnectionResolverInterface $db,
+        protected ConnectionInterface $db,
         protected Dispatcher $events,
     ) {}
 
@@ -72,7 +72,7 @@ class TradeRepository
     public function execute(int $tradeId): Trade
     {
         try {
-            return $this->db->connection()->transaction(fn () => $this->doExecute($tradeId));
+            return $this->db->transaction(fn () => $this->doExecute($tradeId));
         } catch (ValidationException $e) {
             $this->resetAcceptsAfterFailure($tradeId, $e);
             throw $e;
@@ -413,7 +413,7 @@ class TradeRepository
      */
     public function revert(int $tradeId, User $by): Trade
     {
-        return $this->db->connection()->transaction(function () use ($tradeId, $by) {
+        return $this->db->transaction(function () use ($tradeId, $by) {
             /** @var Trade $trade */
             $trade = Trade::query()->where('id', $tradeId)->lockForUpdate()->firstOrFail();
 

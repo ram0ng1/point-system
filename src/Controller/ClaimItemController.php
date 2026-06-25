@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Ramon\PointSystem\Controller;
 
 use Flarum\Http\RequestUtil;
-use Illuminate\Database\ConnectionResolverInterface;
+use Illuminate\Database\ConnectionInterface;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -42,7 +42,7 @@ class ClaimItemController implements RequestHandlerInterface
 {
     public function __construct(
         protected PointsRepository $points,
-        protected ConnectionResolverInterface $db,
+        protected ConnectionInterface $db,
         protected FeatureGate $features,
     ) {}
 
@@ -71,7 +71,7 @@ class ClaimItemController implements RequestHandlerInterface
         $this->features->assertEnabled($type);
 
         try {
-            [$claim, $alreadyOwned] = $this->db->connection()->transaction(function () use ($actor, $type, $id) {
+            [$claim, $alreadyOwned] = $this->db->transaction(function () use ($actor, $type, $id) {
                 // Lock the user's points row so a sibling request blocks here.
                 UserPoints::where('user_id', $actor->id)->lockForUpdate()->first();
 
@@ -147,21 +147,6 @@ class ClaimItemController implements RequestHandlerInterface
             return new JsonResponse(['errors' => [['detail' => 'Item not available']]], 404);
         }
 
-        return new JsonResponse(['data' => $this->serialize($claim)], $alreadyOwned ? 200 : 201);
-    }
-
-    protected function serialize(ShopClaim $claim): array
-    {
-        return [
-            'type' => 'point-system-claims',
-            'id' => (string) $claim->id,
-            'attributes' => [
-                'itemType' => $claim->item_type,
-                'itemId' => $claim->item_id,
-                'quantity' => (int) $claim->quantity,
-                'pricePaid' => $claim->price_paid,
-                'claimedAt' => optional($claim->claimed_at)->toIso8601String(),
-            ],
-        ];
+        return new JsonResponse(['data' => $claim->toApiResource()], $alreadyOwned ? 200 : 201);
     }
 }

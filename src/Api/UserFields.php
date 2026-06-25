@@ -30,19 +30,28 @@ class UserFields
     protected WeakMap $pointsCache;
 
     /**
-     * Per-User memoization for the four single-decoration lookups (avatar,
-     * name, title, cover, post-highlight) keyed by `{type}:{id}`. Most users
-     * have at most one equipped item per type, so each user contributes ~0-5
-     * entries.
+     * GLOBAL (not per-User) cache of decoration rows, keyed by `{class}:{id}`.
      *
-     * @var WeakMap<User, array<string, AvatarDecoration|NameDecoration|CoverDecoration|TitleDecoration|PostHighlightDecoration|null>>
+     * A decoration row is IDENTICAL for every user (the catalog is admin-curated
+     * and shared), so the previous per-User cache re-ran the same `find($id)`
+     * for every user in a list — an N+1 when serializing many users (post
+     * stream, user list). Keying by the decoration's PK fetches row #5 ONCE per
+     * request no matter how many users equipped it.
+     *
+     * Not a WeakMap because the key is a string (the PK), not an object. The
+     * cache lives for the UserFields instance, which is rebuilt per request
+     * (ContainerUtil::wrapCallback → container make), so under php-fpm it is
+     * request-scoped. Under Octane the worst case is an admin-edited decoration
+     * showing stale until the worker recycles — rare and self-correcting, the
+     * same trade-off as {@see \Ramon\PointSystem\Api\ForumAttributes::$hasCreatorColumnCache}.
+     *
+     * @var array<string, AvatarDecoration|NameDecoration|CoverDecoration|TitleDecoration|PostHighlightDecoration|null>
      */
-    protected WeakMap $decorationCache;
+    protected array $decorationCache = [];
 
     public function __construct()
     {
         $this->pointsCache = new WeakMap();
-        $this->decorationCache = new WeakMap();
     }
 
     public function __invoke(): array
@@ -67,7 +76,7 @@ class UserFields
                     if (! $id) {
                         return null;
                     }
-                    $deco = $this->decoration($user, AvatarDecoration::class, $id);
+                    $deco = $this->decoration(AvatarDecoration::class, $id);
                     // Prefer image_url (admin chose URL source) over image_path
                     // (admin uploaded a file). Both are nullable now, so the
                     // null-coalesce keeps the equipped frame visible after the
@@ -86,7 +95,7 @@ class UserFields
                     if (! $id) {
                         return null;
                     }
-                    return $this->decoration($user, NameDecoration::class, $id)?->slug;
+                    return $this->decoration(NameDecoration::class, $id)?->slug;
                 }),
 
             Schema\Integer::make('equippedCoverDecorationId')
@@ -100,7 +109,7 @@ class UserFields
                     if (! $id) {
                         return null;
                     }
-                    $deco = $this->decoration($user, CoverDecoration::class, $id);
+                    $deco = $this->decoration(CoverDecoration::class, $id);
                     return $deco?->image_url ?: $deco?->image_path;
                 }),
 
@@ -115,7 +124,7 @@ class UserFields
                     if (! $id) {
                         return null;
                     }
-                    return $this->decoration($user, TitleDecoration::class, $id)?->slug;
+                    return $this->decoration(TitleDecoration::class, $id)?->slug;
                 }),
 
             Schema\Str::make('equippedTitleDecorationText')
@@ -125,7 +134,7 @@ class UserFields
                     if (! $id) {
                         return null;
                     }
-                    return $this->decoration($user, TitleDecoration::class, $id)?->title_text;
+                    return $this->decoration(TitleDecoration::class, $id)?->title_text;
                 }),
 
             Schema\Integer::make('equippedPostHighlightDecorationId')
@@ -139,7 +148,7 @@ class UserFields
                     if (! $id) {
                         return null;
                     }
-                    return $this->decoration($user, PostHighlightDecoration::class, $id)?->slug;
+                    return $this->decoration(PostHighlightDecoration::class, $id)?->slug;
                 }),
 
             Schema\Arr::make('ownedDecorationIds')
@@ -183,26 +192,23 @@ class UserFields
     }
 
     /**
-     * Memoized single-decoration lookup. The five equipped-decoration fields
-     * resolve their FK to either a slug, title text, or image path; the same
-     * row is reused across multiple getters (slug + title text on TitleDeco).
-     * Cache scope is per-User instance so concurrent serializations don't
-     * cross-pollute, but two getters touching the same row on the same user
-     * collapse to one SELECT.
+     * Memoized single-decoration lookup, deduped GLOBALLY by `{class}:{id}`.
+     * Every equipped-decoration field resolves its FK to a slug, title text, or
+     * image path; the same row is reused both across getters on one user (slug
+     * + title text on TitleDeco) AND across every user that equipped it — so a
+     * decoration shared by N users costs ONE SELECT, not N.
      *
      * @template T of \Flarum\Database\AbstractModel
      * @param  class-string<T>  $class
      * @return T|null
      */
-    protected function decoration(User $user, string $class, int $id)
+    protected function decoration(string $class, int $id)
     {
         $key = $class.':'.$id;
-        $entries = $this->decorationCache[$user] ?? [];
-        if (! array_key_exists($key, $entries)) {
-            $entries[$key] = $class::find($id);
-            $this->decorationCache[$user] = $entries;
+        if (! array_key_exists($key, $this->decorationCache)) {
+            $this->decorationCache[$key] = $class::find($id);
         }
-        return $entries[$key];
+        return $this->decorationCache[$key];
     }
 
     /**

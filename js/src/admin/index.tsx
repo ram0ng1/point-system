@@ -26,6 +26,14 @@ app.initializers.add('ramon/point-system', () => {
         icon: 'fas fa-coins',
         label: app.translator.trans('ramon-point-system.admin.permissions.view_shop'),
         permission: 'pointSystem.viewShop',
+        // The shop is a public catalog — nothing here is per-user PII (the
+        // ForumAttributes payload already gates the catalog to enabled/listed
+        // items and the balance pill is `{user && ...}`-only). Let admins open
+        // it to Guests so logged-out visitors can browse the rewards before
+        // signing up. `pointSystemCanViewShop` reads `hasPermission` against
+        // the actor, so a Guest grant Just Works on the backend with no further
+        // change. Claiming still requires `pointSystem.claim` (members only).
+        allowGuest: true,
       },
       'view'
     )

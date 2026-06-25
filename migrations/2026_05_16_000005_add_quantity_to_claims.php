@@ -2,8 +2,7 @@
 
 declare(strict_types=1);
 
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Database\Schema\Builder;
+use Flarum\Database\Migration;
 
 /**
  * Adds a `quantity` column to `point_system_claims` so a user can own
@@ -22,21 +21,6 @@ use Illuminate\Database\Schema\Builder;
  * (user_id, item_type, item_id) STAYS — it now enforces "one row per
  * (user, item) with a quantity counter" rather than "one row per copy".
  */
-return [
-    'up' => function (Builder $schema) {
-        if (! $schema->hasTable('point_system_claims')) return;
-        if ($schema->hasColumn('point_system_claims', 'quantity')) return;
-
-        $schema->table('point_system_claims', function (Blueprint $table) {
-            $table->unsignedInteger('quantity')->default(1)->after('item_id');
-        });
-    },
-    'down' => function (Builder $schema) {
-        if (! $schema->hasTable('point_system_claims')) return;
-        if (! $schema->hasColumn('point_system_claims', 'quantity')) return;
-
-        $schema->table('point_system_claims', function (Blueprint $table) {
-            $table->dropColumn('quantity');
-        });
-    },
-];
+return Migration::addColumns('point_system_claims', [
+    'quantity' => ['integer', 'unsigned' => true, 'default' => 1, 'after' => 'item_id'],
+]);

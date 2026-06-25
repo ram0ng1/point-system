@@ -58,6 +58,7 @@ ramon-point-system:
       start_help: "Digite o usuário (ou nome de exibição) com quem você quer trocar."
       start_username_label: "Usuário"
       start_username_placeholder: "ex.: ramon"
+      start_clear: "Limpar busca"
       start_submit: "Abrir janela de troca"
       start_cancel: "Cancelar"
       start_not_found: "Nenhum usuário encontrado com esse nome."
@@ -194,6 +195,7 @@ ramon-point-system:
     my_decorations:
       title: "Minhas decorações"
       preview: "Pré-visualização"
+      back_to_shop: "Voltar à loja"
       submit_cta: "Enviar uma sua"
       tab_all: "Todas"
       avatar: "Molduras de avatar"

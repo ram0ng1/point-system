@@ -109,9 +109,16 @@ export default class DecorationsPage extends Page {
         <div className="PointSystemDecorations-pageHeader">
           <h1>{app.translator.trans('ramon-point-system.forum.my_decorations.title')}</h1>
           <div className="PointSystemDecorations-pageHeader-actions">
-            <LinkButton className="Button" href={app.route('pointSystem.shop')}>
-              <i className="fas fa-store" /> {app.translator.trans('ramon-point-system.forum.my_decorations.shop_link')}
-            </LinkButton>
+            {/* Back to the Rewards shop. The shop links here ("My decorations")
+                but the trip was one-way — users landed on this page with no
+                in-page way back. A back arrow makes it a clear "voltar"
+                affordance. Gated on the same view-shop permission so it never
+                points at a 404 for users who can't reach the shop. */}
+            {app.forum.attribute('pointSystemCanViewShop') && (
+              <LinkButton href={app.route('pointSystem.shop')} icon="fas fa-arrow-left" className="Button Button--link PointSystemDecorations-back">
+                {app.translator.trans('ramon-point-system.forum.my_decorations.back_to_shop')}
+              </LinkButton>
+            )}
             {canSubmit && (
               <Button
                 className="Button Button--primary"

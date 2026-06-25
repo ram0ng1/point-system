@@ -7,7 +7,7 @@ namespace Ramon\PointSystem\Controller;
 use Flarum\Http\RequestUtil;
 use Flarum\User\User;
 use Illuminate\Contracts\Events\Dispatcher;
-use Illuminate\Database\ConnectionResolverInterface;
+use Illuminate\Database\ConnectionInterface;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -42,7 +42,7 @@ use Ramon\PointSystem\Support\ShopItemLocator;
 class GrantItemController implements RequestHandlerInterface
 {
     public function __construct(
-        protected ConnectionResolverInterface $db,
+        protected ConnectionInterface $db,
         protected FeatureGate $features,
         protected Dispatcher $events,
     ) {}
@@ -79,7 +79,7 @@ class GrantItemController implements RequestHandlerInterface
         $grantedItem = null;
 
         try {
-            [$claim, $alreadyOwned, $grantedItem] = $this->db->connection()->transaction(function () use ($recipient, $type, $itemId, $ignoreLimit) {
+            [$claim, $alreadyOwned, $grantedItem] = $this->db->transaction(function () use ($recipient, $type, $itemId, $ignoreLimit) {
                 $item = ShopItemLocator::lock($type, $itemId);
                 if (! $item) {
                     throw new \DomainException('not_found');
@@ -149,21 +149,6 @@ class GrantItemController implements RequestHandlerInterface
             $this->events->dispatch(new ItemGranted($recipient, $actor, $type, $grantedItem));
         }
 
-        return new JsonResponse(['data' => $this->serialize($claim)], $alreadyOwned ? 200 : 201);
-    }
-
-    protected function serialize(ShopClaim $claim): array
-    {
-        return [
-            'type' => 'point-system-claims',
-            'id' => (string) $claim->id,
-            'attributes' => [
-                'itemType' => $claim->item_type,
-                'itemId' => $claim->item_id,
-                'quantity' => (int) $claim->quantity,
-                'pricePaid' => $claim->price_paid,
-                'claimedAt' => optional($claim->claimed_at)->toIso8601String(),
-            ],
-        ];
+        return new JsonResponse(['data' => $claim->toApiResource()], $alreadyOwned ? 200 : 201);
     }
 }
