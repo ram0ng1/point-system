@@ -7,7 +7,7 @@
     "@flarum/prettier-config": "^1.0.0",
     "flarum-tsconfig": "^2.0.0",
     "flarum-webpack-config": "^3.0.3",
-    "prettier": "^3.9.4",
+    "prettier": "^3.9.5",
     "typescript": "^6.0.3",
     "webpack": "^5.108.4",
     "webpack-cli": "^7.2.1"
