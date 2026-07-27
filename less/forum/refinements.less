@@ -42,7 +42,7 @@
     gap: var(--ps-space-4);
     padding: var(--ps-space-3) var(--ps-space-4);
     background: var(--ps-surface-muted);
-    border: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+    border: 1px solid var(--ps-border-subtle, var(--ps-tint-3));
     border-radius: var(--ps-radius);
 
     &-item {
@@ -71,7 +71,7 @@
   display: flex;
   flex-direction: column;
   background: var(--ps-surface);
-  border: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+  border: 1px solid var(--ps-border-subtle, var(--ps-tint-3));
   border-radius: var(--ps-radius-lg);
   overflow: hidden;
   box-shadow: var(--ps-elevate-1);
@@ -140,7 +140,7 @@
     }
 
     i {
-      color: #e6a800;
+      color: var(--ps-currency);
       font-size: 14px;
     }
   }
@@ -182,14 +182,14 @@
   &-pageHeader {
     margin-bottom: var(--ps-space-5);
     padding-bottom: var(--ps-space-3);
-    border-bottom: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+    border-bottom: 1px solid var(--ps-border-subtle, var(--ps-tint-3));
   }
 
   &-preview {
     background: linear-gradient(135deg,
       color-mix(in srgb, var(--primary-color, #6cc04a) 8%, var(--ps-surface)) 0%,
       var(--ps-surface) 100%);
-    border: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+    border: 1px solid var(--ps-border-subtle, var(--ps-tint-3));
     border-radius: var(--ps-radius-xl);
     padding: var(--ps-space-6);
     box-shadow: var(--ps-elevate-1);
@@ -206,7 +206,7 @@
 
   &-item {
     background: var(--ps-surface);
-    border: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+    border: 1px solid var(--ps-border-subtle, var(--ps-tint-3));
     border-radius: var(--ps-radius);
     padding: var(--ps-space-3);
     text-align: center;
@@ -223,7 +223,7 @@
 
   &-coverItem {
     background: var(--ps-surface);
-    border: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+    border: 1px solid var(--ps-border-subtle, var(--ps-tint-3));
     border-radius: var(--ps-radius);
     padding: var(--ps-space-3);
     transition: transform var(--ps-t-med), box-shadow var(--ps-t-med);
@@ -261,7 +261,7 @@
   }
 
   &-pill {
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+    box-shadow: inset 0 0 0 1px var(--ps-tint-2);
   }
 }
 
@@ -271,7 +271,7 @@
 .AwardPointsModal,
 .ConfirmPurchaseModal {
   .Modal-header {
-    border-bottom: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+    border-bottom: 1px solid var(--ps-border-subtle, var(--ps-tint-3));
     padding: var(--ps-space-4) var(--ps-space-5);
 
     h3 {
@@ -438,7 +438,7 @@
     max-width: 140px;
     overflow: hidden;
     text-overflow: ellipsis;
-    background: var(--ps-surface-muted, rgba(0, 0, 0, 0.04));
+    background: var(--ps-surface-muted, var(--ps-tint-2));
   }
 }
 

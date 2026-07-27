@@ -1,3 +1,4 @@
+@import 'common/tokens.less';
 @import 'common/decorations.less';
 
 .PointSystemAdmin {
@@ -23,12 +24,12 @@
 
     &:focus {
       border-color: var(--primary-color, #6cc04a);
-      box-shadow: 0 0 0 3px fade(#6cc04a, 18%);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color, #6cc04a) 18%, transparent);
       outline: none;
     }
 
     &:disabled {
-      background: rgba(0, 0, 0, 0.02);
+      background: var(--ps-tint-1);
       cursor: not-allowed;
     }
   }
@@ -70,7 +71,7 @@
       font-weight: 500;
 
       &:hover {
-        background: darken(#eee, 5%);
+        background: var(--ps-surface-muted);
       }
     }
   }
@@ -133,7 +134,7 @@
     border-radius: 12px;
     padding: 20px 22px 22px;
     margin-bottom: 20px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    box-shadow: 0 1px 2px var(--ps-tint-1);
 
     h3 {
       margin-top: 0;
@@ -211,7 +212,7 @@
 
     &:hover {
       border-color: var(--control-bg, #d6d6dc);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      box-shadow: 0 2px 8px var(--ps-tint-2);
     }
 
     &.is-disabled {
@@ -381,11 +382,11 @@
     transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
 
     &:hover:not(:disabled) {
-      background: rgba(0, 0, 0, 0.06);
+      background: var(--ps-tint-3);
     }
     &:focus-visible {
       outline: none;
-      box-shadow: 0 0 0 3px fade(#6cc04a, 25%);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color, #6cc04a) 25%, transparent);
     }
 
     i { margin-right: 6px; opacity: 0.85; }
@@ -395,16 +396,16 @@
       background: var(--primary-color, #6cc04a);
       color: var(--button-primary-color, #fff);
       &:hover:not(:disabled) {
-        background: darken(#6cc04a, 6%);
+        background: var(--primary-color, #6cc04a);
       }
     }
 
     &--danger {
-      background: rgba(220, 38, 38, 0.10);
-      color: #b91c1c;
+      background: color-mix(in srgb, var(--ps-danger) 10%, transparent);
+      color: var(--ps-danger-fg);
       &:hover:not(:disabled) {
-        background: rgba(220, 38, 38, 0.18);
-        color: #991b1b;
+        background: color-mix(in srgb, var(--ps-danger) 18%, transparent);
+        color: var(--ps-danger-fg);
       }
     }
 
@@ -489,7 +490,7 @@
   background: var(--body-bg, #fff);
   border: 1px solid var(--primary-color, #6cc04a) !important;
   border-radius: 10px;
-  box-shadow: 0 0 0 3px rgba(108, 192, 74, 0.12);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color, #6cc04a) 12%, transparent);
 
   .PointSystemAdmin-decoCard-preview {
     max-width: 220px;
@@ -543,7 +544,7 @@
     }
 
     &:hover {
-      background: rgba(0, 0, 0, 0.05);
+      background: var(--ps-tint-2);
       color: var(--text-color, #1f2937);
       text-decoration: none;
 
@@ -553,7 +554,7 @@
     &.active {
       background: var(--primary-color, #6cc04a);
       color: var(--button-primary-color, #fff);
-      box-shadow: 0 2px 8px rgba(108, 192, 74, 0.25);
+      box-shadow: 0 2px 8px color-mix(in srgb, var(--primary-color, #6cc04a) 25%, transparent);
 
       i { opacity: 1; }
     }
@@ -640,7 +641,7 @@
 
   &:hover {
     border-color: var(--control-bg, #d6d6dc);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 2px 8px var(--ps-tint-2);
   }
 
   &.is-disabled {
@@ -702,7 +703,7 @@
     border-radius: 8px;
     padding: 12px 16px 16px;
     margin: 16px 0;
-    background: fade(#000, 2%);
+    background: var(--ps-tint-1);
 
     > legend {
       padding: 0 8px;
@@ -733,7 +734,7 @@
     border: 1px solid var(--control-bg, #e0e0e0);
     border-radius: 8px;
     padding: 12px 14px 4px;
-    background: fade(#000, 1.5%);
+    background: var(--ps-tint-1);
     margin: 6px 0 14px;
 
     > .Form-group:last-child {
@@ -770,7 +771,7 @@
   .PointSystemAdmin-decoCard.is-unlisted,
   .PointSystemAdmin-coverCard.is-unlisted {
     opacity: 0.85;
-    box-shadow: inset 0 0 0 1px fade(#ff9800, 50%);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ps-warning) 50%, transparent);
   }
 
   .PointSystemAdmin-decoCard--editing .PointSystemAdmin-availability,
@@ -782,7 +783,7 @@
 
 // ─── Group offer per-row availability expansion (added 2026-05-16) ────────
 .PointSystemAdmin-availabilityRow {
-  background: fade(#000, 2%);
+  background: var(--ps-tint-1);
 }
 .PointSystemAdmin-availabilityRow .PointSystemAdmin-availability {
   margin: 4px 0;
@@ -858,7 +859,7 @@
     border-radius: 12px;
     padding: 18px 20px 20px;
     margin-bottom: 16px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    box-shadow: 0 1px 2px var(--ps-tint-1);
     transition: border-color 0.15s, box-shadow 0.15s;
 
     // Cards inside `.PointSystemAdmin-grid` (Title / PostHighlight decoration
@@ -868,7 +869,7 @@
 
       &:hover {
         border-color: var(--control-bg, #d6d6dc);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        box-shadow: 0 2px 8px var(--ps-tint-2);
       }
     }
   }
@@ -903,7 +904,7 @@
     transition: background-color 0.15s;
 
     &:hover {
-      background: rgba(0, 0, 0, 0.02);
+      background: var(--ps-tint-1);
     }
 
     .Switch {
@@ -971,7 +972,7 @@
     background: var(--body-bg, #fff);
     border: 1px solid var(--control-bg, #e6e6e9);
     border-radius: 12px;
-    box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.03);
+    box-shadow: 0 -1px 4px var(--ps-tint-1);
 
     &--sticky {
       position: sticky;
@@ -984,7 +985,7 @@
     color: var(--muted-color, #6b7280);
     font-size: 13px;
     i {
-      color: #f59e0b;
+      color: var(--ps-warning);
       font-size: 8px;
       margin-right: 4px;
     }
@@ -1050,7 +1051,7 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--muted-color, #888);
-    background: rgba(0, 0, 0, 0.04);
+    background: var(--ps-tint-2);
     padding: 2px 10px;
     border-radius: 999px;
     margin-bottom: 6px;
@@ -1088,7 +1089,7 @@
       color: var(--muted-color, #888);
     }
     pre {
-      background: rgba(0, 0, 0, 0.05);
+      background: var(--ps-tint-2);
       padding: 8px 12px;
       border-radius: 8px;
       font-size: 12px;
@@ -1126,7 +1127,7 @@
   td {
     padding: 8px 10px;
     text-align: left;
-    border-bottom: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+    border-bottom: 1px solid var(--ps-border-subtle, var(--ps-tint-3));
     vertical-align: middle;
   }
 
@@ -1171,7 +1172,7 @@
   display: inline-block;
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--ps-tint-3);
   font-size: 11px;
   color: var(--muted-color, #666);
 }
@@ -1186,16 +1187,16 @@
   letter-spacing: 0.04em;
 
   &.is-pending {
-    background: rgba(245, 158, 11, 0.15);
-    color: #b45309;
+    background: color-mix(in srgb, var(--ps-warning) 15%, transparent);
+    color: var(--ps-warning-fg);
   }
   &.is-completed {
-    background: rgba(34, 197, 94, 0.15);
-    color: #15803d;
+    background: color-mix(in srgb, var(--ps-success) 15%, transparent);
+    color: var(--ps-success-fg);
   }
   &.is-cancelled {
-    background: rgba(220, 38, 38, 0.12);
-    color: #b91c1c;
+    background: color-mix(in srgb, var(--ps-danger) 12%, transparent);
+    color: var(--ps-danger-fg);
   }
 }
 
@@ -1206,7 +1207,7 @@
   gap: 12px;
   margin-top: 16px;
   padding-top: 12px;
-  border-top: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+  border-top: 1px solid var(--ps-border-subtle, var(--ps-tint-3));
 }
 
 .PointSystemAdmin-pageInfo {
@@ -1222,7 +1223,7 @@
 }
 
 .PointSystemAdmin-tradesTable-row:hover {
-  background: rgba(0, 0, 0, 0.03);
+  background: var(--ps-tint-1);
 }
 
 // Admin trade detail modal — two-column party comparison + revert footer.
@@ -1298,7 +1299,7 @@
     &-points {
       font-weight: 600;
       i {
-        color: #c79a2a;
+        color: var(--ps-currency);
         margin-right: 4px;
       }
     }
@@ -1318,7 +1319,7 @@
       justify-content: space-between;
       gap: 8px;
       padding: 4px 8px;
-      background: rgba(0, 0, 0, 0.03);
+      background: var(--ps-tint-1);
       border-radius: 4px;
       font-size: 12px;
     }
@@ -1332,8 +1333,8 @@
     margin: 0;
     padding: 10px 14px;
     border-radius: 8px;
-    background: rgba(220, 38, 38, 0.10);
-    color: #b91c1c;
+    background: color-mix(in srgb, var(--ps-danger) 10%, transparent);
+    color: var(--ps-danger-fg);
     font-size: 13px;
   }
 
@@ -1343,7 +1344,7 @@
     align-items: center;
     gap: 12px;
     padding-top: 12px;
-    border-top: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+    border-top: 1px solid var(--ps-border-subtle, var(--ps-tint-3));
 
     .helpText {
       margin: 0;
@@ -1368,7 +1369,7 @@
     margin-top: 4px;
     padding: 4px 0;
     list-style: none;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--ps-shadow-2);
 
     li {
       display: flex;

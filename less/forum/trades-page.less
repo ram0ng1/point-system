@@ -25,8 +25,8 @@
   &-notice {
     padding: 12px 16px;
     border-radius: 10px;
-    background: rgba(255, 152, 0, 0.12);
-    color: #a85c00;
+    background: color-mix(in srgb, var(--ps-warning) 12%, transparent);
+    color: var(--ps-warning-fg);
     margin-bottom: 16px;
   }
 
@@ -149,9 +149,9 @@
     color: var(--ps-text-muted);
 
     &.is-pending { background: color-mix(in srgb, var(--primary-color, #6cc04a) 16%, transparent); color: var(--primary-color, #6cc04a); }
-    &.is-completed { background: rgba(108, 192, 74, 0.18); color: #2f7a25; }
-    &.is-cancelled { background: rgba(220, 38, 38, 0.14); color: #b91c1c; }
-    &.is-waiting { background: rgba(255, 159, 0, 0.18); color: #b45a00; }
+    &.is-completed { background: color-mix(in srgb, var(--ps-success) 18%, transparent); color: var(--ps-success-fg); }
+    &.is-cancelled { background: color-mix(in srgb, var(--ps-danger) 14%, transparent); color: var(--ps-danger-fg); }
+    &.is-waiting { background: color-mix(in srgb, var(--ps-warning) 18%, transparent); color: var(--ps-warning-fg); }
   }
 }
 
@@ -207,8 +207,8 @@
     margin: 12px 0 0;
     padding: 10px 14px;
     border-radius: 8px;
-    background: rgba(220, 38, 38, 0.10);
-    color: #b91c1c;
+    background: color-mix(in srgb, var(--ps-danger) 10%, transparent);
+    color: var(--ps-danger-fg);
     font-size: 13px;
   }
   &-footer {
@@ -230,9 +230,9 @@
     display: inline-flex;
     gap: 6px;
     padding: 4px;
-    background: var(--ps-surface-muted, rgba(0, 0, 0, 0.04));
+    background: var(--ps-surface-muted, var(--ps-tint-2));
     border-radius: 999px;
-    border: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+    border: 1px solid var(--ps-border-subtle, var(--ps-tint-3));
   }
   &-sourceOption {
     display: inline-flex;
@@ -256,7 +256,7 @@
     &.is-active {
       background: var(--ps-surface, #fff);
       color: var(--ps-text, #111827);
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+      box-shadow: 0 1px 2px var(--ps-tint-3);
     }
 
     &:hover:not(.is-active) {
@@ -272,14 +272,14 @@
   margin: 6px 0 8px;
   padding: 3px 10px 3px 3px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--ps-tint-2);
   color: var(--ps-text-muted, #6b7280);
   font-size: 12px;
   text-decoration: none;
   max-width: 100%;
 
   &:hover {
-    background: rgba(0, 0, 0, 0.08);
+    background: var(--ps-surface-muted);
     color: var(--text-color, inherit);
     text-decoration: none;
   }

@@ -37,7 +37,7 @@
     &--primary {
       background: var(--primary-color, #6cc04a);
       color: var(--button-primary-color, #fff);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 1px 2px rgba(0, 0, 0, 0.06);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 1px 2px var(--ps-tint-3);
 
       &:hover:not(:disabled) {
         background: color-mix(in srgb, var(--primary-color, #6cc04a) 90%, black);
@@ -46,7 +46,7 @@
     }
 
     &--danger:hover:not(:disabled) {
-      box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
+      box-shadow: 0 4px 12px color-mix(in srgb, var(--ps-danger) 20%, transparent);
     }
 
     &:focus-visible {
@@ -145,13 +145,13 @@
   padding: var(--ps-space-4);
   margin-bottom: var(--ps-space-4);
   border-radius: var(--ps-radius-lg);
-  background: color-mix(in srgb, var(--alert-error-bg, #d83e3e) 10%, var(--ps-surface));
-  border: 1px solid color-mix(in srgb, var(--alert-error-bg, #d83e3e) 30%, transparent);
+  background: color-mix(in srgb, var(--ps-danger) 10%, var(--ps-surface));
+  border: 1px solid color-mix(in srgb, var(--ps-danger) 30%, transparent);
   color: var(--ps-text);
   font-size: 14px;
 
   > i {
-    color: var(--alert-error-bg, #d83e3e);
+    color: var(--ps-danger);
     font-size: 16px;
     flex: 0 0 auto;
   }
@@ -203,7 +203,7 @@
 
 // Avatar preview refinement.
 .PointSystemShop-avatarPreview {
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.04));
+  filter: drop-shadow(0 4px 12px var(--ps-tint-2));
   transition: transform var(--ps-t-med);
 
   .PointSystemShop-card:hover & {
@@ -249,8 +249,8 @@
   margin-top: 12px;
   padding: 10px 14px;
   border-radius: 8px;
-  background: rgba(220, 38, 38, 0.10);
-  color: #b91c1c;
+  background: color-mix(in srgb, var(--ps-danger) 10%, transparent);
+  color: var(--ps-danger-fg);
   font-size: 13px;
 }
 
@@ -291,7 +291,7 @@
   // shadow — mirrors the forum's search results dropdown.
   border: 1px solid var(--ps-border, #e6e6e9);
   border-radius: 4px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--ps-shadow-1);
 
   // Rows are core's `UserSearchResult` (avatar + query-highlighted name +
   // badges). Core ships it with `margin: 0 -16px` for the SearchModal's padded
@@ -321,7 +321,7 @@
     &.active > button,
     > a:hover,
     > button:hover {
-      background: var(--ps-surface-muted, rgba(0, 0, 0, 0.04));
+      background: var(--ps-surface-muted, var(--ps-tint-2));
     }
 
     .Avatar {
@@ -398,7 +398,7 @@
   background: linear-gradient(180deg,
     color-mix(in srgb, var(--primary-color, #6cc04a) 6%, var(--ps-surface)) 0%,
     var(--ps-surface) 100%);
-  border: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+  border: 1px solid var(--ps-border-subtle, var(--ps-tint-3));
   min-height: 220px;
   display: flex;
   align-items: flex-end;
@@ -447,7 +447,9 @@
       width: 96px;
       height: 96px;
       font-size: 40px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25),
+      // `--shadow-color` é o token do core (root.less), que o tema troca no
+      // dark mode — preto fixo com alpha ficava pesado demais no escuro.
+      box-shadow: 0 4px 16px var(--shadow-color, rgba(0, 0, 0, 0.25)),
                   0 0 0 4px var(--ps-surface, #fff);
       border-radius: 50%;
     }
@@ -499,12 +501,17 @@
     font-size: 12.5px;
     font-weight: 600;
     color: var(--text-color, #1f2937);
-    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 2px 6px rgba(0, 0, 0, 0.10);
+    box-shadow: 0 1px 0 var(--ps-tint-2), var(--ps-shadow-1);
 
     i {
-      color: #d6a200;
+      color: var(--ps-currency);
     }
 
+    // Literais PROPOSITAIS — não trocar por token numa varredura de cores.
+    // Aqui a pílula é uma placa branca opaca sobre a FOTO de capa do usuário,
+    // não sobre uma superfície do tema: o fundo não muda com dark mode, então
+    // o texto precisa ser escuro nos dois. Um `var(--text-color)` viraria texto
+    // claro sobre placa branca no tema escuro.
     .ps-has-cover & {
       background: rgba(255, 255, 255, 0.95);
       color: #1f2937;
@@ -902,20 +909,15 @@ body:has(.PointSystemTradeModal) .ModalManager-invisibleBackdrop {
 // ── Round icon chip — mirror `.AvocadoHome-categoryIcon` ──────────────────────
 // The tier medal sits in Avocado's pill-shaped icon chip (surface-1 bg, muted
 // glyph) instead of a bare square.
+// Mesma declaração de cor do `.Badge` do core (less/common/Badge.less):
+// `--contrast-color` é definido pelas classes `.text-contrast--light/--dark`
+// que o `textContrastClass` aplica conforme a luminância da cor do grupo, e o
+// fallback cobre o chip sem cor. Uma cor fixa aqui quebraria esse cálculo —
+// era o que acontecia com o branco cravado (relato 2026-07).
 .PointSystemShop-tier-badge {
   border-radius: var(--ps-radius-pill);
   background: var(--ps-surface-sunken);
-  color: var(--ps-text-icon);
-
-  // Grupo com cor própria: o fundo vem inline (`Group->color` sanitizado) e o
-  // glifo precisa acompanhar. Sem isso ele herdava o `--ps-text-icon` cinza e
-  // sumia sobre fundos saturados (relato 2026-07). O text-shadow garante
-  // legibilidade também sobre cores claras, onde branco puro teria pouco
-  // contraste — mesmo tratamento do `Badge` do core.
-  &.is-colored {
-    color: #fff;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
-  }
+  color: var(--contrast-color, var(--ps-text-icon));
 }
 
 // ── CTA de convidado ("Entrar") ───────────────────────────────────────────────
