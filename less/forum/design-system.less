@@ -1034,8 +1034,23 @@ body:has(.PointSystemTradeModal) .ModalManager-invisibleBackdrop {
     justify-content: center;
   }
 
-  .PointSystemShop-grid {
-    grid-template-columns: repeat(auto-fit, minmax(220px, 280px));
-    justify-content: center;
-  }
 }
+
+// A grade de decorações NÃO é centralizada — de propósito. Duas razões, ambas
+// descobertas quebrando a página (relato 2026-07, "3 por linha em vez de 4"):
+//
+//  1. Trocar o topo do `minmax` de `1fr` para um px MUDA a contagem de colunas.
+//     A spec do Grid manda calcular o número de repetições de `auto-fit`/
+//     `auto-fill` usando a função de tamanho MÁXIMA quando ela é definida, e
+//     caindo na mínima quando não é. `minmax(220px, 1fr)` calcula com 220px;
+//     `minmax(220px, 280px)` calcula com 280px — bem menos colunas na mesma
+//     largura. Centralizar exige teto em px, e o teto custa colunas.
+//
+//  2. Um seletor `.PointSystemShop-grid` aqui vem DEPOIS das variantes por aba
+//     (`--name`/`--title` em 160px, `--cover` em 320px, em shop-page.less) e
+//     tem a mesma especificidade, então apagava a coluna calibrada de cada
+//     aba junto.
+//
+// A grade de tiers (acima) aceita o teto porque a lista de ofertas de grupo é
+// curta e cabe numa linha de qualquer jeito — lá o ganho de centralizar supera
+// a coluna perdida em telas muito largas. Aqui não.
