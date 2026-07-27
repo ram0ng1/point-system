@@ -103,15 +103,30 @@
     align-self: center;
   }
 
-  // Estado "você já pode obter": SÓ o gradiente 4%, sem borda accent em
-  // repouso. "Posso comprar" é affordance, não posse — a borda cheia deixava a
-  // grade inteira contornada de accent, sem hierarquia (relato 2026-07). O
-  // botão primário carrega a chamada; a borda accent fica reservada ao hover,
-  // igual aos cards de decoração.
+  // Estado "você já pode obter": tint NEUTRO chapado, sem accent nenhum.
+  //
+  // Histórico: começou como borda accent cheia + anel (pesado demais, tirado);
+  // virou um gradiente de 4% da primary, que num fórum de primary laranja
+  // deixava um brilho alaranjado sob o card — "meio sujo" no tema claro
+  // (relato 2026-07). Cor do tema em fundo de card é justamente o que suja.
+  //
+  // A affordance não depende disto: o botão primário "Obter" já diferencia o
+  // card alcançável do bloqueado. Aqui basta separar a superfície do branco.
   &.is-reached {
-    background: linear-gradient(180deg,
-      color-mix(in srgb, var(--primary-color, #6cc04a) 4%, var(--ps-surface)) 0%,
-      var(--ps-surface) 100%);
+    background: var(--ps-surface-muted);
+  }
+
+  // Ação alinhada à ESQUERDA, na mesma coluna do nome e do preço.
+  //
+  // Era `margin-left: auto`, que jogava o botão para a borda direita — no card
+  // estreito ele quebrava para a segunda linha e ficava sozinho lá na ponta,
+  // desalinhado de todo o resto do conteúdo, que é alinhado à esquerda.
+  //
+  // O recuo é a largura do chip do grupo + o gap do card, para o botão cair
+  // exatamente sob o texto em vez da borda. Vem de `--ps-tier-badge-size` para
+  // não virar número mágico se o chip mudar de tamanho.
+  &-action {
+    margin-left: calc(var(--ps-tier-badge-size) + 12px);
   }
 }
 
@@ -939,6 +954,14 @@ body:has(.PointSystemTradeModal) .ModalManager-invisibleBackdrop {
 // botão segue a largura natural do rótulo em vez de esticar.
 .PointSystemShop-tier-action > .PointSystemShop-loginBtn {
   width: auto;
+}
+
+// A pílula de saldo já se separa do fundo pelo preenchimento sólido; a borda
+// por cima só somava um contorno redundante (relato 2026-07). Os cards da loja
+// nunca tiveram borda em repouso, então tirar aqui deixa as duas superfícies
+// coerentes.
+.PointSystemShop-balance {
+  border: none;
 }
 
 // ── Stat / metric pills — mirror `.AvocadoUserPage-hero-statPill` ─────────────

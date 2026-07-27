@@ -4,6 +4,7 @@ import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import AvailabilityInputs from './AvailabilityInputs';
+import contrastClass from '../../common/utils/contrastClass';
 
 const EMPTY_AVAILABILITY = () => ({
   maxClaims: null as number | null,
@@ -174,7 +175,7 @@ export default class GroupOffersPanel extends Component {
     return (
       <tr key={id}>
         <td>
-          <span className="GroupBadge" style={{ backgroundColor: group?.color?.() || '#666' }}>
+          <span className={`GroupBadge ${contrastClass(group?.color?.())}`} style={{ backgroundColor: group?.color?.() || 'var(--ps-text-icon)' }}>
             <i className={`icon ${group?.icon?.() || 'fas fa-users'}`} />
             {group?.namePlural?.() || `#${offer.attribute('groupId')}`}
           </span>

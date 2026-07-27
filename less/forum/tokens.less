@@ -34,8 +34,10 @@
 
   &-badge {
     flex: 0 0 auto;
-    width: 38px;
-    height: 38px;
+    // Tamanho publicado como token porque o recuo da linha de ação
+    // (design-system.less) o usa para alinhar o botão sob o texto.
+    width: var(--ps-tier-badge-size);
+    height: var(--ps-tier-badge-size);
     border-radius: 50%;
     background: var(--control-bg, #cccccc);
     color: var(--text-color, #fff);
