@@ -580,10 +580,7 @@ export default class ShopPage extends Page {
     const color = sanitizeCssColor(offer.groupColor);
 
     return (
-      <div
-        className={`PointSystemShop-tier-badge ${contrastClass(color)}`}
-        style={color ? `background:${color}` : undefined}
-      >
+      <div className={`PointSystemShop-tier-badge ${contrastClass(color)}`} style={color ? `background:${color}` : undefined}>
         <i className={offer.groupIcon || 'fas fa-medal'} />
       </div>
     );
