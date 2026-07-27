@@ -84,6 +84,47 @@ function sanitizeCssColor(raw: unknown): string {
   return /^(#[0-9a-fA-F]{3,8}|(?:rgb|rgba|hsl|hsla)\([^)]*\)|[a-zA-Z]+)$/.test(s) ? s : '';
 }
 
+/**
+ * Devolve a classe de contraste do core (`text-contrast--light` / `--dark`)
+ * para uma cor de fundo, ou string vazia quando não há cor.
+ *
+ * Por que não importar `flarum/common/helpers/textContrastClass`: o core o
+ * registra com `addChunkModule`, ou seja, ele vive num chunk sob demanda. Antes
+ * do chunk carregar, `flarum.reg.get` devolve `undefined` — e, por ser chunk,
+ * o registry nem emite warning (ExportRegistry.get pula as duas ramificações de
+ * aviso quando `isInChunk`). Chamar o helper no caminho de render viraria
+ * `undefined(cor)` e derrubaria a página inteira da loja.
+ *
+ * As CLASSES continuam sendo as do core: elas moram no stylesheet principal
+ * (scaffolding.less), não num chunk, então sempre existem. O que replicamos
+ * aqui é só a decisão — a fórmula YIQ do W3C (AERT), lendo o mesmo
+ * `--yiq-threshold` que o core lê, para um tema que ajuste o limiar continuar
+ * concordando conosco.
+ *
+ * Só entende hex, igual ao `isDark` do core: qualquer outro formato cai em
+ * "tratar como claro", que é exatamente o comportamento dele.
+ */
+function contrastClass(color: string): string {
+  if (!color || color.length < 4) return '';
+
+  let hex = color.replace('#', '');
+  if (hex.length === 3) {
+    hex = hex
+      .split('')
+      .map((c) => c.repeat(2))
+      .join('');
+  }
+
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+
+  const threshold = parseInt(getComputedStyle(document.body).getPropertyValue('--yiq-threshold').trim()) || 128;
+
+  return yiq < threshold ? 'text-contrast--light' : 'text-contrast--dark';
+}
+
 export default class ShopPage extends Page {
   loading = false;
   claiming = new Set<string>();
@@ -524,15 +565,22 @@ export default class ShopPage extends Page {
   }
 
   /**
-   * Chip do grupo. Quando o grupo define uma cor, ela vira o fundo do chip e o
-   * glifo vai a branco — mesmo contrato do `Badge` do core. Sem cor definida,
-   * cai no chip neutro (surface afundada + ícone muted) definido no LESS.
+   * Chip do grupo, seguindo o mesmo contrato do `Badge` do core.
+   *
+   * A cor do glifo NÃO é fixa: {@link contrastClass} calcula a luminância YIQ
+   * da cor do grupo e devolve `text-contrast--light` ou `--dark`, e o LESS do
+   * core traduz isso em `--contrast-color`. É por isso que um grupo laranja
+   * claro ganha glifo escuro e um azul escuro ganha glifo claro — branco fixo
+   * dava contraste ruim justamente nos grupos claros (relato 2026-07).
+   *
+   * Sem cor definida a classe não é aplicada, `--contrast-color` fica em aberto
+   * e o chip cai no neutro (surface afundada + ícone muted) do LESS.
    */
   tierBadge(offer: any) {
     const color = sanitizeCssColor(offer.groupColor);
 
     return (
-      <div className={`PointSystemShop-tier-badge ${color ? 'is-colored' : ''}`} style={color ? `background:${color}` : undefined}>
+      <div className={`PointSystemShop-tier-badge ${contrastClass(color)}`} style={color ? `background:${color}` : undefined}>
         <i className={offer.groupIcon || 'fas fa-medal'} />
       </div>
     );

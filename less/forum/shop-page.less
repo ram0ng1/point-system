@@ -274,9 +274,9 @@
       font-variant-numeric: tabular-nums;
 
       strong { font-feature-settings: var(--ps-num-tabular); }
-      i { color: #d6a200; opacity: 0.9; }
+      i { color: var(--ps-currency); opacity: 0.9; }
 
-      &--lifetime i { color: #16a34a; opacity: 0.9; }
+      &--lifetime i { color: var(--ps-success-fg); opacity: 0.9; }
     }
   }
 
@@ -347,7 +347,7 @@
       font-size: 11px;
       font-weight: 700;
       letter-spacing: 0.5px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      box-shadow: var(--ps-shadow-1);
 
       i { margin-right: 2px; }
     }
@@ -448,7 +448,7 @@
       display: flex;
       align-items: center;
       gap: 4px;
-      color: #d6a200;
+      color: var(--ps-currency);
       font-weight: 600;
       margin: 8px 0;
       font-variant-numeric: tabular-nums;
