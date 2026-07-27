@@ -610,13 +610,17 @@
   }
 }
 
+// Mesma declaração de cor do `.Badge` do core: `--contrast-color` vem das
+// classes `.text-contrast--light/--dark` que o `contrastClass` aplica conforme
+// a luminância da cor do grupo. Antes era `--light-content-color` fixo, ou
+// seja, glifo claro mesmo sobre grupos de cor clara (relato 2026-07).
 .GroupBadge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 2px 10px;
   border-radius: 999px;
-  color: var(--light-content-color, #fff);
+  color: var(--contrast-color, var(--light-content-color, #fff));
   font-size: 12px;
 }
 

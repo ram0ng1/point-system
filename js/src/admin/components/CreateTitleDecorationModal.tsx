@@ -4,6 +4,7 @@ import Modal from 'flarum/common/components/Modal';
 import Button from 'flarum/common/components/Button';
 import AvailabilityInputs from './AvailabilityInputs';
 import { pointsLabel } from '../../common/utils/pointsLabel';
+import { cssVar } from '../../common/utils/contrastClass';
 
 const EMPTY_AVAILABILITY = () => ({
   maxClaims: null,
@@ -25,7 +26,7 @@ export default class CreateTitleDecorationModal extends Modal {
     name: '',
     titleText: '',
     description: '',
-    color: '#6cc04a',
+    color: cssVar('--primary-color', '#6cc04a'),
     price: 100,
     customCss: '',
     availability: EMPTY_AVAILABILITY(),
