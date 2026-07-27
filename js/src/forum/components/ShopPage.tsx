@@ -4,34 +4,11 @@ import Button from 'flarum/common/components/Button';
 import Tooltip from 'flarum/common/components/Tooltip';
 import LinkButton from 'flarum/common/components/LinkButton';
 import SelectDropdown from 'flarum/common/components/SelectDropdown';
+import LogInModal from 'flarum/forum/components/LogInModal';
 import type Mithril from 'mithril';
 import ConfirmPurchaseModal from './ConfirmPurchaseModal';
 
 declare const m: Mithril.Static;
-declare const flarum: { reg: { asyncModuleImport(path: string): Promise<any> } };
-
-/**
- * Abre o modal de login do core.
- *
- * NÃO dá para `import LogInModal from 'flarum/forum/components/LogInModal'` e
- * passar a classe: o core registra esse componente com `addChunkModule`, ou
- * seja, ele mora num chunk carregado sob demanda. Antes do chunk carregar o
- * registry devolve `undefined`, e `ModalManagerState.show` estoura em
- * `componentClass.prototype` — o clique não faz nada visível, só um TypeError
- * no console (relato 2026-07).
- *
- * `asyncModuleImport` devolve a Promise do módulo, que é exatamente o formato
- * `AsyncModalClass` que o `show()` espera — o mesmo caminho que o core usa
- * internamente ao abrir o login pelo cabeçalho.
- *
- * Nota para quem for editar este bloco: NÃO escreva a chamada dinâmica de
- * módulo literalmente aqui. O `autoChunkNameLoader` do flarum-webpack-config
- * varre o arquivo inteiro, inclusive comentários, e injeta um magic comment
- * que fecha este docblock no meio e quebra o parse.
- */
-function showLogInModal(): void {
-  app.modal.show(() => flarum.reg.asyncModuleImport('flarum/forum/components/LogInModal'));
-}
 
 interface ShopItem {
   id: number;
@@ -516,7 +493,7 @@ export default class ShopPage extends Page {
   guestLoginButton() {
     return (
       <Tooltip text={app.translator.trans('ramon-point-system.forum.shop.must_login') as string}>
-        <Button className="Button PointSystemShop-loginBtn" onclick={() => showLogInModal()}>
+        <Button className="Button PointSystemShop-loginBtn" onclick={() => app.modal.show(LogInModal)}>
           <i className="fas fa-right-to-bracket" /> {app.translator.trans('ramon-point-system.forum.shop.login_to_claim')}
         </Button>
       </Tooltip>
