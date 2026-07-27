@@ -42,13 +42,17 @@ export default class TradesPage extends Page {
 
   async load() {
     this.loading = true;
+    // Limpa o erro anterior: sem isso o retry bem-sucedido continuava
+    // exibindo o painel de falha da tentativa passada.
+    this.err = null;
     m.redraw();
     try {
       const apiUrl = (app.forum.attribute('apiUrl') || '/api').replace(/\/+$/, '');
       const res: any = await app.request({ method: 'GET', url: `${apiUrl}/point-system/trades` });
       this.trades = Array.isArray(res?.data) ? res.data : [];
     } catch (e: any) {
-      this.err = e?.response?.errors?.[0]?.detail || 'load_failed';
+      this.err =
+        e?.response?.errors?.[0]?.detail || (app.translator.trans('ramon-point-system.forum.trades_page.load_failed') as string);
     } finally {
       this.loading = false;
       m.redraw();
@@ -95,6 +99,16 @@ export default class TradesPage extends Page {
           </div>
           <p className="helpText">{t('subtitle')}</p>
         </div>
+
+        {this.err && (
+          <div className="PointSystemTradesPage-error">
+            <i className="fas fa-triangle-exclamation" />
+            <span>{this.err}</span>
+            <Button className="Button Button--primary" onclick={() => this.load()}>
+              {t('retry')}
+            </Button>
+          </div>
+        )}
 
         {!canTrade && (
           <p className="PointSystemTradesPage-notice">

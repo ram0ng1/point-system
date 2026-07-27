@@ -1,0 +1,530 @@
+// ─────────────────────────────────────────────────────────────
+// Página /rewards — nav e grade da loja
+// Fatia de forum.less (linhas 609–1131 do arquivo original).
+// A ORDEM dos @import em forum.less é significativa: blocos daqui
+// para baixo sobrescrevem os anteriores de propósito.
+// ─────────────────────────────────────────────────────────────
+
+
+// ─── Section nav (Shop + Decorations) ────────────────────────────────────────
+// Uses Flarum core's `.sideNav` infrastructure so we inherit the bottom-sheet
+// dropdown behaviour on `@phone` (defined in core/less/common/Dropdown.less)
+// and the .Dropdown--expanded() expansion on tablet+. We then layer Avocado-
+// inspired styling on top: pill-shaped tabs with a circular icon chip on
+// tablet+, centred trigger button + rounded bottom-sheet on phone.
+//
+// Wrapper carries `App-titleControl` so Flarum core's phone media query
+// (common/App.less L86) absolute-positions the trigger into the page header
+// — same trick avocado uses for its IndexPage SelectDropdown. We then
+// neutralize the absolute positioning on tablet+ so the inline pill row
+// can render in normal flow.
+.PointSystemShop-nav,
+.PointSystemDecorations-nav {
+  // Breathing room above the nav so the live-preview hero (rendered just
+  // above) doesn't sit flush against the dropdown / pill row.
+  margin: 20px auto;
+
+  // ─── Tablet+ : tabs expanded inline (horizontal pill row) ────────────────
+  // App-titleControl is `position: absolute !important; top: 0` on phone
+  // (Flarum core) — neutralize on tablet+ so our nav lands in normal flow.
+  // We dropped the `.container` class to avoid fighting App-titleControl on
+  // phone, so re-apply the container's max-width here so the pill row stays
+  // centered with the rest of the page.
+  @media @tablet-up {
+    &.App-titleControl {
+      position: static !important;
+      width: auto !important;
+      max-width: 1080px;
+      left: auto !important;
+      right: auto !important;
+      top: auto !important;
+      margin: 20px auto !important;
+      padding-left: 16px;
+      padding-right: 16px;
+      text-align: center;
+    }
+
+    .Dropdown-toggle { display: none; }
+
+    .Dropdown-menu {
+      display: flex;
+      gap: 6px;
+      position: static;
+      // Without this, Flarum core's `.Dropdown-menu { z-index: 100 }` (or a
+      // host theme's higher value) keeps the menu painted above the page
+      // header — even when the menu is rendered in static flow. Forcing
+      // `auto` lets it stack normally with the surrounding page content.
+      z-index: auto;
+      flex-wrap: wrap;
+      padding: 0;
+      margin: 0;
+      min-width: 0;
+      background: none;
+      box-shadow: none;
+      border-radius: 0;
+      list-style: none;
+      justify-content: center;
+
+      > li {
+        margin: 0;
+        > a, > button {
+          --icon-size: 22px;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 14px;
+          background: var(--ps-surface);
+          border: 1px solid var(--ps-border);
+          border-radius: 999px;
+          color: var(--ps-text-muted);
+          font-weight: 500;
+          font-size: 13.5px;
+          line-height: 1.2;
+          transition: color var(--ps-t), background-color var(--ps-t), border-color var(--ps-t);
+          width: auto;
+
+          .Button-icon {
+            width: var(--icon-size) !important;
+            height: var(--icon-size);
+            line-height: var(--icon-size);
+            font-size: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--ps-surface-muted);
+            border-radius: 999px;
+            margin: 0;
+          }
+
+          &:hover {
+            color: var(--text-color, inherit);
+            background: var(--ps-surface);
+            border-color: var(--ps-border);
+            text-decoration: none;
+          }
+        }
+
+        &.active > a,
+        &.active > button {
+          &, &:hover {
+            background: color-mix(in srgb, var(--primary-color, #6cc04a) 12%, transparent);
+            color: var(--primary-color, #6cc04a);
+            border-color: color-mix(in srgb, var(--primary-color, #6cc04a) 35%, transparent);
+          }
+
+          .Button-icon {
+            background: var(--body-bg);
+            color: var(--primary-color, #6cc04a);
+          }
+        }
+      }
+    }
+  }
+
+  // ─── Phone : centered trigger button + rounded bottom-sheet menu ─────────
+  // The wrapper carries `App-titleControl`, so Flarum core's
+  // common/App.less rules (position: absolute; top: 0; left: 50%;
+  // margin-left: -100px; width: 200px) float the toggle into the page
+  // header bar — same look as UserPage's native tab-selector. We must NOT
+  // add a competing `margin` here on phone: any shorthand `margin: 0 auto`
+  // overrides Flarum's `margin-left: -100px` and breaks the centring math.
+  //
+  // Flarum core's "header pill" styling lives in `App-titleControl > .Button`
+  // (direct child) in common/App.less L39-51. SelectDropdown wraps the
+  // button in `.ButtonGroup.Dropdown`, so the `>` combinator misses it and
+  // the Button keeps its default opaque-pill background. Re-apply the
+  // same transparent/no-shadow header-bar look manually for our nested
+  // structure — visually identical to UserPage's tab selector pill.
+  @media @phone {
+    .Dropdown-toggle.Button {
+      float: none;
+      background: transparent !important;
+      box-shadow: none !important;
+      border: none !important;
+      height: var(--header-height-phone);
+      width: 100%;
+      padding: 13px !important;
+      margin: 0 !important;
+      color: var(--header-color) !important;
+      font-size: 16px;
+      // Match Flarum core's header nav weight (normal, not the .Button
+      // base weight of 500/bold that themes often inherit). The default
+      // `.Button` class on most Flarum themes lands at ~500-700; we want
+      // the lighter look of the native UserPage tab selector.
+      font-weight: normal !important;
+      overflow: hidden;
+      text-overflow: ellipsis;
+
+      &:hover, &:focus {
+        background: transparent !important;
+        box-shadow: none !important;
+      }
+      &:active { opacity: 0.5; }
+
+      > .Button-label {
+        display: block;
+        text-align: center;
+        font-weight: normal !important;
+      }
+      .Button-label .Button-labelText {
+        font-weight: normal !important;
+      }
+      .Button-caret {
+        margin-left: 6px;
+        opacity: 0.7;
+      }
+    }
+
+    .Dropdown-menu {
+      border-radius: 18px 18px 0 0;
+      padding-bottom: 18px;
+
+      > li {
+        > a, > button {
+          --icon-size: 28px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 20px;
+          font-size: 15px;
+          background: var(--body-bg);
+          color: var(--text-color);
+
+          .Button-icon {
+            flex: 0 0 var(--icon-size);
+            width: var(--icon-size) !important;
+            height: var(--icon-size);
+            line-height: var(--icon-size);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--ps-surface-muted);
+            border-radius: 100%;
+            float: none;
+            margin: 0;
+            font-size: 14px;
+            color: var(--text-color);
+          }
+
+          .Button-label {
+            flex: 1;
+            text-align: left;
+          }
+
+          &:hover {
+            background: var(--ps-surface-muted);
+            color: var(--text-color);
+          }
+        }
+
+        &.active > a,
+        &.active > button {
+          &, &:hover {
+            background: color-mix(in srgb, var(--primary-color, #6cc04a) 12%, var(--body-bg)) !important;
+            color: var(--primary-color, #6cc04a) !important;
+          }
+
+          .Button-icon {
+            background: var(--body-bg);
+            color: var(--primary-color, #6cc04a);
+          }
+        }
+      }
+    }
+  }
+}
+
+// ─── Shop page ────────────────────────────────────────────────────────────────
+.PointSystemShop {
+  padding: 24px 0 64px;
+
+  &-header {
+    text-align: center;
+    margin-bottom: 24px;
+
+    h1 {
+      margin: 0 0 6px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+  }
+
+  &-subtitle {
+    color: var(--ps-text-muted);
+    margin: 0 0 16px;
+    font-size: 14px;
+  }
+
+  &-balance {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 18px;
+    padding: 8px 16px;
+    background: var(--ps-surface-muted);
+    border: 1px solid var(--ps-border-subtle);
+    border-radius: 999px;
+    font-size: 13.5px;
+    color: inherit;
+
+    &-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-variant-numeric: tabular-nums;
+
+      strong { font-feature-settings: var(--ps-num-tabular); }
+      i { color: #d6a200; opacity: 0.9; }
+
+      &--lifetime i { color: #16a34a; opacity: 0.9; }
+    }
+  }
+
+  &-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+    /*
+     * `align-items: start` — sem isso, grid esticava todas as células
+     * pra altura da maior, fazendo cards de post-highlight (que têm
+     * preview de ~100px) ficarem com bloco vazio embaixo do tamanho
+     * de cards-avatar (preview 200px). Relato 2026-05-23: "na página
+     * destaques de post está bem grande".
+     */
+    align-items: start;
+
+    // ── Per-tab grid density ──────────────────────────────────────────────
+    // Name styles and titles are text-only — they don't need a square preview
+    // chip, so we pack them tighter (smaller minmax). Covers are landscape
+    // banners — they need wider columns to keep the 16:9 ratio readable.
+    // Post highlights show a small mock-post wireframe; middle ground works.
+    &--name,
+    &--title {
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 10px;
+    }
+
+    &--cover {
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+    }
+
+    &--post-hl {
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 14px;
+    }
+  }
+
+  &-empty {
+    text-align: center;
+    padding: 56px 20px;
+    color: var(--ps-text-muted);
+    background: var(--ps-surface-muted);
+    border-radius: var(--ps-radius);
+    font-size: 14.5px;
+  }
+
+  &-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--ps-surface);
+    border: 1px solid var(--ps-border);
+    border-radius: var(--ps-radius);
+    overflow: hidden;
+    position: relative;
+    transition: transform var(--ps-t), box-shadow var(--ps-t), border-color var(--ps-t);
+
+
+    &-equippedRibbon {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 3;
+      background: var(--primary-color, #6cc04a);
+      color: var(--button-primary-color, #fff);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+
+      i { margin-right: 2px; }
+    }
+
+    &-preview {
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      /*
+       * Fundo do preview do card via tokens do tema, não via cor fixa.
+       * O gradiente fixo `#fafafa → #f0f0f0` aparecia como bloco branco
+       * em dark mode (relato 2026-05-23). `--ps-surface-muted` segue a
+       * paleta do host (Avocado escuro, Flarum claro, etc.) e mantém
+       * o contraste com a `--ps-surface` do corpo do card.
+       */
+      background: var(--ps-surface-muted, #f5f5f7);
+    }
+
+    // ── Per-type preview shape ───────────────────────────────────────────
+    // Square is the default (avatar frames). Covers are 16:9 landscape;
+    // name / title rows drop the fixed aspect so the chip hugs its content
+    // and the body sits directly under it. Post highlights use a tighter
+    // box so the mock-post wireframe doesn't waste vertical space.
+    //
+    // Cap o preview do avatar em 200px de altura — sem isso, cards que
+    // cresceram além de 220px viraram quadrados gigantes onde o frame
+    // de 96px ficava nadando num bloco quase do tamanho da tela
+    // (relato 2026-05-23 sobre "ocupa muito espaço comparado ao item").
+    &--avatar > .PointSystemShop-card-preview {
+      aspect-ratio: auto;
+      height: 200px;
+      max-height: 200px;
+    }
+
+    &--cover > .PointSystemShop-card-preview {
+      aspect-ratio: 16 / 9;
+      background: none;
+    }
+
+    &--name > .PointSystemShop-card-preview,
+    &--title > .PointSystemShop-card-preview {
+      aspect-ratio: auto;
+      min-height: 64px;
+      padding: 14px 10px;
+    }
+
+    /*
+     * Atenção: `PointSystemShop-card--{type}` é gerado em ShopPage.tsx
+     * por `item.type.replace(/_decoration$/, '').replace(/_/g, '-')`,
+     * o que devolve `post-highlight` (não `post-hl`). O sufixo `post-hl`
+     * só é usado pelo grid container (`.PointSystemShop-grid--post-hl`,
+     * onde `post-hl` é o slug do tab). Cobrimos os dois nomes pra não
+     * depender do nome interno do tab no futuro.
+     */
+    &--post-highlight > .PointSystemShop-card-preview,
+    &--post-hl > .PointSystemShop-card-preview {
+      aspect-ratio: auto;
+      min-height: 90px;
+      max-height: 160px;
+      background: none;
+      padding: 14px;
+    }
+
+    // Tighter body on the small text-only cards so the price + button
+    // don't dominate the layout.
+    &--name > .PointSystemShop-card-body,
+    &--title > .PointSystemShop-card-body {
+      padding: 10px 12px 12px;
+      gap: 2px;
+
+      .PointSystemShop-card-title { font-size: 13.5px; }
+      .PointSystemShop-card-desc  { font-size: 11.5px; }
+    }
+
+    &-body {
+      padding: 12px 14px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    &-title {
+      margin: 0;
+      font-size: 14.5px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    &-desc {
+      margin: 0;
+      font-size: 12.5px;
+      color: var(--ps-text-muted);
+      line-height: 1.4;
+    }
+
+    &-price {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: #d6a200;
+      font-weight: 600;
+      margin: 8px 0;
+      font-variant-numeric: tabular-nums;
+      font-size: 14px;
+    }
+  }
+
+  &-avatarPreview {
+    position: relative;
+    width: 96px;
+    height: 96px;
+
+    /*
+     * Espelha a proporção real do `.ps-avatar-deco` ao vivo: o frame ocupa
+     * 132% do avatar (width:132%; offset -16%). Para que a prévia mostre o
+     * mesmo tamanho relativo do perfil, o container é o bounding box do
+     * frame (100%) e o avatar = 100/132 ≈ 75.76% — inset = (1-0.7576)/2 ≈
+     * 12.12%. Sem fundo no <img> para que PNGs transparentes não fiquem
+     * com aquele cinza claro vazado por trás do retrato.
+     */
+    &-img,
+    &-placeholder {
+      position: absolute;
+      inset: 12.12%;
+      width: 75.76%;
+      height: 75.76%;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    // Fallback de convidado (sem avatar). Era `#ddd`/`#aaa` fixos, que viravam
+    // um disco cinza-claro brilhante dentro do card escuro em dark mode — e é
+    // justamente o estado que TODO visitante deslogado vê em cada card de
+    // moldura. Tokens resolvem nos dois temas.
+    &-placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--ps-surface-sunken);
+      color: var(--ps-text-icon);
+      font-size: 36px;
+    }
+
+    &-frame {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      object-fit: contain;
+    }
+  }
+
+  &-namePreview {
+    font-size: 20px;
+    font-weight: 600;
+    padding: 24px 8px;
+    text-align: center;
+  }
+
+  // Title decoration preview chip — shop card and Decorations page share the
+  // `.ps-title-preview` look. Admin CSS layered via the runtime <style> can
+  // override colours / font; this is the neutral baseline.
+  &-titlePreview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 8px;
+  }
+
+  // Tiny mock post for the post-highlight preview: a circular avatar bubble
+  // and two text lines — enough surface for the highlight CSS to wrap and
+  // demonstrate the effect on the shop card without rendering an actual post.
+  &-postHlPreview {
+    padding: 12px 14px;
+    display: flex;
+    justify-content: center;
+  }
+}

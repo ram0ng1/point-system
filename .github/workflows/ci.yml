@@ -81,6 +81,12 @@ jobs:
           [ "${#files[@]}" -gt 0 ] || { echo "Nenhum arquivo PHP encontrado"; exit 1; }
           printf '%s\0' "${files[@]}" | xargs -0 -n1 -P4 php -l
 
+      # Suíte unitária: helpers puros (CssSanitizer, RemoteImageUrl), sem banco
+      # e sem boot do Flarum, então roda em toda célula da matriz. Bloqueante —
+      # cobrem as duas superfícies de segurança que rodam em toda página.
+      - name: PHPUnit (unit)
+        run: vendor/bin/phpunit --no-coverage
+
       # Packagist security advisories — falha em pacotes com CVEs conhecidos.
       - name: composer audit
         run: composer audit --no-dev --format=plain

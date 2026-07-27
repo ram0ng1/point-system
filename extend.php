@@ -11,6 +11,7 @@
 
 namespace Ramon\PointSystem;
 
+use Flarum\Api\Endpoint;
 use Flarum\Api\Resource\ForumResource;
 use Flarum\Api\Resource\UserResource;
 use Flarum\Discussion\Event\Started as DiscussionStarted;
@@ -19,7 +20,7 @@ use Flarum\Post\Event\Posted as PostPosted;
 use Flarum\User\Event\LoggedIn as UserLoggedIn;
 use Flarum\User\Event\Registered as UserRegistered;
 
-return [
+$extenders = [
     (new Extend\ServiceProvider())
         ->register(PointSystemServiceProvider::class),
 
@@ -83,8 +84,15 @@ return [
     (new Extend\ApiResource(\Ramon\PointSystem\Api\Resource\GroupOfferResource::class)),
     (new Extend\ApiResource(\Ramon\PointSystem\Api\Resource\ShopClaimResource::class)),
 
+    // `eagerLoad` da relação de pontos: sem ele, cada usuário serializado
+    // dispara um SELECT próprio em UserPoints (post stream com 20 autores = 20
+    // queries). O WeakMap de UserFields só deduplica getters do MESMO usuário.
     (new Extend\ApiResource(UserResource::class))
-        ->fields(Api\UserFields::class),
+        ->fields(Api\UserFields::class)
+        ->endpoint(
+            [Endpoint\Index::class, Endpoint\Show::class],
+            fn (Endpoint\Index|Endpoint\Show $endpoint) => $endpoint->eagerLoad('pointsBalance')
+        ),
 
     (new Extend\ApiResource(ForumResource::class))
         ->fields(Api\ForumAttributes::class),
@@ -179,3 +187,15 @@ return [
         ->default('point-system.trade_enabled', true)
         ->default('point-system.user_submissions_enabled', false),
 ];
+
+// ── GDPR (opcional) ──────────────────────────────────────────────────────────
+// `class_exists` e não `ExtensionManager->isEnabled()`: o autoload do composer
+// já está resolvido quando este arquivo é lido, o estado do gerenciador de
+// extensões não necessariamente. flarum/gdpr fica em `suggest` — a extensão
+// precisa bootar igual em fóruns que não o instalaram.
+if (class_exists(\Flarum\Gdpr\Extend\UserData::class)) {
+    $extenders[] = (new \Flarum\Gdpr\Extend\UserData())
+        ->addType(Gdpr\PointSystemData::class);
+}
+
+return $extenders;

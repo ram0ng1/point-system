@@ -4,6 +4,7 @@ import Button from 'flarum/common/components/Button';
 import Tooltip from 'flarum/common/components/Tooltip';
 import LinkButton from 'flarum/common/components/LinkButton';
 import SelectDropdown from 'flarum/common/components/SelectDropdown';
+import LogInModal from 'flarum/forum/components/LogInModal';
 import type Mithril from 'mithril';
 import ConfirmPurchaseModal from './ConfirmPurchaseModal';
 
@@ -34,6 +35,16 @@ interface ShopItem {
   availableFrom?: string | null;
   availableUntil?: string | null;
   isListed?: boolean;
+  allowedGroupIds?: number[];
+  // Submissão de usuário — o backend serializa estes em
+  // `ForumAttributes::$serializeAvailability`. Estavam faltando aqui, e por
+  // isso cada leitura precisava de `(item as any)`: o cast escondia o campo
+  // ausente em vez de declará-lo.
+  status?: 'pending' | 'approved' | 'rejected';
+  creatorId?: number | null;
+  creatorUsername?: string | null;
+  creatorDisplayName?: string | null;
+  creatorAvatarUrl?: string | null;
 }
 
 type ShopTab = 'avatar' | 'name' | 'cover' | 'title' | 'post-hl' | 'tiers';
@@ -162,7 +173,10 @@ export default class ShopPage extends Page {
             {items.length === 0 ? (
               <div className="PointSystemShop-empty">{app.translator.trans('ramon-point-system.forum.shop.empty')}</div>
             ) : (
-              <div className={`PointSystemShop-grid PointSystemShop-grid--${this.tab}`}>{items.map((it) => this.renderCard(it))}</div>
+              [
+                <div className={`PointSystemShop-grid PointSystemShop-grid--${this.tab}`}>{items.map((it) => this.renderCard(it))}</div>,
+                this.truncationNote(items.length),
+              ]
             )}
           </div>
         )}
@@ -235,12 +249,7 @@ export default class ShopPage extends Page {
 
     return (
       <div className={`PointSystemShop-tier ${reached ? 'is-reached' : ''} ${owned ? 'is-owned' : ''}`} key={offer.id}>
-        <div
-          className="PointSystemShop-tier-badge"
-          style={sanitizeCssColor(offer.groupColor) ? `background:${sanitizeCssColor(offer.groupColor)}` : undefined}
-        >
-          <i className={offer.groupIcon || 'fas fa-medal'} />
-        </div>
+        {this.tierBadge(offer)}
         <div className="PointSystemShop-tier-body">
           <div className="PointSystemShop-tier-name">{offer.groupName || '—'}</div>
 
@@ -263,6 +272,8 @@ export default class ShopPage extends Page {
           )}
         </div>
         <div className="PointSystemShop-tier-action">
+          {!user && this.guestLoginButton()}
+
           {user && owned && (
             <Button className="Button Button--primary PointSystemShop-equippedBtn" disabled>
               <i className="fas fa-check" /> {app.translator.trans('ramon-point-system.forum.shop.tier_claimed')}
@@ -402,18 +413,18 @@ export default class ShopPage extends Page {
         <div className="PointSystemShop-card-body">
           <h3 className="PointSystemShop-card-title">{item.name}</h3>
           {item.description && <p className="PointSystemShop-card-desc">{item.description}</p>}
-          {(item as any).creatorUsername && (
+          {item.creatorUsername && (
             <a
               className="PointSystemShop-card-creator"
-              href={app.route.user({ slug: (item as any).creatorUsername } as any)}
+              href={app.route.user({ slug: item.creatorUsername } as any)}
               title={String(
                 app.translator.trans('ramon-point-system.forum.shop.creator_tooltip', {
-                  name: (item as any).creatorDisplayName || (item as any).creatorUsername,
+                  name: item.creatorDisplayName || item.creatorUsername,
                 }) ?? ''
               )}
             >
-              {(item as any).creatorAvatarUrl ? (
-                <img className="PointSystemShop-card-creatorAvatar" src={(item as any).creatorAvatarUrl} alt="" />
+              {item.creatorAvatarUrl ? (
+                <img className="PointSystemShop-card-creatorAvatar" src={item.creatorAvatarUrl} alt="" />
               ) : (
                 <span className="PointSystemShop-card-creatorAvatar PointSystemShop-card-creatorAvatar--placeholder">
                   <i className="fas fa-user" />
@@ -421,7 +432,7 @@ export default class ShopPage extends Page {
               )}
               <span>
                 {app.translator.trans('ramon-point-system.forum.shop.by_creator', {
-                  name: (item as any).creatorDisplayName || (item as any).creatorUsername,
+                  name: item.creatorDisplayName || item.creatorUsername,
                 })}
               </span>
             </a>
@@ -431,15 +442,7 @@ export default class ShopPage extends Page {
             <strong>{item.price.toLocaleString()}</strong>
           </div>
 
-          {!user && (
-            <Tooltip text={app.translator.trans('ramon-point-system.forum.shop.must_login') as string}>
-              <span style="display: inline-block">
-                <Button className="Button" disabled>
-                  {app.translator.trans('ramon-point-system.forum.shop.login_to_claim')}
-                </Button>
-              </span>
-            </Tooltip>
-          )}
+          {!user && this.guestLoginButton()}
 
           {user && equipped && (
             <Button className="Button Button--primary PointSystemShop-equippedBtn" disabled>
@@ -461,6 +464,53 @@ export default class ShopPage extends Page {
             </Button>
           )}
         </div>
+      </div>
+    );
+  }
+
+  /**
+   * Aviso de catálogo cortado. O backend limita cada catálogo a
+   * `pointSystemCatalogLimit` itens no payload do fórum; quando a aba bate o
+   * teto o usuário precisa saber que existe mais coisa — cortar em silêncio
+   * faria parecer que os itens restantes foram removidos da loja.
+   */
+  truncationNote(shown: number) {
+    const limit = Number(app.forum.attribute('pointSystemCatalogLimit') ?? 0);
+    if (!limit || shown < limit) return null;
+
+    return (
+      <p className="PointSystemShop-truncationNote">
+        <i className="fas fa-circle-info" /> {app.translator.trans('ramon-point-system.forum.shop.truncated', { count: limit })}
+      </p>
+    );
+  }
+
+  /**
+   * CTA de convidado. Era um botão desabilitado dentro de um `<span>` inline —
+   * o clique não fazia nada e a largura destoava dos demais botões do card.
+   * Agora abre o modal de login do core e ocupa a linha inteira como os outros.
+   */
+  guestLoginButton() {
+    return (
+      <Tooltip text={app.translator.trans('ramon-point-system.forum.shop.must_login') as string}>
+        <Button className="Button PointSystemShop-loginBtn" onclick={() => app.modal.show(LogInModal)}>
+          <i className="fas fa-right-to-bracket" /> {app.translator.trans('ramon-point-system.forum.shop.login_to_claim')}
+        </Button>
+      </Tooltip>
+    );
+  }
+
+  /**
+   * Chip do grupo. Quando o grupo define uma cor, ela vira o fundo do chip e o
+   * glifo vai a branco — mesmo contrato do `Badge` do core. Sem cor definida,
+   * cai no chip neutro (surface afundada + ícone muted) definido no LESS.
+   */
+  tierBadge(offer: any) {
+    const color = sanitizeCssColor(offer.groupColor);
+
+    return (
+      <div className={`PointSystemShop-tier-badge ${color ? 'is-colored' : ''}`} style={color ? `background:${color}` : undefined}>
+        <i className={offer.groupIcon || 'fas fa-medal'} />
       </div>
     );
   }
@@ -644,14 +694,7 @@ export default class ShopPage extends Page {
     const isAuto = mode === 'auto';
     const cost = isAuto ? 0 : Number(offer.price || 0);
 
-    const preview = (
-      <div
-        className="PointSystemShop-tier-badge"
-        style={sanitizeCssColor(offer.groupColor) ? `background:${sanitizeCssColor(offer.groupColor)}` : undefined}
-      >
-        <i className={offer.groupIcon || 'fas fa-medal'} />
-      </div>
-    );
+    const preview = this.tierBadge(offer);
 
     app.modal.show(ConfirmPurchaseModal, {
       title: app.translator.trans(isAuto ? 'ramon-point-system.forum.confirm.title_tier' : 'ramon-point-system.forum.confirm.title_purchase'),

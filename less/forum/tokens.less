@@ -1,0 +1,164 @@
+// ─────────────────────────────────────────────────────────────
+// Design tokens (--ps-*) + base das tiers da loja
+// Fatia de forum.less (linhas 2–158 do arquivo original).
+// A ORDEM dos @import em forum.less é significativa: blocos daqui
+// para baixo sobrescrevem os anteriores de propósito.
+// ─────────────────────────────────────────────────────────────
+
+
+// ─── Design tokens — bridged to the Avocado design system ─────────────────────
+// Single source of truth for the extension's look. Every `--ps-*` token maps to
+// an Avocado theme token (`--avocado-*`, `--shadow-*`, `--font-sans`, …) so the
+// point system inherits Avocado's palette, elevation, radii, motion and DARK
+// MODE automatically — no more "design brusco" where our cards clash with the
+// surrounding theme. Each token keeps a Flarum-core fallback (`--body-bg`,
+// `--control-bg`, `--muted-color`, `--primary-color`) so the extension still
+// looks coherent on stock Flarum or any other theme that respects core vars.
+//
+// Reference: workbench/avocado-v2/less/common/variables.less (the live tokens)
+// + the Avocado Design System doc (colors_and_type.css).
+:root {
+  // ── Radii — Avocado's rounded scale (theme base @border-radius = 14px) ──────
+  --ps-radius-sm:   10px;   // chips, small controls, inputs
+  --ps-radius:      14px;   // base — list rows, buttons, small cards
+  --ps-radius-lg:   16px;   // panels, dropdowns
+  --ps-radius-xl:   18px;   // cards
+  --ps-radius-hero: 20px;   // hero / large banners
+  --ps-radius-pill: 999px;
+
+  // ── Surfaces ────────────────────────────────────────────────────────────────
+  --ps-surface:        var(--body-bg, #fff);                                   // cards / panels
+  --ps-surface-sunken: var(--avocado-surface-1, var(--control-bg, #f4f4f7));   // inputs / wells
+  --ps-surface-muted:  var(--avocado-surface-1, var(--control-bg, #f4f4f7));   // hover tints / sunken rows
+
+  // ── Borders — Avocado subtle/soft; color-mix fallback stays dark-mode-aware ──
+  // (light: --text-color is dark → dark hairline; dark: light text → light line)
+  --ps-border:        var(--avocado-border-subtle, color-mix(in srgb, var(--text-color, currentColor) 14%, transparent));
+  --ps-border-subtle: var(--avocado-border-soft,   color-mix(in srgb, var(--text-color, currentColor) 9%,  transparent));
+
+  // ── Text ────────────────────────────────────────────────────────────────────
+  --ps-text:       var(--text-color, #1f2025);
+  --ps-text-muted: var(--muted-color, #6b6b72);
+  --ps-text-icon:  var(--avocado-muted-icon, var(--muted-color, #767680));
+
+  // ── Accent (Flarum primary; Avocado-green fallback) ─────────────────────────
+  --ps-accent:      var(--primary-color, #6cc04a);
+  --ps-accent-soft: color-mix(in srgb, var(--primary-color, #6cc04a) 12%, transparent);
+  --ps-accent-ring: color-mix(in srgb, var(--primary-color, #6cc04a) 40%, transparent);
+
+  // ── Dark CTA (Avocado "New Thread" pill) ────────────────────────────────────
+  --ps-cta-dark:       var(--avocado-btn-dark, #0d0d10);
+  --ps-cta-dark-hover: var(--avocado-btn-dark-hover, #23252b);
+  --ps-on-dark:        var(--text-on-dark, rgba(255, 255, 255, 0.92));
+
+  // ── Elevation — Avocado's 3-tier shadow scale ───────────────────────────────
+  --ps-shadow-1: var(--shadow-subtle, 0 1px 6px rgba(0, 0, 0, 0.06));
+  --ps-shadow-2: var(--shadow-medium, 0 8px 24px rgba(0, 0, 0, 0.12));
+  --ps-shadow-3: var(--shadow-lifted, 0 12px 32px rgba(0, 0, 0, 0.18));
+  // The exact card-hover lift Avocado uses on its category/thread cards
+  // (workbench/avocado-v2/less/forum/HomePage.less) — softer than --shadow-2,
+  // so our cards lift identically to the surrounding theme.
+  --ps-shadow-card-hover: 0 10px 20px rgba(26, 26, 36, 0.06);
+  // Aliases for the second token block / older rules.
+  --ps-elevate-1: var(--ps-shadow-1);
+  --ps-elevate-2: var(--ps-shadow-2);
+  --ps-elevate-3: var(--ps-shadow-3);
+  --ps-ring: 0 0 0 2px var(--body-bg, #fff), 0 0 0 4px var(--ps-accent-ring);
+
+  // ── Spacing — 4px grid ──────────────────────────────────────────────────────
+  --ps-space-1: 4px;
+  --ps-space-2: 8px;
+  --ps-space-3: 12px;
+  --ps-space-4: 16px;
+  --ps-space-5: 20px;
+  --ps-space-6: 24px;
+  --ps-space-8: 32px;
+
+  // ── Motion — Avocado easings/durations ──────────────────────────────────────
+  --ps-ease:   cubic-bezier(0.22, 1, 0.36, 1);
+  --ps-t:      var(--avocado-t-medium, 0.2s ease);
+  --ps-t-fast: var(--avocado-t-fast, 0.15s ease);
+  --ps-t-med:  var(--avocado-t-medium, 0.2s ease);
+
+  // ── Type ────────────────────────────────────────────────────────────────────
+  --ps-font: var(--font-sans, inherit);
+
+  --ps-num-tabular: 'tnum' 1, 'lnum' 1;
+}
+
+// ─── Rewards page tiers section ───────────────────────────────────────────────
+.PointSystemShop-tiers {
+  margin: 48px auto 32px;
+
+  h2 {
+    text-align: center;
+    margin: 0 0 6px;
+  }
+
+  &Grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+}
+
+.PointSystemShop-tier {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--ps-surface);
+  border: 1px solid var(--ps-border);
+  border-radius: var(--ps-radius);
+  position: relative;
+  transition: border-color var(--ps-t), box-shadow var(--ps-t), transform var(--ps-t);
+
+  &-badge {
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--control-bg, #cccccc);
+    color: var(--text-color, #fff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  &-body { flex: 1 1 auto; min-width: 0; }
+  &-name { font-weight: 600; }
+  &-points { font-size: 12px; color: var(--muted-color, #888); }
+
+  &-progressBar {
+    height: 4px;
+    background: var(--control-bg, #eee);
+    border-radius: 999px;
+    margin-top: 6px;
+    overflow: hidden;
+
+    > span {
+      display: block;
+      height: 100%;
+      background: var(--primary-color, #6cc04a);
+      transition: width 0.4s ease;
+    }
+  }
+
+  &-check {
+    color: var(--primary-color, #6cc04a);
+    font-size: 20px;
+  }
+}
+
+.PointSystemShop-notFound {
+  text-align: center;
+  padding: 80px 20px;
+
+  h1 {
+    font-size: 72px;
+    margin: 0 0 10px;
+    color: var(--muted-color, #999);
+  }
+}

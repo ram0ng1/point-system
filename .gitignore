@@ -2,6 +2,7 @@ node_modules
 vendor
 js/dist/admin/
 composer.lock
+.phpunit.cache
 .vscode/settings.json
 .vscode
 .claude

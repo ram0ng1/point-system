@@ -173,20 +173,24 @@ class UserFields
     }
 
     /**
-     * Read-side accessor — never writes. Memoized per-User via WeakMap so the
-     * 14 field getters serialized per user fire a single SELECT instead of
-     * 14. The first-time row creation lives in {@see \Ramon\PointSystem\Listener\InitUserPoints}
-     * that fires on {@see \Flarum\User\Event\Registered}, so a missing row
-     * here just means the user pre-dates the extension; callers treat null
-     * as "balance = 0".
+     * Read-side accessor — never writes. Lê pela relação `pointsBalance`
+     * (extend.php), que os endpoints Index/Show do UserResource carregam com
+     * `eagerLoad` — uma query para a página inteira em vez de uma por usuário.
+     * O WeakMap continua deduplicando os 14 getters do mesmo usuário e é a
+     * rede de segurança para caminhos sem eager-load (notificações, jobs),
+     * onde a relação cai no lazy-load do Eloquent.
+     *
+     * A criação da linha vive em {@see \Ramon\PointSystem\Listener\InitUserPoints}
+     * no evento {@see \Flarum\User\Event\Registered}, então ausência aqui só
+     * significa que o usuário é anterior à extensão — trate como "balance = 0".
      */
     protected function points(User $user): ?UserPoints
     {
-        // Use offsetExists (not isset) — isset returns false for stored nulls,
-        // and users that pre-date the extension legitimately have a null row,
-        // which we must cache to avoid hitting the DB on every field getter.
+        // offsetExists (não isset) — isset devolve false para null armazenado,
+        // e usuários anteriores à extensão legitimamente têm linha nula, que
+        // precisa ficar cacheada para não repetir o miss a cada getter.
         if (! $this->pointsCache->offsetExists($user)) {
-            $this->pointsCache[$user] = UserPoints::where('user_id', $user->id)->first();
+            $this->pointsCache[$user] = $user->pointsBalance;
         }
         return $this->pointsCache[$user];
     }
