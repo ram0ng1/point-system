@@ -52,8 +52,7 @@ export default class UserTradesPage extends UserPage {
       const res: any = await app.request({ method: 'GET', url: `${apiUrl}/point-system/trades` });
       this.trades = Array.isArray(res?.data) ? res.data : [];
     } catch (e: any) {
-      this.err =
-        e?.response?.errors?.[0]?.detail || (app.translator.trans('ramon-point-system.forum.trades_page.load_failed') as string);
+      this.err = e?.response?.errors?.[0]?.detail || (app.translator.trans('ramon-point-system.forum.trades_page.load_failed') as string);
     } finally {
       this.loading = false;
       m.redraw();
