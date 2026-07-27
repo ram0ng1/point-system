@@ -1,0 +1,963 @@
+// ─────────────────────────────────────────────────────────────
+// Consolidação final — tipografia, bordas, foco
+// Fatia de forum.less (linhas 2778–3733 do arquivo original).
+// A ORDEM dos @import em forum.less é significativa: blocos daqui
+// para baixo sobrescrevem os anteriores de propósito.
+// ─────────────────────────────────────────────────────────────
+
+
+// Button refinement inside our scoped components. The selector list MUST cover
+// EVERY point-system surface — a missing component left its buttons on the
+// theme's default radius while the rest used ours, which is exactly the
+// "square button in one corner, round in another" inconsistency reported.
+// Radius is `--ps-radius` (14px) so our buttons match Avocado's `.Button`
+// radius everywhere on the forum.
+.PointSystemShop,
+.PointSystemDecorations,
+.PointSystemTradesPage,
+.PointSystemTradeModal,
+.PointSystemSubmitModal,
+.PointSystemStartTradeModal,
+.ConfirmPurchaseModal,
+.AwardPointsModal {
+  .Button {
+    border-radius: var(--ps-radius-pill);
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    transition: transform var(--ps-t-fast), box-shadow var(--ps-t-fast), background-color var(--ps-t-fast);
+
+    &:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    &:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    &--primary {
+      background: var(--primary-color, #6cc04a);
+      color: var(--button-primary-color, #fff);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 1px 2px rgba(0, 0, 0, 0.06);
+
+      &:hover:not(:disabled) {
+        background: color-mix(in srgb, var(--primary-color, #6cc04a) 90%, black);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 4px 12px color-mix(in srgb, var(--primary-color, #6cc04a) 30%, transparent);
+      }
+    }
+
+    &--danger:hover:not(:disabled) {
+      box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--ps-ring);
+    }
+  }
+}
+
+// Tier card refinement.
+.PointSystemShop-tier {
+  transition: transform var(--ps-t-med), box-shadow var(--ps-t-med), border-color var(--ps-t-fast);
+  /*
+   * Layout robusto: wrap em coluna quando a coluna do grid é estreita —
+   * sem isso, em cards de ~240px o botão "Comprar acesso" sobrepunha
+   * o preço (relato 2026-05-23). Em desktop largo o cluster permanece
+   * em linha (flex row), só faz wrap quando comprime. `flex-wrap`
+   * combinado com `min-width: 0` no body é o ajuste padrão para
+   * "linha de 3 colunas que pode quebrar".
+   */
+  flex-wrap: wrap;
+  row-gap: 8px;
+
+  &-name {
+    font-size: 15px;
+    letter-spacing: -0.005em;
+  }
+
+  &-body {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+
+  &-points {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    /*
+     * Quando o card é estreito o texto longo "1.000 pontos para comprar"
+     * costumava quebrar em três linhas e ainda ser sobreposto pelo botão
+     * à direita. `flex-wrap: wrap` no card já move o botão pra próxima
+     * linha; aqui só evitamos overflow horizontal explicitamente.
+     */
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  &-action {
+    /*
+     * Ação fica do tamanho do botão (não esmaga, não estica) e cai pra
+     * próxima linha quando o body precisar do espaço todo.
+     */
+    flex: 0 0 auto;
+    margin-left: auto;
+    align-self: center;
+  }
+
+  // Estado "você já pode obter": SÓ o gradiente 4%, sem borda accent em
+  // repouso. "Posso comprar" é affordance, não posse — a borda cheia deixava a
+  // grade inteira contornada de accent, sem hierarquia (relato 2026-07). O
+  // botão primário carrega a chamada; a borda accent fica reservada ao hover,
+  // igual aos cards de decoração.
+  &.is-reached {
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--primary-color, #6cc04a) 4%, var(--ps-surface)) 0%,
+      var(--ps-surface) 100%);
+  }
+}
+
+// Aviso de catálogo cortado — informativo, não acionável, então fica discreto
+// abaixo da grade em vez de disputar atenção com os cards.
+.PointSystemShop-truncationNote {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-space-2);
+  margin: var(--ps-space-4) 0 0;
+  padding: var(--ps-space-3) var(--ps-space-4);
+  border-radius: var(--ps-radius-lg);
+  background: var(--ps-surface-muted);
+  color: var(--ps-text-muted);
+  font-size: 13px;
+
+  > i {
+    flex: 0 0 auto;
+    color: var(--ps-text-icon);
+  }
+}
+
+// Painel de falha de carregamento. Distinto do empty state: empty é neutro
+// ("nada aqui"), erro é acionável (mensagem + retry), então usa tint de alerta
+// e borda sólida em vez de tracejada.
+.PointSystemTradesPage-error {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-space-3);
+  flex-wrap: wrap;
+  padding: var(--ps-space-4);
+  margin-bottom: var(--ps-space-4);
+  border-radius: var(--ps-radius-lg);
+  background: color-mix(in srgb, var(--alert-error-bg, #d83e3e) 10%, var(--ps-surface));
+  border: 1px solid color-mix(in srgb, var(--alert-error-bg, #d83e3e) 30%, transparent);
+  color: var(--ps-text);
+  font-size: 14px;
+
+  > i {
+    color: var(--alert-error-bg, #d83e3e);
+    font-size: 16px;
+    flex: 0 0 auto;
+  }
+
+  > span {
+    flex: 1 1 200px;
+    min-width: 0;
+  }
+
+  > .Button {
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+}
+
+// Empty states.
+.PointSystemShop-empty,
+.PointSystemDecorations-empty,
+.PointSystemTradesPage-empty {
+  text-align: center;
+  padding: var(--ps-space-8) var(--ps-space-4);
+  color: var(--ps-text-muted);
+  background: var(--ps-surface-muted);
+  border-radius: var(--ps-radius-lg);
+  border: 1px dashed var(--ps-border);
+  font-size: 14px;
+}
+
+// Nav pill refinement.
+.PointSystemShop-nav,
+.PointSystemDecorations-nav {
+  @media @tablet-up {
+    .Dropdown-menu > li > a,
+    .Dropdown-menu > li > button {
+      transition: background-color var(--ps-t-fast), color var(--ps-t-fast),
+                  border-color var(--ps-t-fast), transform var(--ps-t-fast);
+
+      &:hover {
+        transform: translateY(-1px);
+      }
+
+      &:focus-visible {
+        outline: none;
+        box-shadow: var(--ps-ring);
+      }
+    }
+  }
+}
+
+// Avatar preview refinement.
+.PointSystemShop-avatarPreview {
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.04));
+  transition: transform var(--ps-t-med);
+
+  .PointSystemShop-card:hover & {
+    transform: scale(1.02);
+  }
+}
+
+// Creator pill polish.
+.PointSystemShop-card-creator {
+  font-size: 11.5px;
+  font-weight: 500;
+  transition: background-color var(--ps-t-fast), color var(--ps-t-fast);
+
+  &:hover {
+    background: color-mix(in srgb, var(--primary-color, #6cc04a) 10%, transparent);
+    color: var(--primary-color, #6cc04a);
+  }
+}
+
+// Title chip refinement.
+.PointSystemUserTitle {
+  background: color-mix(in srgb, var(--ps-title-color, var(--primary-color, #6cc04a)) 14%, transparent);
+  color: var(--ps-title-color, var(--primary-color, #6cc04a));
+  letter-spacing: 0.02em;
+  font-weight: 700;
+  transition: background-color var(--ps-t-fast), transform var(--ps-t-fast);
+
+  &:hover {
+    background: color-mix(in srgb, var(--ps-title-color, var(--primary-color, #6cc04a)) 20%, transparent);
+  }
+}
+
+
+.PointSystemTradesPage-header-titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.PointSystemStartTradeModal-error {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(220, 38, 38, 0.10);
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+// Autocomplete typeahead for the new-trade username picker. Mirrors the
+// `@`-mention typeahead UX: a list of avatar + name candidates appears
+// below the input as the actor types, click or arrow-keys + Enter to pick.
+//
+// The list is rendered in NORMAL FLOW (not `position: absolute`) so the
+// modal-body grows / scrolls to fit instead of clipping the list at its
+// bottom edge. Core's `.Modal-content` has `overflow: hidden` (for the
+// open/close transform animation), and our previously-absolute dropdown
+// was getting cropped against that boundary on small modals.
+.PointSystemStartTradeModal-search {
+  position: relative;
+
+  // The field is the core `Input` component (magnifier prefix icon + clear
+  // button), so it reads as Flarum v2's native search bar. We only slim the
+  // box: 4px radius (themes like Avocado bump `--border-radius` to 14px → fat
+  // pill) and a 1px border (core's 2px primary focus ring was too loud here).
+  // No `padding` override — core's `.Input--withPrefix/--withClear .FormControl`
+  // owns the left/right padding that makes room for the icon and the × button.
+  .FormControl {
+    border-radius: 4px;
+    border-width: 1px;
+    height: 36px;
+    font-size: 13px;
+  }
+}
+
+.PointSystemStartTradeModal-suggestions {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--ps-surface, #fff);
+  // Slim, native-Flarum-style results panel: 1px border, 4px radius, soft
+  // shadow — mirrors the forum's search results dropdown.
+  border: 1px solid var(--ps-border, #e6e6e9);
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+
+  // Rows are core's `UserSearchResult` (avatar + query-highlighted name +
+  // badges). Core ships it with `margin: 0 -16px` for the SearchModal's padded
+  // body — neutralise that and give a compact, self-contained row.
+  .UserSearchResult {
+    margin: 0;
+    border-radius: 4px;
+
+    > a,
+    > button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 6px 8px;
+      border: 0;
+      background: transparent;
+      border-radius: 4px;
+      text-align: left;
+      cursor: pointer;
+      font: inherit;
+      color: inherit;
+      transition: background-color 80ms ease;
+    }
+
+    &.active > a,
+    &.active > button,
+    > a:hover,
+    > button:hover {
+      background: var(--ps-surface-muted, rgba(0, 0, 0, 0.04));
+    }
+
+    .Avatar {
+      --size: 28px;
+      width: 28px;
+      height: 28px;
+      flex: 0 0 28px;
+    }
+
+    &-name {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .username {
+      font-size: 14px;
+    }
+  }
+}
+
+// `@handle` rendered to the right of the name (passed as UserSearchResult
+// children) so users who share a display name stay distinguishable.
+.PointSystemStartTradeModal-handle {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-left: 8px;
+  color: var(--ps-text-muted, #6b7280);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.PointSystemStartTradeModal-suggestionStatus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px;
+  color: var(--ps-text-muted, #6b7280);
+  font-size: 13px;
+}
+
+.PointSystemStartTradeModal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Live profile preview on /decorations
+//
+// Mirrors the Avocado / Flarum profile hero so users see exactly how their
+// equipped decorations will render on their own profile. The wrapper carries
+// `.UserHero` so the existing cover-decoration rule paints the banner via
+// the `--ps-cover-url` custom property the JSX sets inline.
+// ──────────────────────────────────────────────────────────────────────────────
+.PointSystemDecorations-previewHero {
+  position: relative;
+  /*
+   * Width budget explícito. Sem `width: 100%; max-width: 100%; box-sizing:
+   * border-box`, o hero ficava sujeito ao width default do filho de flex
+   * (que com `min-content` em alguns navegadores estoura o pai). Relato
+   * 2026-05-24: "a largura da página do perfil está quebrada — nem todos
+   * os elementos são visíveis". Os 3 tokens juntos garantem que o hero
+   * nunca seja mais largo do que o pai e que `padding: 24px` não some
+   * ao cálculo (box-sizing: border-box).
+   */
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  border-radius: var(--ps-radius-xl, 14px);
+  overflow: hidden;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--primary-color, #6cc04a) 6%, var(--ps-surface)) 0%,
+    var(--ps-surface) 100%);
+  border: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+  min-height: 220px;
+  display: flex;
+  align-items: flex-end;
+  padding: 24px;
+  box-shadow: var(--ps-elevate-1);
+  isolation: isolate;
+
+  // When the user has a cover equipped, paint it as the hero background.
+  // Same `--ps-cover-url` mechanism used everywhere else; `before` layer
+  // gives us a flat fill on top of the gradient so the cover doesn't
+  // bleed into the meta area.
+  &.ps-has-cover {
+    background-image: var(--ps-cover-url);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+
+    // Readable text on top of arbitrary user covers — a subtle dark
+    // gradient at the bottom (where the name + title sit) so light text
+    // stays legible on bright covers without dimming the whole banner.
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg,
+        rgba(0, 0, 0, 0) 40%,
+        rgba(0, 0, 0, 0.35) 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
+  }
+
+  &-inner {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  &-avatar {
+    flex: 0 0 auto;
+    .Avatar {
+      width: 96px;
+      height: 96px;
+      font-size: 40px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25),
+                  0 0 0 4px var(--ps-surface, #fff);
+      border-radius: 50%;
+    }
+  }
+
+  &-meta {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-bottom: 4px;
+  }
+
+  &-name {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--text-color, inherit);
+
+    // When there's a cover, the gradient overlay darkens this area — flip
+    // the username to white so it stays readable. The `ps-name-{slug}`
+    // class still wins via the `!important` in the deco CSS.
+    .ps-has-cover & {
+      color: var(--text-on-dark, #fff);
+      text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
+    }
+  }
+
+  &-stats {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .PointSystemProfilePill {
+    /*
+     * Pílula com fundo branco precisa de texto escuro fixo — sem isso o
+     * tema escuro herdava `--text-color` claro e a pílula virava texto
+     * branco em fundo branco (relato 2026-05-23). Ícone também precisa
+     * ficar âmbar sólido independente do modo, e a sombra ganha um anel
+     * sutil pra demarcar a borda quando o hero atrás é claro também.
+     */
+    background: var(--control-bg, #ffffff);
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-color, #1f2937);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 2px 6px rgba(0, 0, 0, 0.10);
+
+    i {
+      color: #d6a200;
+    }
+
+    .ps-has-cover & {
+      background: rgba(255, 255, 255, 0.95);
+      color: #1f2937;
+    }
+  }
+
+  // Title chip inside the preview — laid out as inline-flex so it sits
+  // neatly under the name and doesn't break the meta column flow.
+  .PointSystemUserTitle--inPreview {
+    align-self: flex-start;
+    margin: 0;
+  }
+
+  // Mobile collapse — avatar above meta on narrow screens.
+  @media (max-width: 540px) {
+    padding: 16px;
+    min-height: 0;
+
+    &-inner {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    &-name { font-size: 22px; }
+    &-avatar .Avatar { width: 72px; height: 72px; }
+  }
+}
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Mobile fixes (2026-05-16)
+//
+// 1. Duplicate avatar: Flarum core hides .Post-side on @phone for the
+//    DiscussionPage so the inline avatar inside PostUser-name is the only
+//    one visible. Avocado MessagesPage (and a few other layouts) DOES keep
+//    Post-side rendered on phone — which combined with our applyAvatarDeco
+//    extender meant the user saw the same decorated face twice. We hide
+//    the entire .Post-side-inner (avatar + badge row) on phone so the
+//    inline PostUser-name avatar stays as the single representation.
+//
+// 2. PointSystemPostBadge takes horizontal room next to the username on
+//    a narrow header. On phone, hide it — the same balance is visible on
+//    the user profile + decorations preview, and the header row stays
+//    breathable.
+// ──────────────────────────────────────────────────────────────────────────────
+@media (max-width: 767px) {
+  // Collapse the side column entirely on phone — the inline avatar inside
+  // `.PostUser-name` is the single representation we want. Specificity
+  // matches the highest selector in the flex-column rule above
+  // (`.Page.DiscussionPage .CommentPost.CommentPost--fixedAvatar .Post-side`
+  // = 0,4,0) so source order decides the tie: this rule lives later in
+  // the file, so the hide wins regardless of cascade weight.
+  .Page.DiscussionPage .CommentPost .Post-side,
+  .Page.DiscussionPage .CommentPost .Post-side--online,
+  .Page.DiscussionPage .CommentPost.CommentPost--fixedAvatar .Post-side,
+  .Page.DiscussionPage .CommentPost.CommentPost--fixedAvatar .Post-side--online,
+  .CommentPost .Post-side,
+  .CommentPost .Post-side--online,
+  .CommentPost.CommentPost--fixedAvatar .Post-side,
+  .CommentPost.CommentPost--fixedAvatar .Post-side--online,
+  .Post-side,
+  .Post-side--online {
+    display: none !important;
+  }
+
+  .PointSystemPostBadge {
+    display: none !important;
+  }
+}
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Avatar / badge duplication on desktop (2026-05-16)
+//
+// Flarum 2 + Avocado renders the avatar twice on desktop: once as the big
+// avatar inside `.Post-side > .Post-side-inner` (Avocado's column) AND once
+// inline inside `.PostUser-name > .Avatar` (the post-header byline). With
+// our `applyAvatarDecoration` running on every <Avatar/> instance, BOTH
+// copies pick up the decoration frame → user sees the same decorated face
+// twice on every post.
+//
+// Same story for `.PostUser-badges` — Avocado renders them once with the
+// `--inSide` modifier inside `.Post-side-inner`, plus the default inline
+// `.PostUser-badges` in the header. Two identical badge clusters.
+//
+// Fix: whenever a `.CommentPost` has a `.Post-side` child rendering, hide
+// the inline header copies. The side column carries the canonical big
+// avatar + badges + title chip; the header keeps name + timestamp only.
+// Mobile is already covered (we collapse `.Post-side` entirely below 768px),
+// so we scope this rule to >=768px to keep mobile rendering untouched.
+// ──────────────────────────────────────────────────────────────────────────────
+// Avocado's own `.Page.DiscussionPage .PostUser-name .Avatar
+// { display: none !important }` rule (DiscussionPage.less:638-644 at
+// `@tablet-up`) is the source of truth for the inline-byline-vs-Post-side
+// duplicate avatar question. We deliberately do NOT add competing rules
+// here — every previous override I tried (hiding inline, hiding Post-side,
+// inverting selectors) ended up fighting Avocado's cascade instead of
+// letting it do its job.
+//
+// All we do for the inline `.PostUser-badges` is keep the non-`--inSide`
+// modifier hidden so a non-Avocado-aware theme still doesn't render the
+// row twice. Avocado already handles this for its own layout.
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Post-highlight border bloat (2026-05-16)
+//
+// When a post-highlight decoration is applied (`.CommentPost.ps-posthl-*`),
+// Avocado's default `.CommentPost` keeps a generous vertical padding so the
+// avatar column has breathing room. With our `.Post-side` collapsed on phone
+// AND the highlight presets adding a 2-3px border around the post, the result
+// is a hollow rectangle: a thick coloured border with a near-empty top half
+// where the avatar column used to sit.
+//
+// Tighten the post box whenever ANY post-highlight class is present. This
+// matches every `ps-posthl-*` slug via the attribute selector so we don't
+// have to enumerate presets, and applies on both desktop and phone — the
+// border is meant to hug the post content, not to enlarge its container.
+// ──────────────────────────────────────────────────────────────────────────────
+.CommentPost[class*="ps-posthl-"],
+.Post[class*="ps-posthl-"] {
+  // Make sure the host carries the border-box model so the border doesn't
+  // add to the visible width and create a horizontal-scroll-trigger on phone.
+  box-sizing: border-box;
+
+  // Trim the dead space above the avatar / username line. Avocado's default
+  // is ~16-20px on top; halving it tightens the box without clipping the
+  // hover affordance on the controls row.
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+
+  // (former `top:` override removed — the `--inSide` chip is now in
+  // natural flex flow inside `.Post-side`, not absolutely positioned.)
+}
+
+// On phone the `.Post-side` is collapsed entirely (see above), so the
+// highlight border now wraps the inline header + body directly. Drop the
+// border-radius edge a touch so it doesn't visually orphan from a small body.
+@media (max-width: 767px) {
+  .CommentPost[class*="ps-posthl-"],
+  .Post[class*="ps-posthl-"] {
+    padding: 8px 12px !important;
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Avocado theme: breathing room between the DiscussionHero banner and the OP
+// post (2026-05-17). Avocado zeroes `.Page-content { margin-top: 0 }` to kill
+// the 10px gap between the App-header and the hero — which also pulls the
+// PostStream straight against the hero's bottom edge, leaving the OP card
+// visually glued to the colored banner.
+//
+// Scoped to `html.avocado-theme` (set by Avocado's `forum/index.tsx`) so the
+// rule only applies when Avocado is the active theme. Restores ~20px on
+// desktop/tablet and 14px on phone, matching Avocado's own card padding rhythm.
+// ──────────────────────────────────────────────────────────────────────────────
+html.avocado-theme .Page.DiscussionPage .PostStream > .PostStream-item:first-child {
+  margin-top: 20px;
+}
+
+@media (max-width: 767px) {
+  html.avocado-theme .Page.DiscussionPage .PostStream > .PostStream-item:first-child {
+    margin-top: 14px;
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Avocado theme: OP post overflow fix (2026-05-17)
+//
+// In Avocado, `.PostStream > .PostStream-item:first-child > .CommentPost` is
+// already a styled card (1px border, 21px radius, 20px padding). When our
+// highlight applies an outline with `outline-offset: 4px`, the outline sits
+// 4-6px OUTSIDE the avocado card border — encroaching on the page banner
+// above and the next post below.
+//
+// Pull the outline INSIDE the avocado card using a negative offset, and match
+// the card's border-radius so the halo sits flush on the card boundary
+// instead of orbiting it. Same fix on phone (Avocado uses a 14px padding
+// version of the same card).
+// ──────────────────────────────────────────────────────────────────────────────
+.PostStream > .PostStream-item:first-child > .CommentPost[class*="ps-posthl-"] {
+  outline-offset: -1px !important;
+  border-radius: 21px;
+}
+
+// Glow presets use `box-shadow` for the pulsing halo. The same shadow rule
+// from decorations.less wraps the outer rectangle — re-spread it inward so
+// it doesn't leak past Avocado's card boundary either.
+.PostStream > .PostStream-item:first-child > .CommentPost.ps-posthl-glow-blue,
+.PostStream > .PostStream-item:first-child > .CommentPost.ps-posthl-glow-purple,
+.PostStream > .PostStream-item:first-child > .CommentPost.ps-posthl-glow-green {
+  // Inset variant — the keyframes' outer shadow still animates, but constrained
+  // to the card edge instead of bleeding into the page banner.
+  box-shadow: inset 0 0 0 2px var(--ps-posthl-color, currentColor) !important;
+  animation: none !important;
+}
+
+// Avocado padding override (see §2868) is too tight for the OP card which is
+// styled as a generous "thread view" — restore Avocado's own 20px / 14px-phone
+// padding so the highlight outline lands on the card's intended boundary.
+.PostStream > .PostStream-item:first-child > .CommentPost[class*="ps-posthl-"] {
+  padding: 20px !important;
+}
+
+@media (max-width: 767px) {
+  .PostStream > .PostStream-item:first-child > .CommentPost[class*="ps-posthl-"] {
+    padding: 14px !important;
+  }
+}
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Trade modal z-index blindage (2026-05-16)
+//
+// Flarum 2 ModalManager renders the modal and an `.ModalManager-invisibleBackdrop`
+// sibling in the same wrapper. The Modal has z-index: 2 by core spec, the
+// backdrop has z-index: auto. In most setups the modal wins — but under some
+// theme stacking-context configurations (Avocado on certain layouts, dark
+// mode toggles, etc.), the backdrop ends up on top, intercepting every click
+// and leaving the trade modal visually present but functionally inert.
+//
+// Two-pronged fix:
+//   1. Pin our trade modal at z-index 100 + position: relative on the root.
+//   2. Use :has() to find the SAME ModalManager wrapper and push its
+//      invisible backdrop strictly below the modal. The user can still close
+//      the trade via the X button or our Cancel action (we also disabled
+//      `viaBackdropClick` on the JS side so a stray click doesn't close it).
+// ──────────────────────────────────────────────────────────────────────────────
+// Earlier attempt scoped to `.ModalManager:has(.PointSystemTradeModal) >
+// .ModalManager-invisibleBackdrop`. That selector relies on the backdrop
+// being a *direct child* of the same ModalManager that hosts our modal —
+// but Flarum 2's ModalManager re-mounts the backdrop as a wrapper-sibling
+// in several themes (notably Avocado), so the `>` combinator missed and
+// the backdrop kept on top.
+//
+// Fix: walk up to <body> and match any backdrop in the document whenever
+// our trade modal is mounted. Use `display: none` rather than `z-index: -1`
+// — the backdrop has no functional purpose for our modal (we disabled
+// `viaBackdropClick` in TradeModal.tsx already), and removing it from the
+// flow defeats every stacking-context surprise the theme might throw.
+body:has(.PointSystemTradeModal) .ModalManager-invisibleBackdrop {
+  display: none !important;
+}
+
+// Belt-and-braces for environments where `:has()` isn't supported (older
+// Safari / very old Chromium). Boost our modal's own z-index to a value
+// no `position: fixed` overlay should beat, and lift its own stacking
+// context so the backdrop loses the paint race even when it's still in
+// the DOM at `z-index: auto`.
+.PointSystemTradeModal {
+  position: relative !important;
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+}
+
+// ─── Mobile layout fixes ──────────────────────────────────────────────────────
+@media (max-width: 768px) {
+  .PointSystemDecorations {
+    padding-left: 12px;
+    padding-right: 12px;
+    box-sizing: border-box;
+  }
+
+  .PointSystemDecorations-previewHero,
+  .PointSystemDecorations section,
+  .PointSystemDecorations-pageHeader {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .PointSystemDecorations .PointSystemDecorations-nav.App-titleControl {
+    position: static !important;
+    top: auto !important;
+    right: auto !important;
+    margin-bottom: 8px;
+  }
+
+  .PointSystemDecorations-pageHeader {
+    flex-direction: column;
+    align-items: flex-start;
+
+    &-actions {
+      align-self: flex-start;
+    }
+  }
+
+  .PointSystemShop .PointSystemShop-nav.App-titleControl {
+    position: static !important;
+    top: auto !important;
+    right: auto !important;
+    padding: 0 12px;
+    margin-bottom: 8px;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AVOCADO FINISH LAYER — reuse Avocado's component language across the system
+// ══════════════════════════════════════════════════════════════════════════════
+// Loaded last so it refines (never fights) the rules above. Goal: bring the
+// extension's off-pattern surfaces onto the Avocado design system by mirroring
+// its real components (workbench/avocado-v2/less/forum/*): the category-card
+// shell, the hero stat-pill, bold display headings. Everything is token-driven
+// so it tracks the active theme + dark mode.
+
+// ── Display headings — Avocado's bold, tightly-tracked type ───────────────────
+// Avocado h1/h2 are weight 800–900 with negative letter-spacing. Align our page
+// + section titles so they read as part of the same family.
+.PointSystemShop-header h1,
+.PointSystemDecorations-pageHeader h1,
+.PointSystemTradesPage-header h1,
+.PointSystemTradesPage-header-titleRow h1 {
+  font-family: var(--ps-font);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--ps-text);
+}
+
+.PointSystemShop h2,
+.PointSystemDecorations h2,
+.PointSystemTradesPage h2 {
+  font-family: var(--ps-font);
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: var(--ps-text);
+}
+
+.PointSystemShop-card-title,
+.PointSystemDecorations-item-name,
+.PointSystemShop-tier-name,
+.PointSystemDecorations-previewHero-name {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+// ── ONE hover for every interactive surface ───────────────────────────────────
+// Mirror `.AvocadoHome-categoryCard` exactly: a single gentle lift —
+// translateY(-1px) + the soft category-card shadow — applied to EVERY hoverable
+// card / row in the system. Previously these used three different shadows
+// (--ps-elevate-1, --ps-shadow-2, --ps-shadow-card-hover), so cards, decoration
+// tiles and trade rows all lifted differently. Now they're identical.
+.PointSystemShop-card,
+.PointSystemShop-tier,
+.PointSystemDecorations-item,
+.PointSystemDecorations-coverItem,
+.PointSystemTradesPage-row {
+  transition: box-shadow var(--ps-t), transform var(--ps-t), border-color var(--ps-t);
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--ps-shadow-card-hover);
+  }
+}
+
+// ── Borda SÓ no hover ─────────────────────────────────────────────────────────
+// Em repouso a borda é transparente: reserva 1px de caixa (sem salto de layout
+// no hover) e não pinta nada. Esta é a ÚNICA regra de borda da família de
+// cards — os cinco blocos `.is-equipped` que existiam antes somavam
+// `border-color` + `box-shadow: 0 0 0 1px` no estado equipado, e o hover
+// trocava só o box-shadow pela sombra de elevação, deixando a borda de 1px
+// visível. Daí o "a borda afina no hover em vez de aparecer" (relato 2026-07).
+// Qualquer estado novo (equipado/possuído/atingido) sinaliza por fundo, fita ou
+// rótulo de botão — nunca por borda.
+.PointSystemShop-card,
+.PointSystemShop-tier,
+.PointSystemDecorations-item,
+.PointSystemDecorations-coverItem {
+  border: 1px solid transparent;
+}
+
+.PointSystemShop-card:hover,
+.PointSystemShop-tier:hover,
+.PointSystemDecorations-item:hover,
+.PointSystemDecorations-coverItem:hover {
+  border-color: color-mix(in srgb, var(--ps-accent) 35%, var(--ps-border));
+}
+
+// Estado equipado sem borda: tint opaco de accent sobre a superfície do card.
+// Mistura opaca (e não `--ps-accent-soft`, que é translúcido) para o card não
+// perder a própria superfície quando o fundo da página tem outra cor.
+.PointSystemShop-card.is-equipped,
+.PointSystemDecorations-item.is-equipped,
+.PointSystemDecorations-coverItem.is-equipped {
+  background-color: color-mix(in srgb, var(--ps-accent) 10%, var(--ps-surface));
+}
+
+// Radius family — cards XL, tiles/rows LG — consistent across the system.
+.PointSystemShop-card { border-radius: var(--ps-radius-xl); }
+.PointSystemShop-tier,
+.PointSystemDecorations-item,
+.PointSystemDecorations-coverItem,
+.PointSystemTradesPage-row { border-radius: var(--ps-radius-lg); }
+
+// ── Round icon chip — mirror `.AvocadoHome-categoryIcon` ──────────────────────
+// The tier medal sits in Avocado's pill-shaped icon chip (surface-1 bg, muted
+// glyph) instead of a bare square.
+.PointSystemShop-tier-badge {
+  border-radius: var(--ps-radius-pill);
+  background: var(--ps-surface-sunken);
+  color: var(--ps-text-icon);
+
+  // Grupo com cor própria: o fundo vem inline (`Group->color` sanitizado) e o
+  // glifo precisa acompanhar. Sem isso ele herdava o `--ps-text-icon` cinza e
+  // sumia sobre fundos saturados (relato 2026-07). O text-shadow garante
+  // legibilidade também sobre cores claras, onde branco puro teria pouco
+  // contraste — mesmo tratamento do `Badge` do core.
+  &.is-colored {
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
+  }
+}
+
+// ── CTA de convidado ("Entrar") ───────────────────────────────────────────────
+// Ocupa a linha inteira como o botão de resgate que ele substitui — antes era
+// inline-block dentro de um `<span>`, ficava estreito e a seta do tooltip
+// apontava para o centro do card em vez do centro do botão (relato 2026-07).
+.PointSystemShop-loginBtn {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+
+  > i {
+    margin-right: 6px;
+    opacity: 0.7;
+  }
+}
+
+// Na coluna de ação dos tiers o cluster é dimensionado pelo conteúdo, então o
+// botão segue a largura natural do rótulo em vez de esticar.
+.PointSystemShop-tier-action > .PointSystemShop-loginBtn {
+  width: auto;
+}
+
+// ── Stat / metric pills — mirror `.AvocadoUserPage-hero-statPill` ─────────────
+// inline-flex · gap 5px · 13px · weight 600, with a heavier <strong>. Keeps the
+// points pills visually identical to Avocado's profile-hero stats.
+.PointSystemProfilePill,
+.PointSystemShop-balance-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+
+  strong { font-weight: 700; }
+}
+
+// ── Focus visibility — Avocado-style accent ring on interactive controls ──────
+.PointSystemShop-card a:focus-visible,
+.PointSystemShop-tier-action .Button:focus-visible,
+.PointSystemDecorations-item .Button:focus-visible {
+  outline: none;
+  box-shadow: var(--ps-ring);
+}

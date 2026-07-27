@@ -1,0 +1,188 @@
+// ─────────────────────────────────────────────────────────────
+// Página /decorations e prévia de capa
+// Fatia de forum.less (linhas 1458–1638 do arquivo original).
+// A ORDEM dos @import em forum.less é significativa: blocos daqui
+// para baixo sobrescrevem os anteriores de propósito.
+// ─────────────────────────────────────────────────────────────
+
+
+// Equipped state for the action button (no spinner, no hover, just signals).
+.PointSystemShop-equippedBtn {
+  cursor: default !important;
+  opacity: 1 !important;
+  background: var(--primary-color, #6cc04a) !important;
+  color: var(--button-primary-color, #fff) !important;
+}
+
+// ─── My decorations page ─────────────────────────────────────────────────────
+// Quantity badge appended to the item name when the user owns more than
+// one copy. Claims are stackable since the 2026_05_16_000005 migration —
+// repeat shop purchases, admin grants, or accumulated trades pile units
+// onto a single claim row instead of erroring on the UNIQUE key.
+.PointSystemDecorations-item-quantity {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--ps-surface-muted, rgba(0, 0, 0, 0.06));
+  color: var(--ps-text-muted, #6b7280);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
+.PointSystemDecorations {
+  padding: 24px 0;
+
+  section {
+    margin-bottom: 32px;
+  }
+
+  h2 {
+    margin: 0 0 12px;
+    font-size: 18px;
+  }
+
+  &-empty {
+    color: var(--muted-color, #999);
+    padding: 12px 0;
+  }
+
+  &-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+  }
+
+  &-item {
+    background: var(--body-bg, #fff);
+    /*
+     * Borda usa `--ps-border` (color-mix da text-color) pra ficar
+     * visível em dark mode também. O fallback de `--control-bg`
+     * sumia em temas escuros (relato 2026-05-23).
+     */
+    border: 1px solid var(--ps-border);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+
+    img {
+      max-width: 100%;
+      max-height: 96px;
+      display: block;
+      margin: 0 auto 8px;
+    }
+
+    // Composite avatar preview (user avatar + frame overlay) — the shop card
+    // uses .PointSystemShop-avatarPreview which absolute-positions both
+    // images inside a 96px square; we just center the wrapper in the item
+    // and clear the bottom margin the bare-<img> rule above adds.
+    .PointSystemShop-avatarPreview {
+      margin: 0 auto 8px;
+
+      img {
+        margin: 0;
+      }
+    }
+
+    // Post-highlight preview — `.ps-posthl-preview` defaults to
+    // `min-width: 160px; max-width: 220px` which overflows the 180px-grid
+    // item's inner width. Lock the width to the cell, add breathing room
+    // for the `outline-offset: 4px` of every preset, and center it.
+    .ps-posthl-preview {
+      width: auto;
+      min-width: 0 !important;
+      max-width: 100% !important;
+      margin: 6px 6px 12px;
+      box-sizing: border-box;
+    }
+
+    // Title preview chip — show a clear gap before the name so the chip
+    // doesn't crowd the row below it on the title tab.
+    .ps-title-preview {
+      margin: 8px auto;
+      display: inline-block;
+    }
+
+    &-name {
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+  }
+}
+
+// ─── Profile cover (shop-sold banner) ─────────────────────────────────────────
+// Same pattern as forumaker/profile-cover: stamp `background-image` directly
+// on every user-related hero element so themes that already style these
+// containers (avocado's hero, Flarum core's UserCard, profile page Hero) pick
+// the banner up automatically. No mask, no gradient, no `::before` — flat
+// background that the theme's existing rules can build on top of.
+.UserHero.ps-has-cover,
+.UserCard.ps-has-cover,
+.AvocadoUserPage-hero.ps-has-cover {
+  background-image: var(--ps-cover-url);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+// Shop card cover preview (landscape thumbnail, 16:9).
+.PointSystemShop-coverPreview {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--control-bg, #f4f4f7);
+  border-radius: 10px;
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  // Capa sem imagem. O gradiente slate fixo (#cbd5e1 → #94a3b8) era claro
+  // demais em dark mode — mesmo problema do placeholder de avatar. Tint sobre
+  // a superfície afundada acompanha o tema nos dois modos.
+  &-empty {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg,
+      var(--ps-surface-sunken) 0%,
+      color-mix(in srgb, var(--ps-text-icon) 22%, var(--ps-surface-sunken)) 100%);
+  }
+}
+
+// Decorations page cover section
+.PointSystemDecorations-coverGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.PointSystemDecorations-coverItem {
+  background: var(--body-bg, #fff);
+  /* Mesma justificativa do PointSystemDecorations-item — borda
+   * theme-aware para sobreviver ao dark mode. */
+  border: 1px solid var(--ps-border);
+  border-radius: 12px;
+  padding: 10px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &-preview {
+    aspect-ratio: 16 / 9;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    background: var(--control-bg, #f4f4f7);
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+  }
+}

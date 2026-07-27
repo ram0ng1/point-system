@@ -27,6 +27,10 @@
     "require": {
         "flarum/core": "^2.0.0"
     },
+    "suggest": {
+        "flarum/gdpr": "Exporta, anonimiza e apaga saldo, extrato, resgates e trocas junto com os dados do usuário (^2.0).",
+        "flarum/likes": "Concede pontos por curtida recebida e dada (^2.0)."
+    },
     "minimum-stability": "beta",
     "prefer-stable": true,
     "autoload": {
@@ -48,7 +52,7 @@
             "category": "feature",
             "icon": {
                 "image": "icon.svg",
-                "backgroundColor": "transparent"
+                "backgroundColor": "#fff"
             }
         },
         "flarum-cli": {
@@ -61,12 +65,13 @@
                 "gitConf": true,
                 "prettier": true,
                 "typescript": true,
-                "backendTesting": false,
+                "backendTesting": true,
                 "editorConfig": true
             }
         }
     },
     "require-dev": {
-        "flarum/realtime": "^2.0.0"
+        "flarum/realtime": "^2.0.0",
+        "phpunit/phpunit": "^11"
     }
 }

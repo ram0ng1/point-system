@@ -1,0 +1,344 @@
+// ─────────────────────────────────────────────────────────────
+// ConfirmPurchase, TradeModal e badges de card
+// Fatia de forum.less (linhas 1639–1975 do arquivo original).
+// A ORDEM dos @import em forum.less é significativa: blocos daqui
+// para baixo sobrescrevem os anteriores de propósito.
+// ─────────────────────────────────────────────────────────────
+
+
+// ─── Confirm-purchase modal ───────────────────────────────────────────────────
+// Minimal layout — preview chip on top, item name, then a small ledger of
+// (price / current / after) so the user sees exactly what they're committing
+// to. Pill-shaped buttons aligned right to match Flarum's other modals.
+.ConfirmPurchaseModal {
+  &-body {
+    padding: 16px 20px 20px;
+  }
+
+  &-preview {
+    display: flex;
+    justify-content: center;
+    margin: 4px 0 14px;
+  }
+
+  &-item {
+    font-size: 16px;
+    text-align: center;
+    margin-bottom: 18px;
+
+    strong {
+      font-weight: 600;
+    }
+  }
+
+  &-ledger {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    row-gap: 8px;
+    column-gap: 16px;
+    margin: 0 0 20px;
+    padding: 12px 14px;
+    background: var(--control-bg, #f4f4f7);
+    border-radius: 10px;
+    font-size: 14px;
+
+    > div {
+      display: contents;
+    }
+    dt {
+      font-weight: 400;
+      color: var(--muted-color, #6b7280);
+      margin: 0;
+    }
+    dd {
+      margin: 0;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+
+      i {
+        opacity: 0.7;
+        margin-right: 4px;
+      }
+    }
+    &-after dt,
+    &-after dd {
+      font-weight: 600;
+      color: var(--text-color, inherit);
+      padding-top: 8px;
+      border-top: 1px solid var(--control-bg-darker, rgba(0, 0, 0, 0.05));
+    }
+  }
+
+  &-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin: 0;
+
+    .Button {
+      min-width: 96px;
+    }
+  }
+}
+
+// ─── Shop card availability badges (added 2026-05-16) ─────────────────────
+.PointSystemShop-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 12px 0;
+}
+.PointSystemShop-card-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--ps-text-muted, #555);
+  line-height: 1.2;
+
+  > i {
+    font-size: 10px;
+    opacity: 0.85;
+  }
+
+  &.is-warning {
+    background: rgba(255, 152, 0, 0.18);
+    color: #b35900;
+  }
+  &.is-future {
+    background: rgba(96, 165, 250, 0.18);
+    color: #1e40af;
+  }
+}
+
+// ─── Trade modal (Habbo-style two-panel exchange) ─────────────────────────
+//
+// Z-index + position discipline: Flarum's ModalManager renders each modal as
+// a sibling of `.ModalManager-invisibleBackdrop` (used to catch outside-of-
+// modal clicks). The base `.Modal` rule sets `position: relative; z-index: 2`
+// to keep modal content above the backdrop — but a host theme like Avocado
+// can introduce stacking-context surprises that effectively re-order them,
+// leaving the trade modal trapped UNDER the invisible backdrop (you can see
+// the chrome but can't click anything). We pin both props with !important
+// on the trade modal root so the layering is deterministic regardless of
+// the host theme.
+.PointSystemTradeModal {
+  position: relative !important;
+  z-index: 100 !important;
+  pointer-events: auto !important;
+
+  .Modal-content {
+    pointer-events: auto !important;
+    // Wider than default 600 / narrower than --large 800 so the two-panel
+    // grid fits without becoming a full-screen takeover.
+    max-width: 720px;
+    width: calc(100% - 32px);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18), 0 8px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  // Distinctive identity: a thin primary-tinted top stripe under the
+  // header — enough to mark the trade modal as a special surface without
+  // hiding the close button against a dark gradient (the previous attempt
+  // tinted the whole header dark, which made the close icon invisible on
+  // many themes). The stripe sits behind the header content via a pseudo
+  // element so it never conflicts with App-titleControl typography rules.
+  .Modal-content::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 4px;
+    background: linear-gradient(90deg,
+      var(--primary-color, #6cc04a) 0%,
+      color-mix(in srgb, var(--primary-color, #6cc04a) 60%, #2563eb) 100%);
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .Modal-header {
+    padding: 24px 28px 12px !important;
+    border-bottom: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06)) !important;
+    background: var(--body-bg);
+
+    h3 {
+      letter-spacing: -0.01em;
+      font-weight: 600;
+    }
+  }
+
+  .Modal-body {
+    background: var(--body-bg) !important;
+    padding: 20px 28px 24px !important;
+  }
+
+  &-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 999px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    font-size: 13.5px;
+    background: var(--ps-surface-muted);
+    color: var(--text-color, #333);
+
+    &.is-completed { background: color-mix(in srgb, var(--primary-color, #6cc04a) 18%, transparent); color: var(--primary-color, #6cc04a); }
+    &.is-cancelled { background: rgba(220, 38, 38, 0.12); color: #b91c1c; }
+  }
+
+  &-panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+
+    @media (max-width: 720px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &-panel {
+    background: var(--ps-surface, #fff);
+    border: 1px solid var(--ps-border, #e6e6e9);
+    border-radius: 12px;
+    padding: 14px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+
+    &.is-accepted {
+      border-color: var(--primary-color, #6cc04a);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color, #6cc04a) 22%, transparent) inset;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      color: var(--ps-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+  }
+
+  &-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 64px;
+  }
+
+  &-itemChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--ps-surface-muted);
+    border-radius: 14px;
+    // Generous vertical padding so the avatar-decoration frame (extending
+    // ~10% above and below the avatar disc) is fully contained within the
+    // chip bounds — no clipped Coffee-mug handle escaping the bottom edge.
+    padding: 10px 14px 10px 10px;
+    font-size: 12.5px;
+    line-height: 1.2;
+    // Don't lock to one row — let the preview's natural width breathe.
+    // Chips wrap to the next row when they exceed the panel width.
+    flex: 0 0 auto;
+    max-width: 100%;
+
+    &-name {
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &-remove {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--ps-text-muted);
+      padding: 2px 4px;
+      font-size: 10px;
+
+      &:hover { color: #b91c1c; }
+    }
+
+    &.is-readonly {
+      opacity: 0.95;
+    }
+  }
+
+  // (legacy 28×28 circle rule removed — the new per-type preview shapes
+  // in `.PointSystemTradeModal-itemThumb--avatar/-cover/-name/-postHl`
+  // below would otherwise be clamped here. Each shape carries its own
+  // sizing so the preview renders at its natural realistic size.)
+
+  &-addItem {
+    margin: 8px 0;
+  }
+
+  &-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 4px 0 8px;
+    padding: 8px;
+    background: var(--ps-surface-muted);
+    border-radius: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  &-pickerItem {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--body-bg);
+    border: 1px solid var(--ps-border);
+    border-radius: 999px;
+    padding: 4px 10px 4px 4px;
+    cursor: pointer;
+    font-size: 12.5px;
+
+    &:hover { border-color: var(--primary-color); }
+  }
+
+  &-points {
+    margin-top: 12px;
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--ps-text-muted);
+      margin-bottom: 4px;
+    }
+  }
+
+  &-readonly {
+    padding: 8px 12px;
+    background: var(--ps-surface-muted);
+    border-radius: 6px;
+  }
+
+  &-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ps-border);
+  }
+
+  &-error {
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: rgba(220, 38, 38, 0.10);
+    color: #b91c1c;
+    font-size: 13px;
+  }
+}

@@ -1,0 +1,333 @@
+// ─────────────────────────────────────────────────────────────
+// Selo de título do usuário (post, side, perfil)
+// Fatia de forum.less (linhas 1132–1457 do arquivo original).
+// A ORDEM dos @import em forum.less é significativa: blocos daqui
+// para baixo sobrescrevem os anteriores de propósito.
+// ─────────────────────────────────────────────────────────────
+
+
+// ─── Custom title — rendered in two places per post (CommentPost.sideItems
+// for the desktop avatar column, PostUser.userViewItems for the phone inline
+// header). Exactly one is visible at any breakpoint, switched by the rules
+// below. The chip itself is a centred block-level pill that adapts to its
+// container's width.
+.PointSystemUserTitle {
+  display: inline-block;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--ps-title-color, var(--primary-color, #6cc04a)) 14%, transparent);
+  color: var(--ps-title-color, var(--primary-color, #6cc04a));
+  border-radius: 999px;
+  line-height: 1.4;
+  text-align: center;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+
+// ── Side-column variant (desktop / tablet-up) ───────────────────────────────
+// `.Post-side` is the avatar column. Avocado sets it to `display: flex` row
+// + `align-items: flex-start`, which would squeeze our title chip into a tiny
+// flex sibling next to `.Post-side-inner`. We force a column stack and centre
+// alignment so the title sits cleanly UNDER the avatar in both Flarum core
+// and Avocado layouts.
+//
+// Avocado's own targeting rule is `.Page.DiscussionPage .CommentPost
+// .Post-side` (specificity 0,4,0); we match it here with the same chain
+// (plus the `--fixedAvatar` variant) so `!important` doesn't have to fight
+// source-order ties.
+// Scoped to `@tablet-up` ONLY. At phone width, both Avocado and our own
+// mobile rule (below) hide `.Post-side` entirely with `display: none`.
+// If we kept this `display: flex !important` ungated, its higher
+// specificity selector (`.Page.DiscussionPage .CommentPost--fixedAvatar
+// .Post-side`, 0,4,0) would beat the mobile hide (0,3,0) and force the
+// side column visible on phones — the floating duplicate-avatar bug.
+@media (min-width: 768px) {
+  .Post-side,
+  .Post-side--online,
+  .CommentPost .Post-side,
+  .CommentPost .Post-side--online,
+  .CommentPost.CommentPost--fixedAvatar .Post-side,
+  .CommentPost.CommentPost--fixedAvatar .Post-side--online,
+  .Page.DiscussionPage .CommentPost .Post-side,
+  .Page.DiscussionPage .CommentPost .Post-side--online,
+  .Page.DiscussionPage .CommentPost.CommentPost--fixedAvatar .Post-side,
+  .Page.DiscussionPage .CommentPost.CommentPost--fixedAvatar .Post-side--online {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    text-align: center;
+    overflow: visible;
+  }
+}
+
+// The Post-side-inner wrapper Avocado creates as a row holding avatar +
+// inline badges. The default row layout pushes the avatar off-center (it
+// sits left of the badges), which then misaligns our PointSystemUserTitle
+// sibling — the title centers in `.Post-side` but the avatar doesn't, so
+// they don't share a vertical axis.
+//
+// Force the inner to ALSO be a centered column so the avatar lands on top,
+// any badges stack below it, and the title underneath shares the same
+// vertical center line.
+.Post-side > .Post-side-inner {
+  flex: 0 0 auto;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 6px;
+}
+
+// ── Side-variant title — ABSOLUTELY positioned under the avatar ───────────
+// Avocado pins `.Post-side` to a fixed 64px width with `display: flex` +
+// `justify-content: center` so its single in-flow child (the avatar) sits
+// centered. Our title can be wider than 64px, and flex `margin: auto` did
+// NOT consistently centre an overflowing item across Avocado's `Post-side`
+// / `Post-side--online` variants — the chip kept landing flush-left under
+// the avatar.
+//
+// Fix: take the title out of the flex flow with `position: absolute` and
+// pin it 50% from the left edge of `.Post-side`, then nudge back by half
+// its own width with `translateX(-50%)`. Now the title's centre always
+// lines up with the avatar column's centre regardless of how wide the
+// chip text gets — exact centring with no flex quirks.
+//
+// `.Post-side` is already a positioning context in every Avocado layout:
+//   - normal CommentPost: `position: absolute` (sets containing block)
+//   - fixedAvatar variant: `position: sticky` (sets containing block too)
+// So we don't need to force `position: relative` on it.
+
+// Belt-and-braces — force the column to allow our title to escape the
+// 64px width. Avocado's fixedAvatar variant already has `overflow: visible`;
+// this catches the non-fixedAvatar case + any other theme that clips.
+.Post-side,
+.Post-side--online {
+  overflow: visible !important;
+}
+
+.PointSystemUserTitle--inSide {
+  // Position via the parent's flex flow (`.Post-side` is forced to a
+  // `display: flex; flex-direction: column; align-items: center` column
+  // above), NOT via `position: absolute`. The previous absolute-positioned
+  // approach worked on Avocado (`.Post-side` carries a positioning context
+  // from its own `position: absolute`/`sticky`) but broke on default
+  // Flarum, where `.Post-side` is in normal flow — `position: absolute`
+  // there walks up the ancestor chain to <body> and the chip lands at
+  // `top: 76px; left: 50%` of the page, far away from the post.
+  //
+  // Flex flow is robust across themes: align-self: center keeps the chip
+  // on the avatar's vertical axis even when the chip overflows the 64px
+  // column width (the column's `overflow: visible` lets that overflow
+  // paint outside the column edge).
+  display: block;
+  align-self: center;
+  margin: 8px auto 0 !important;
+  width: max-content;
+  max-width: 200px;
+  flex: 0 0 auto;
+  position: static;       // win over any inherited `position: absolute`
+  z-index: 1;
+}
+
+// Avocado-specific positioning. Avocado lays `.Post-side` out as a
+// HORIZONTAL byline (e.g. 337×38) — a wide-thin header strip, NOT the
+// 64-wide column default Flarum uses. With our title chip in normal
+// flex flow + `align-items: center`, the chip squeezes into the right
+// edge of that thin strip instead of centering under the avatar.
+//
+// When `.Post-side-inner` is the previous sibling, we KNOW we're inside
+// an Avocado-style layout. Switch the chip to absolute positioning
+// pinned 50% from the left edge of `.Post-side`, then nudge back by
+// half its own width via `translateX(-50%)`. The chip then sits below
+// (or beside) the avatar regardless of how Avocado measures the parent.
+//
+// Requires `.Post-side` to be a positioning context. Avocado already
+// makes it one (position: absolute / sticky), so no override needed.
+// On default Flarum's vertical column layout, `.Post-side-inner` is
+// NOT a sibling and this rule does not match — the default flex flow
+// up above continues to win there.
+.Post-side > .Post-side-inner + .PointSystemUserTitle--inSide,
+.Post-side-inner ~ .PointSystemUserTitle--inSide {
+  position: absolute !important;
+  left: 50% !important;
+  // Sit below the inner row. Avocado's byline is roughly `--disc-avatar`
+  // tall; 12px breathing room separates the title from the avatar/badges.
+  top: calc(var(--disc-avatar, 64px) + 12px) !important;
+  transform: translateX(-50%) !important;
+  margin: 0 !important;
+  width: max-content;
+  max-width: 220px;
+  z-index: 5;
+  align-self: auto !important;
+  flex: initial !important;
+}
+
+// Avocado's `.Post-side` collapses to its inner-row height (~38px) — if
+// our absolutely positioned chip lands BELOW that 38px boundary it gets
+// clipped when the parent isn't `overflow: visible`. Re-affirm visibility
+// on the Avocado variants specifically (the earlier rule sets it but we
+// override `position: relative` chain here too).
+.Post-side:has(.Post-side-inner),
+.Post-side--online:has(.Post-side-inner) {
+  overflow: visible !important;
+  // Reserve enough vertical space below the inner row so the chip is
+  // visible without overlapping the next post's content. The chip is
+  // ~22px tall + 12px gap.
+  padding-bottom: 34px;
+}
+
+// ── Header variant (phone) ──────────────────────────────────────────────────
+// On phone, Flarum hides the side-column avatar and shows a 32px inline
+// avatar in `.PostUser-name`. We render the chip as its OWN block on a new
+// line below the avatar/name/badges row, left-aligned under the avatar so
+// the badge still reads as "below the profile photo".
+.PointSystemUserTitle--inHeader {
+  font-size: 10.5px;
+  padding: 1px 8px;
+}
+
+// ── Breakpoint swap ─────────────────────────────────────────────────────────
+// Default: side variant visible (sits below the side-column avatar), header
+// variant hidden. Below tablet width, Avocado/core hide the side avatar so
+// the side variant has no anchor — flip visibility there and force the
+// header chip onto its own line.
+.PointSystemUserTitle--inHeader { display: none; }
+
+@media (max-width: 767px) {
+  .PointSystemUserTitle--inSide { display: none; }
+
+  // Force the chip onto a fresh line under the avatar row. `clear: left`
+  // bumps it past any floated content (some themes float the avatar).
+  // `width: fit-content` keeps the pill from spanning the whole row.
+  //
+  // The PostUser-name ul on phone lays out as: avatar | username | title |
+  // timestamp. With no left margin, the title sits flush against the
+  // username — fix by giving the chip a tiny breathing space on the LEFT
+  // (the right side is naturally handled by the ul's `li` gap). 6px is
+  // enough to read as separation without pushing the rest of the row.
+  .PointSystemUserTitle--inHeader {
+    display: block;
+    width: fit-content;
+    clear: left;
+    margin: 4px 0 0 6px;
+  }
+}
+
+// ── Hero / large-avatar contexts — slightly bigger chip with more padding
+// since the surrounding avatar is much larger than in a post column.
+.UserCard .PointSystemUserTitle,
+.UserHero .PointSystemUserTitle,
+.AvocadoUserPage-hero .PointSystemUserTitle {
+  font-size: 12px;
+  padding: 2px 10px;
+}
+
+/*
+ * Stats row do hero (Avocado): contém data de entrada, pontos, "Editado",
+ * etc. Sem `flex-wrap`, em larguras médias a injeção da pílula de pontos
+ * empurra "Изменено" pra fora da viewport (relato 2026-05-23). Aplicamos
+ * wrap + gap consistente; o `min-width: 0` impede que pílulas longas
+ * estourem o pai. Idempotente — se Avocado já fizer wrap, é no-op.
+ */
+.AvocadoUserPage-hero-stats {
+  flex-wrap: wrap;
+  min-width: 0;
+  row-gap: 6px;
+}
+
+// Title chip displayed inline next to the username on the Avocado profile
+// hero (injected via `registerAvocadoProfileHooks.injectTitle`). The hero
+// name is an H1 with the displayName + verified popover anchor; our chip
+// is appended as the last child so it reads as "name | title". A small
+// left margin separates it from the verified badge / name tail.
+.AvocadoUserPage-hero-name .PointSystemUserTitle--inProfile {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 10px;
+  vertical-align: middle;
+  font-size: 13px;
+  // Slightly larger padding than the post-side variant — hero is wider
+  // and the chip would look cramped at the post-column size.
+  padding: 3px 12px;
+}
+
+// ── Mobile layout — keep the rewards/decoration pages comfortable on
+// narrow viewports. Drops tab labels under icons, lets the balance pill
+// wrap, and shrinks card sizes so two columns still fit on a phone.
+@media (max-width: 767px) {
+  /*
+   * Padding horizontal defensivo em mobile. Em alguns temas (Avocado em
+   * algumas configurações) o `.container` perde o padding lateral no
+   * @phone, fazendo os cards encostarem nas bordas da tela (relato
+   * 2026-05-24). Não é universal — pode ser CSS do tema — mas garantir
+   * 12px aqui é mais barato do que depender do host.
+   */
+  .PointSystemShop,
+  .PointSystemDecorations,
+  .PointSystemTradesPage {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .PointSystemShop {
+    padding: 16px 12px 48px;
+
+    &-header h1 { font-size: 22px; }
+    &-subtitle { font-size: 13px; }
+
+    &-balance {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+      border-radius: 12px;
+      font-size: 13px;
+      text-align: center;
+
+      &-item { justify-content: center; }
+    }
+
+    &-grid {
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+
+      // Mobile-only per-tab adjustments — names/titles fit 3-4 columns on
+      // a phone (text only), covers stay one-column for legibility.
+      &--name,
+      &--title {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 8px;
+      }
+
+      &--cover {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    &-card {
+      border-radius: 12px;
+    }
+
+    &-card-equippedRibbon {
+      top: 8px;
+      right: 8px;
+      padding: 2px 8px;
+      font-size: 10px;
+    }
+
+    // Tier cards should stack vertically on phones — the badge + body + check
+    // ribbon look cramped at narrow widths.
+    &-tier {
+      flex-direction: row;
+      align-items: flex-start;
+    }
+    &-tiersGrid {
+      grid-template-columns: 1fr;
+    }
+  }
+}

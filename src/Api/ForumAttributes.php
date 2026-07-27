@@ -21,10 +21,15 @@ use Ramon\PointSystem\Support\ItemAvailability;
 use Ramon\PointSystem\Support\SubmissionScope;
 
 /**
- * Adds the full catalog of enabled decorations to the forum payload so they can
- * be rendered on any page (post stream, user card, etc.) without an extra
- * round-trip. The catalog is small (admin-curated) so eagerly loading it is
- * cheaper than lazy fetches on every page.
+ * Adds the catalog of enabled decorations to the forum payload so they can be
+ * rendered on any page (post stream, user card, etc.) without an extra
+ * round-trip — `injectNameDecorationStyles` (js/src/forum/index.tsx) precisa do
+ * par slug/customCss globalmente, não só na rota da loja.
+ *
+ * Cada catálogo é limitado a {@see self::CATALOG_LIMIT}. A justificativa
+ * original ("o catálogo é pequeno, curado por admin") deixou de valer com
+ * submissões de usuário; o teto mantém o payload previsível e o frontend
+ * anuncia o corte via `pointSystemCatalogLimit`.
  *
  * Decoration catalogs use {@see ItemAvailability::applyShopOrOwnedScope}: the
  * public shop sees only enabled / listed / in-window / unrestricted items, but
@@ -49,6 +54,22 @@ class ForumAttributes
         protected SettingsRepositoryInterface $settings,
         protected FeatureGate $features,
     ) {}
+
+    /**
+     * Teto de itens por catálogo no payload do fórum.
+     *
+     * Estes seis arrays viajam em TODA página, para TODO visitante — inclusive
+     * guest. O docblock da classe justificava a carga total com "o catálogo é
+     * pequeno (curado por admin)", premissa que caiu quando `user_submissions`
+     * passou a deixar usuários criarem decorações: sem teto o payload cresce
+     * junto com a fila de submissões aprovadas.
+     *
+     * 200 é o mesmo teto máximo dos endpoints JSON:API (`paginate(100, 200)`),
+     * então o caminho de bootstrap e o paginado passam a concordar. O frontend
+     * compara `length >= pointSystemCatalogLimit` para avisar que a lista veio
+     * cortada — truncar em silêncio é o que §40.6 proíbe.
+     */
+    public const CATALOG_LIMIT = 200;
 
     /**
      * Cache estático da presença da coluna `creator_id` por tabela. Estado
@@ -148,6 +169,7 @@ class ForumAttributes
                     return $scopeFor(AvatarDecoration::query(), $context, ShopClaim::TYPE_AVATAR)
                         ->orderBy('sort')
                         ->orderBy('id')
+                        ->limit(self::CATALOG_LIMIT)
                         ->get()
                         ->map(fn (AvatarDecoration $d) => array_merge([
                             'id' => $d->id,
@@ -170,6 +192,7 @@ class ForumAttributes
                     return $scopeFor(NameDecoration::query(), $context, ShopClaim::TYPE_NAME)
                         ->orderBy('sort')
                         ->orderBy('id')
+                        ->limit(self::CATALOG_LIMIT)
                         ->get()
                         ->map(fn (NameDecoration $d) => array_merge([
                             'id' => $d->id,
@@ -192,6 +215,7 @@ class ForumAttributes
                     return $scopeFor(CoverDecoration::query(), $context, ShopClaim::TYPE_COVER)
                         ->orderBy('sort')
                         ->orderBy('id')
+                        ->limit(self::CATALOG_LIMIT)
                         ->get()
                         ->map(fn (CoverDecoration $d) => array_merge([
                             'id' => $d->id,
@@ -214,6 +238,7 @@ class ForumAttributes
                     return $scopeFor(TitleDecoration::query(), $context, ShopClaim::TYPE_TITLE)
                         ->orderBy('sort')
                         ->orderBy('id')
+                        ->limit(self::CATALOG_LIMIT)
                         ->get()
                         ->map(fn (TitleDecoration $d) => array_merge([
                             'id' => $d->id,
@@ -237,6 +262,7 @@ class ForumAttributes
                     return $scopeFor(PostHighlightDecoration::query(), $context, ShopClaim::TYPE_POST_HL)
                         ->orderBy('sort')
                         ->orderBy('id')
+                        ->limit(self::CATALOG_LIMIT)
                         ->get()
                         ->map(fn (PostHighlightDecoration $d) => array_merge([
                             'id' => $d->id,
@@ -262,6 +288,7 @@ class ForumAttributes
                     $actor = $context->getActor();
                     return $scopeForOffers(GroupOffer::query()->with('group'), $context)
                         ->orderBy('points_required')
+                        ->limit(self::CATALOG_LIMIT)
                         ->get()
                         ->map(fn (GroupOffer $o) => array_merge([
                             'id' => $o->id,
@@ -276,6 +303,12 @@ class ForumAttributes
                         ], $serializeAvailability($o, $actor)))
                         ->toArray();
                 }),
+
+            // Teto aplicado aos seis catálogos acima. O frontend compara
+            // `items.length >= este valor` para avisar que a lista veio
+            // cortada — sem isto o corte seria silencioso (§40.6).
+            Schema\Integer::make('pointSystemCatalogLimit')
+                ->get(fn () => self::CATALOG_LIMIT),
 
             // Per-user permissions exposed to the frontend so we can gate the
             // nav entry, the Rewards page itself, and the claim button.

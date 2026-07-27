@@ -1,0 +1,302 @@
+// ─────────────────────────────────────────────────────────────
+// Página /trades, cabeçalho e modal de envio
+// Fatia de forum.less (linhas 1976–2270 do arquivo original).
+// A ORDEM dos @import em forum.less é significativa: blocos daqui
+// para baixo sobrescrevem os anteriores de propósito.
+// ─────────────────────────────────────────────────────────────
+
+
+// ─── Trades dashboard page ────────────────────────────────────────────────
+.PointSystemTradesPage {
+  padding: 24px 0;
+
+  &-header {
+    margin-bottom: 24px;
+    h1 {
+      margin: 0 0 6px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 22px;
+      i { color: var(--primary-color, #6cc04a); }
+    }
+  }
+
+  &-notice {
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: rgba(255, 152, 0, 0.12);
+    color: #a85c00;
+    margin-bottom: 16px;
+  }
+
+  &-section {
+    margin-bottom: 28px;
+    h2 {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--ps-text-muted);
+      margin: 0 0 10px;
+    }
+  }
+
+  &-empty {
+    color: var(--ps-text-muted);
+    padding: 12px 0;
+  }
+
+  &-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &-row {
+    display: grid;
+    grid-template-columns: minmax(160px, 1.2fr) minmax(200px, 2fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--ps-surface);
+    border: 1px solid var(--ps-border);
+    border-radius: 12px;
+
+    &.is-pending { border-color: color-mix(in srgb, var(--primary-color, #6cc04a) 35%, transparent); }
+    &.is-completed { opacity: 0.8; }
+    &.is-cancelled { opacity: 0.65; }
+
+    @media (max-width: 720px) {
+      grid-template-columns: 1fr;
+    }
+
+    &-party {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    &-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex: 0 0 36px;
+      background: var(--ps-surface-muted);
+
+      &--placeholder {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--ps-text-muted);
+      }
+    }
+
+    &-time {
+      font-size: 12px;
+      color: var(--ps-text-muted);
+    }
+
+    &-summary {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+
+      .muted {
+        display: block;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--ps-text-muted);
+      }
+
+      em {
+        color: var(--ps-text-muted);
+        font-style: normal;
+      }
+
+      i {
+        color: var(--ps-text-muted);
+      }
+    }
+
+    &-side {
+      flex: 1;
+      min-width: 0;
+    }
+
+    &-status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+  }
+
+  &-pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: var(--ps-surface-muted);
+    color: var(--ps-text-muted);
+
+    &.is-pending { background: color-mix(in srgb, var(--primary-color, #6cc04a) 16%, transparent); color: var(--primary-color, #6cc04a); }
+    &.is-completed { background: rgba(108, 192, 74, 0.18); color: #2f7a25; }
+    &.is-cancelled { background: rgba(220, 38, 38, 0.14); color: #b91c1c; }
+    &.is-waiting { background: rgba(255, 159, 0, 0.18); color: #b45a00; }
+  }
+}
+
+// ─── User-submission CTA + submit modal + creator pill ────────────────────
+.PointSystemDecorations-pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+
+  h1 { margin: 0; }
+
+  // Right-aligned cluster holding the "Submit your own" CTA.
+  &-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+}
+
+// "Back to shop" link — sits in the page-header actions cluster (top-right),
+// next to the "Submit your own" CTA. A back arrow + a clear (not muted) colour
+// so it reads as a proper "voltar" affordance — the previous version rendered
+// as faint grey and didn't look like a back button. Avocado tokens; accent on
+// hover.
+.PointSystemDecorations-back.Button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ps-text-muted);
+  font-weight: 600;
+  font-size: 13px;
+
+  i { font-size: 11px; }
+
+  &:hover:not(:disabled),
+  &:focus-visible {
+    background: transparent;
+    box-shadow: none;
+    color: var(--ps-accent);
+    text-decoration: none;
+  }
+}
+
+.PointSystemSubmitModal {
+  &-error {
+    margin: 12px 0 0;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: rgba(220, 38, 38, 0.10);
+    color: #b91c1c;
+    font-size: 13px;
+  }
+  &-footer {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ps-border);
+
+    .helpText {
+      margin: 0;
+      flex: 1;
+    }
+  }
+
+  &-sourceToggle {
+    display: inline-flex;
+    gap: 6px;
+    padding: 4px;
+    background: var(--ps-surface-muted, rgba(0, 0, 0, 0.04));
+    border-radius: 999px;
+    border: 1px solid var(--ps-border-subtle, rgba(0, 0, 0, 0.06));
+  }
+  &-sourceOption {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--ps-text-muted, #6b7280);
+    transition: background-color var(--ps-t-fast), color var(--ps-t-fast);
+    position: relative;
+
+    input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    &.is-active {
+      background: var(--ps-surface, #fff);
+      color: var(--ps-text, #111827);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    }
+
+    &:hover:not(.is-active) {
+      color: var(--ps-text, #111827);
+    }
+  }
+}
+
+.PointSystemShop-card-creator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 8px;
+  padding: 3px 10px 3px 3px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--ps-text-muted, #6b7280);
+  font-size: 12px;
+  text-decoration: none;
+  max-width: 100%;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.08);
+    color: var(--text-color, inherit);
+    text-decoration: none;
+  }
+}
+.PointSystemShop-card-creatorAvatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--ps-surface-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: var(--ps-text-muted);
+
+  &--placeholder {
+    color: var(--ps-text-muted);
+  }
+}
