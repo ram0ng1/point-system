@@ -13,22 +13,25 @@
   <a href="https://donate.stripe.com/fZe5o66nebkf39S28a"><img alt="Donate" src="https://img.shields.io/badge/donate-stripe-6772E5?style=flat-square"></a>
 </p>
 
-<p align="center">Points, frames and flair. Gamification for Flarum 2.</p>
+<p align="center">Points, frames and flair. A small economy for your Flarum community.</p>
 
-Point System turns activity into a small economy. Users earn points for posting, getting likes, logging in and signing up, then spend them on avatar frames, animated username styles and permanent group tiers. Admins control the catalog, the prices and every earning rule.
+Point System turns activity into currency. Users earn points for posting, getting likes, logging in and signing up, then spend them in a shop on avatar frames, username styles, profile covers, titles and post highlights. Admins control the catalog, the prices and every earning rule.
 
-There are 24 built in username decorations, from gold and neon to glitch and rainbow, plus a free form CSS editor with keyframes support when you want to design your own. Everything previews live before anyone spends a point.
+It scales with how much you want to run. Keep it to a simple earn and spend loop, or open the whole thing up: let users design and submit their own decorations for approval, let them trade items and points with each other, put stock limits and sale windows on the catalog, and sell permanent group access alongside it.
 
 ## What it does
 
 - Points for discussions, replies, likes given and received, daily logins and sign ups, each rule configurable
 - Two balances per user: lifetime earned and spendable, with lifetime optionally hidden
-- Avatar frames in PNG, APNG, GIF or WebP, rendered everywhere the avatar appears
-- Username decorations with live preview in the shop, in the admin form and in the post stream
-- Group tiers purchasable with points, attached permanently on claim
-- Admin tools for manual credit and debit with reasons, plus a users panel with search and sorting
-- Notifications when points change or a tier is joined, websocket pushed if `flarum/realtime` is around
-- Events fired on every change, so other extensions can react
+- Five decoration families — avatar frames, username styles, profile covers, titles and post highlights — each with its own master switch
+- 25 built in username styles and 10 post highlight presets, plus a free form CSS editor with keyframes when you want your own
+- Group tiers unlocked automatically at a lifetime threshold, bought outright with points, or both
+- Player to player trading of items and points, with both sides required to accept and an admin dashboard that can revert a completed trade
+- User submitted decorations with an admin moderation queue, so the catalog can grow without you drawing every frame
+- Stock limits, sale windows and per group restrictions on any shop item
+- Admin tools for manual credit and debit with reasons, plus a bulk award to every user at once
+- Notifications when points change, a tier is joined, an item is granted or a trade moves, websocket pushed if `flarum/realtime` is around
+- Plays nice with `flarum/gdpr` for export, anonymization and erasure
 
 ## Installation
 
@@ -38,9 +41,16 @@ php flarum migrate
 php flarum cache:clear
 ```
 
-Enable Point System on the Extensions page. Rules, catalog, tiers and permissions are all managed in the admin panel.
+Enable Point System on the Extensions page. Rules, catalog, tiers, the moderation queue and permissions are all managed in the admin panel, each option explained in place.
 
-Optional companions: `flarum/likes` unlocks the like related rules and `flarum/realtime` makes notifications land in real time.
+Optional companions: `flarum/likes` unlocks the like related rules, `flarum/realtime` makes notifications land instantly, and `flarum/gdpr` wires points and trades into data export and erasure.
+
+## Good to know
+
+- Users get three pages: `/rewards` to spend, `/decorations` to equip what they own, and `/trades` for exchanges. All three respect permissions, so you can open the shop to everyone and keep trading to a single group.
+- Custom CSS on decorations is sanitized twice, on save and again on output. An allowlist strips the primitives that break out of a stylesheet, and it runs on serialization too, so rows written before the hardening are neutralized without a backfill.
+- Points never move outside a transaction. Claiming, trading and manual adjustments all commit or roll back as a unit, so a failure mid flow cannot leave a balance debited with nothing delivered.
+- Everything the frontend does goes through the `/api/point-system/*` endpoints, and seven events fire on every change, so other extensions can react or drive the economy from outside.
 
 ## License
 
