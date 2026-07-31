@@ -72,6 +72,28 @@ class PointsRepository
     }
 
     /**
+     * Relê a linha de pontos sob `SELECT … FOR UPDATE`. Só faz sentido dentro
+     * de uma transação — todos os chamadores aqui rodam dentro de uma.
+     *
+     * Sem o lock, dois créditos concorrentes no mesmo usuário (like e post
+     * chegando juntos, ou um bulk award cruzando com atividade normal) leem o
+     * mesmo `lifetime`, cada um soma sobre a leitura obsoleta e o último
+     * `save()` sobrescreve o primeiro — o lost update clássico. É o mesmo
+     * padrão que os fluxos de trade e de loja já aplicam antes de mexer no
+     * saldo. Em `deduct` o lock também fecha a janela entre a checagem de
+     * saldo e o débito, que permitiria gastar além do disponível.
+     */
+    protected function getOrCreateForUpdate(User $user): UserPoints
+    {
+        $points = $this->getOrCreate($user);
+
+        return UserPoints::query()
+            ->whereKey($points->getKey())
+            ->lockForUpdate()
+            ->first() ?? $points;
+    }
+
+    /**
      * Credit a user with points. Updates both lifetime and balance, logs a
      * transaction row, then syncs auto-groups.
      *
@@ -91,7 +113,7 @@ class PointsRepository
 
         $tx = null;
         $points = $this->db->transaction(function () use ($user, $amount, $reason, $referenceType, $referenceId, $meta, &$tx) {
-            $points = $this->getOrCreate($user);
+            $points = $this->getOrCreateForUpdate($user);
             $points->lifetime += $amount;
             $points->balance  += $amount;
             $points->raise(new PointsAwarded($user, $amount, $reason));
@@ -143,7 +165,7 @@ class PointsRepository
                 return null;
             }
 
-            $points = $this->getOrCreate($user);
+            $points = $this->getOrCreateForUpdate($user);
             $points->lifetime = max(0, $points->lifetime - $tx->amount);
             $points->balance  = max(0, $points->balance - $tx->amount);
             $points->raise(new PointsAwarded($user, -$tx->amount, $reason.'.revert'));
@@ -184,7 +206,7 @@ class PointsRepository
 
         $tx = null;
         $points = $this->db->transaction(function () use ($user, $amount, $reason, $referenceType, $referenceId, &$tx) {
-            $points = $this->getOrCreate($user);
+            $points = $this->getOrCreateForUpdate($user);
             if ($points->balance < $amount) {
                 throw new \DomainException('Insufficient point balance');
             }

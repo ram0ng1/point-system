@@ -578,6 +578,7 @@ ramon-point-system:
       bulk_awarded: "Users updated"
       bulk_errors: "Errors"
       bulk_success: "Bulk adjustment applied."
+      bulk_queued: "Queued for {total} users. Points are applied in the background — the queue worker processes them shortly."
 
 # Descriptions surfaced by flarum/gdpr in the data-request UI. The key segment
 # is Str::lower(PointSystemData::dataType()) — renaming dataType() breaks these.

@@ -578,6 +578,7 @@ ramon-point-system:
       bulk_awarded: "Usuários atualizados"
       bulk_errors: "Erros"
       bulk_success: "Ajuste em massa aplicado."
+      bulk_queued: "Enfileirado para {total} usuários. Os pontos são aplicados em segundo plano — o worker da fila processa em instantes."
 
 # Descrições exibidas pelo flarum/gdpr na tela de solicitação de dados. O
 # segmento da chave é Str::lower(PointSystemData::dataType()) — renomear
