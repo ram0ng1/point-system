@@ -130,13 +130,19 @@ export default class ManualAwardPanel extends Component {
         {this.bulkResult && (
           <div className="PointSystemAdmin-result">
             <h4>{t('bulk_result')}</h4>
-            <p>
-              <strong>{t('bulk_awarded')}:</strong> {this.bulkResult.awarded}
-            </p>
-            {this.bulkResult.errors > 0 && (
-              <p>
-                <strong>{t('bulk_errors')}:</strong> {this.bulkResult.errors}
-              </p>
+            {this.bulkResult.queued ? (
+              <p>{app.translator.trans('ramon-point-system.admin.manual.bulk_queued', { total: this.bulkResult.total })}</p>
+            ) : (
+              [
+                <p>
+                  <strong>{t('bulk_awarded')}:</strong> {this.bulkResult.awarded}
+                </p>,
+                this.bulkResult.errors > 0 && (
+                  <p>
+                    <strong>{t('bulk_errors')}:</strong> {this.bulkResult.errors}
+                  </p>
+                ),
+              ]
             )}
           </div>
         )}
@@ -187,7 +193,12 @@ export default class ManualAwardPanel extends Component {
       });
       this.bulkResult = res?.data || res;
       this.bulkConfirm = false;
-      app.alerts.show({ type: 'success' }, app.translator.trans('ramon-point-system.admin.manual.bulk_success'));
+      app.alerts.show(
+        { type: 'success' },
+        this.bulkResult?.queued
+          ? app.translator.trans('ramon-point-system.admin.manual.bulk_queued', { total: this.bulkResult.total })
+          : app.translator.trans('ramon-point-system.admin.manual.bulk_success')
+      );
     } catch (e: any) {
       app.alerts.show({ type: 'error' }, e?.response?.errors?.[0]?.detail || 'Failed');
     } finally {

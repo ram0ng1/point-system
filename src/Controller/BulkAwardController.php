@@ -6,28 +6,43 @@ namespace Ramon\PointSystem\Controller;
 
 use Flarum\Http\RequestUtil;
 use Flarum\User\User;
-use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Contracts\Queue\Queue;
+use Illuminate\Queue\SyncQueue;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use Ramon\PointSystem\Event\PointsManuallyChanged;
-use Ramon\PointSystem\Repository\PointsRepository;
+use Ramon\PointSystem\Job\BulkAwardJob;
+use Ramon\PointSystem\Service\BulkAwardRunner;
 
 /**
  * POST /api/point-system/bulk-award (admin only)
  * Body: { amount: int, reason?: string, userIds?: int[] }
  *
- * If `userIds` is omitted or empty — awards all registered users.
- * If `userIds` is provided — awards only the listed users.
+ * Sem `userIds`, o alvo é toda a base de usuários registrados.
  *
- * Processes in chunks of 100 to avoid memory issues on large forums.
+ * O trabalho é limitado por request: até {@see self::INLINE_LIMIT} usuários
+ * roda inline e devolve a contagem exata; acima disso vira uma sequência de
+ * {@see BulkAwardJob} na fila e a resposta é 202. Cada usuário custa uma
+ * transação, o sync de auto-grupos e uma notificação — percorrer dezenas de
+ * milhares deles dentro do handler estoura `request_terminate_timeout` e
+ * deixa o award aplicado pela metade, sem retorno para o admin.
  */
 class BulkAwardController implements RequestHandlerInterface
 {
+    /**
+     * Teto de usuários processados dentro da própria request.
+     */
+    protected const INLINE_LIMIT = 200;
+
+    /**
+     * Quantidade de usuários por job enfileirado.
+     */
+    protected const CHUNK = 200;
+
     public function __construct(
-        protected PointsRepository $points,
-        protected Dispatcher $events,
+        protected BulkAwardRunner $runner,
+        protected Queue $queue,
     ) {}
 
     #[\Override]
@@ -36,9 +51,9 @@ class BulkAwardController implements RequestHandlerInterface
         $actor = RequestUtil::getActor($request);
         $actor->assertCan('pointSystem.manage');
 
-        $body   = (array) $request->getParsedBody();
-        $amount = (int) ($body['amount'] ?? 0);
-        $reason = mb_substr((string) ($body['reason'] ?? 'admin.bulk'), 0, 200);
+        $body    = (array) $request->getParsedBody();
+        $amount  = (int) ($body['amount'] ?? 0);
+        $reason  = mb_substr((string) ($body['reason'] ?? 'admin.bulk'), 0, 200);
         $userIds = $body['userIds'] ?? null;
 
         if ($amount === 0) {
@@ -47,40 +62,69 @@ class BulkAwardController implements RequestHandlerInterface
 
         $amount = max(-1_000_000_000, min(1_000_000_000, $amount));
 
-        $awarded = 0;
-        $errors  = 0;
+        $query = User::query();
 
-        $process = function (User $user) use ($amount, $reason, $actor, &$awarded, &$errors): void {
-            try {
-                if ($amount > 0) {
-                    $this->points->award($user, $amount, $reason);
-                } else {
-                    $this->points->deduct($user, abs($amount), $reason);
-                }
-                $points = $this->points->getOrCreate($user);
-                $points->raise(new PointsManuallyChanged($user, $actor, $amount, $reason ?: null));
-                $this->events->dispatch($points->releaseEvents() ?? []);
-                $awarded++;
-            } catch (\Throwable) {
-                $errors++;
+        if (! empty($userIds) && is_array($userIds)) {
+            $ids = array_values(array_unique(array_filter(
+                array_map('intval', $userIds),
+                fn (int $id) => $id > 0,
+            )));
+
+            if ($ids === []) {
+                return new JsonResponse(['errors' => [['detail' => 'No valid user ids supplied']]], 422);
             }
-        };
 
-        if (!empty($userIds) && is_array($userIds)) {
-            $ids = array_map('intval', $userIds);
-            User::whereIn('id', $ids)->chunk(100, function ($users) use ($process) {
-                foreach ($users as $user) {
-                    $process($user);
-                }
-            });
-        } else {
-            User::chunk(100, function ($users) use ($process) {
-                foreach ($users as $user) {
-                    $process($user);
-                }
-            });
+            $query->whereIn('id', $ids);
         }
 
-        return new JsonResponse(['data' => ['awarded' => $awarded, 'errors' => $errors]]);
+        $total = (clone $query)->count();
+
+        if ($total === 0) {
+            return new JsonResponse(['data' => [
+                'awarded' => 0,
+                'errors'  => 0,
+                'queued'  => false,
+                'total'   => 0,
+            ]]);
+        }
+
+        if ($total <= self::INLINE_LIMIT) {
+            $result = $this->runner->run($query->cursor(), $amount, $reason, $actor);
+
+            return new JsonResponse(['data' => $result + ['queued' => false, 'total' => $total]]);
+        }
+
+        /**
+         * Sob o driver `sync` o push executa inline, então enfileirar não
+         * protegeria o worker: recusamos e apontamos a configuração que
+         * destrava o lote grande.
+         */
+        if ($this->queue instanceof SyncQueue) {
+            return new JsonResponse(['errors' => [[
+                'code'   => 'queue_required',
+                'detail' => 'This bulk award targets '.$total.' users. Configure a queue driver'
+                    .' (e.g. redis or database) and run `php flarum queue:work`, or send the'
+                    .' award in batches of at most '.self::INLINE_LIMIT.' users.',
+            ]]], 422);
+        }
+
+        $chunks = 0;
+        $actorId = (int) $actor->id;
+
+        $query->select('id')->chunkById(self::CHUNK, function ($users) use (&$chunks, $amount, $reason, $actorId) {
+            $this->queue->push(new BulkAwardJob(
+                array_map('intval', $users->pluck('id')->all()),
+                $amount,
+                $reason,
+                $actorId,
+            ));
+            $chunks++;
+        });
+
+        return new JsonResponse(['data' => [
+            'queued' => true,
+            'total'  => $total,
+            'chunks' => $chunks,
+        ]], 202);
     }
 }
