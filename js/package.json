@@ -8,7 +8,7 @@
     "flarum-tsconfig": "^2.0.0",
     "flarum-webpack-config": "^3.0.3",
     "prettier": "^3.9.6",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "webpack": "^5.109.2",
     "webpack-cli": "^7.2.2"
   },
