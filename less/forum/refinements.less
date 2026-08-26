@@ -43,7 +43,19 @@
     padding: var(--ps-space-3) var(--ps-space-4);
     background: var(--ps-surface-muted);
     border: 1px solid var(--ps-border-subtle, var(--ps-tint-3));
-    border-radius: var(--ps-radius);
+    // Mesmo token dos botões da loja (design-system.less), não um literal:
+    // trocar o raio dos botões passa a arrastar a pílula de saldo junto,
+    // que é justamente o que "arredondada como os botões" quer dizer.
+    border-radius: var(--ps-radius-pill);
+
+    // No celular a pílula vira uma coluna empilhada (user-title.less) e o
+    // raio total viraria um estádio alto. O raio base mantém o canto macio
+    // sem a silhueta estranha. Fica AQUI, e não em user-title.less, porque
+    // aquele arquivo é importado antes deste — a regra sem media query
+    // venceria por ordem de fonte e o override nunca chegaria a valer.
+    @media (max-width: 767px) {
+      border-radius: var(--ps-radius);
+    }
 
     &-item {
       display: inline-flex;

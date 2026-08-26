@@ -72,6 +72,50 @@
 }
 
 /*
+ * Variante do cartão de perfil (`UserCard.infoItems`). Ali a pílula fica
+ * sobre o hero — que em muitos temas é uma foto de capa ou um bloco
+ * saturado — e o tom primário a 12% praticamente desaparecia: relato
+ * 2026-08-25 ("o ícone de pontos mal dá pra ver"). Usa o âmbar da moeda,
+ * o mesmo de `.PointSystemProfilePill`, e sobe o peso do fundo para o
+ * contraste segurar em light, dark e sobre capa.
+ */
+.PointSystemPostBadge--inProfile {
+  background: color-mix(in srgb, var(--ps-currency) 16%, transparent);
+  /*
+   * `inherit` e NÃO `--text-color`: o `.UserCard` do core aplica o mixin
+   * `.light-contents()`, que pinta o cartão inteiro de branco por cima de
+   * um hero colorido. Cravar a cor de texto do corpo aqui daria texto
+   * escuro sobre hero escuro — o mesmo erro que a nota da
+   * `.PointSystemProfilePill` já documenta. Herdando, a pílula acompanha
+   * o que o tema decidiu para o resto dos info items.
+   */
+  color: inherit;
+  font-size: 12px;
+  padding: 2px 10px;
+
+  i {
+    color: var(--ps-currency);
+    font-size: 11px;
+  }
+
+  &:hover {
+    background: color-mix(in srgb, var(--ps-currency) 24%, transparent);
+  }
+}
+
+/*
+ * `color-mix()` só entrou no baseline em 2023; navegadores anteriores
+ * descartam a declaração inteira e a pílula ficaria sem fundo nenhum
+ * sobre o hero. O bloco só é lido onde a função falta, então declarar o
+ * fallback opaco depois da regra acima não conflita com ela.
+ */
+@supports not (background: color-mix(in srgb, red, blue)) {
+  .PointSystemPostBadge--inProfile {
+    background: rgba(230, 168, 0, 0.16);
+  }
+}
+
+/*
  * O `.PostUser-name` precisa permitir wrap para que, quando há cargo
  * + nickname + pílula de pontos + título customizado, a pílula caia
  * pra próxima linha em vez de empurrar os irmãos pra fora da viewport.

@@ -571,7 +571,8 @@
 // 2. PointSystemPostBadge takes horizontal room next to the username on
 //    a narrow header. On phone, hide it — the same balance is visible on
 //    the user profile + decorations preview, and the header row stays
-//    breathable.
+//    breathable. The `--inProfile` variant is exempt: it IS the profile
+//    copy this note points users at.
 // ──────────────────────────────────────────────────────────────────────────────
 @media (max-width: 767px) {
   // Collapse the side column entirely on phone — the inline avatar inside
@@ -593,7 +594,12 @@
     display: none !important;
   }
 
-  .PointSystemPostBadge {
+  // `:not(--inProfile)` limita o hide ao cabeçalho do post. Sem o
+  // qualificador a regra alcançava TAMBÉM a pílula que
+  // `UserCard.infoItems` injeta em /u/username, e o saldo simplesmente
+  // sumia do perfil no celular — relato 2026-08-25. O perfil tem linha
+  // própria pros info items, então lá não há disputa por espaço.
+  .PointSystemPostBadge:not(.PointSystemPostBadge--inProfile) {
     display: none !important;
   }
 }

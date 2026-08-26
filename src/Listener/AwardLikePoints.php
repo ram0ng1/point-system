@@ -4,14 +4,22 @@ declare(strict_types=1);
 
 namespace Ramon\PointSystem\Listener;
 
+use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Repository\PointsRepository;
 
 class AwardLikePoints
 {
-    public function __construct(protected PointsRepository $points) {}
+    public function __construct(
+        protected PointsRepository $points,
+        protected FeatureGate $features,
+    ) {}
 
     public function handle($event): void
     {
+        if (! $this->features->areAutoAwardsEnabled()) {
+            return;
+        }
+
         $post = $event->post;
         $liker = $event->user;
 

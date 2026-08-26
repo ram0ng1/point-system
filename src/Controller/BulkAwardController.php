@@ -12,6 +12,7 @@ use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Job\BulkAwardJob;
 use Ramon\PointSystem\Service\BulkAwardRunner;
 
@@ -43,6 +44,7 @@ class BulkAwardController implements RequestHandlerInterface
     public function __construct(
         protected BulkAwardRunner $runner,
         protected Queue $queue,
+        protected FeatureGate $features,
     ) {}
 
     #[\Override]
@@ -50,6 +52,7 @@ class BulkAwardController implements RequestHandlerInterface
     {
         $actor = RequestUtil::getActor($request);
         $actor->assertCan('pointSystem.manage');
+        $this->features->assertSystemEnabled();
 
         $body    = (array) $request->getParsedBody();
         $amount  = (int) ($body['amount'] ?? 0);

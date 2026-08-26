@@ -19,6 +19,7 @@ import UserTradesPage from './components/UserTradesPage';
 import UserPage from 'flarum/forum/components/UserPage';
 import AwardPointsModal from './components/AwardPointsModal';
 import PointsManualNotification from './components/PointsManualNotification';
+import PointsEarnedNotification from './components/PointsEarnedNotification';
 import TierClaimedNotification from './components/TierClaimedNotification';
 import ItemGrantedNotification from './components/ItemGrantedNotification';
 import TradeRequestedNotification from './components/TradeRequestedNotification';
@@ -32,10 +33,32 @@ import { safeCssUrl } from '../common/utils/safeCssUrl';
 
 declare const m: Mithril.Static;
 
-const setting = (key: string, fallback = true): boolean => {
-  const v = app.forum.attribute(key);
+/**
+ * Lê um atributo booleano do payload do fórum.
+ *
+ * `app.forum` NÃO existe durante os initializers: `Application.boot()` roda
+ * `initialize()` primeiro e só depois atribui `this.forum` a partir da store.
+ * Ler `app.forum.attribute` nesse instante estoura
+ * `Cannot read properties of undefined` e derruba o initializer inteiro da
+ * extensão — nenhuma rota, nenhum componente de notificação, nada. Daí o
+ * optional chaining com queda para o fallback.
+ */
+const settingRaw = (key: string, fallback: boolean): boolean => {
+  const v = app.forum?.attribute?.(key);
   return v === undefined || v === null ? fallback : !!v;
 };
+
+/**
+ * Toda leitura de configuração passa por aqui, sempre em tempo de RENDER
+ * (dentro dos callbacks de `extend` e do `beforeMount`) e nunca em tempo de
+ * initializer — ver `settingRaw`.
+ *
+ * A chave geral (`pointSystem.enabled`) NÃO é consultada aqui de propósito:
+ * ela desliga a CONCESSÃO de pontos, não a interface. Saldo, loja, trocas e
+ * decorações equipadas continuam à vista para o usuário gastar e usar o que
+ * já conquistou.
+ */
+const setting = (key: string, fallback = true): boolean => settingRaw(key, fallback);
 
 app.initializers.add('ramon/point-system', () => {
   // ── Routes ──────────────────────────────────────────────────────────────
@@ -53,6 +76,7 @@ app.initializers.add('ramon/point-system', () => {
 
   // ── Notification components ─────────────────────────────────────────────
   app.notificationComponents.pointsManual = PointsManualNotification;
+  app.notificationComponents.pointsEarned = PointsEarnedNotification;
   app.notificationComponents.pointSystemTierClaimed = TierClaimedNotification;
   app.notificationComponents.pointSystemItemGranted = ItemGrantedNotification;
   app.notificationComponents.pointSystemTradeRequested = TradeRequestedNotification;
@@ -60,7 +84,9 @@ app.initializers.add('ramon/point-system', () => {
   app.notificationComponents.pointSystemTradeCompleted = TradeCompletedNotification;
 
   // ── Inject the dynamic name-decoration <style> block once ───────────────
-  // Deferred: `app.forum` isn't populated until after initializers finish.
+  // Deferido: `app.forum` NÃO existe durante os initializers — `boot()` roda
+  // `initialize()` antes de popular `forum` e `session`, então qualquer
+  // leitura de atributo aqui dentro precisa acontecer no `beforeMount`.
   app.beforeMount(() => {
     injectNameDecorationStyles();
     injectTitleDecorationStyles();
@@ -74,6 +100,31 @@ app.initializers.add('ramon/point-system', () => {
     if (setting('pointSystem.hide_badges_with_avatar_deco', false)) {
       document.body.classList.add('ps-hide-badges-with-deco');
     }
+  });
+
+  // ── Opt-out por usuário em /settings ────────────────────────────────────
+  // Sem uma linha na grade, um tipo de notificação é obrigatório: o usuário
+  // recebe e não tem onde desligar. É o que sustenta o padrão "notificar em
+  // toda concessão" ser uma opção viável para o admin — quem achar barulho
+  // desliga do seu lado.
+  //
+  // A coluna de e-mail aparece desabilitada, e é o correto: o blueprint
+  // registra `alert` e `realtime`, não `email`, então a chave de preferência
+  // de e-mail não existe e o core desenha a caixa esmaecida.
+  //
+  // O alvo vai como STRING, não como classe importada. `NotificationGrid`
+  // mora num chunk assíncrono (a página de configurações é code-split), e no
+  // instante do initializer `flarum.reg.get` ainda devolve `undefined` — daí
+  // `NotificationGrid.prototype` estourar "Cannot read properties of
+  // undefined". A forma em string faz o core registrar um `reg.onLoad` e
+  // aplicar o extend quando o chunk chegar. É o mesmo caminho que
+  // flarum/subscriptions e flarum/mentions usam para esta mesma grade.
+  extend('flarum/forum/components/NotificationGrid', 'notificationTypes', function (items: any) {
+    items.add('pointsEarned', {
+      name: 'pointsEarned',
+      icon: (app.forum.attribute('pointSystem.currency_icon') as string) || 'fas fa-coins',
+      label: app.translator.trans('ramon-point-system.forum.notifications.earned_preference_label'),
+    });
   });
 
   // ── Rewards entry in the IndexSidebar nav dropdown ──────────────────────
@@ -325,7 +376,7 @@ app.initializers.add('ramon/point-system', () => {
     const user = this.attrs.user as User | undefined;
     if (!user) return;
     if (setting('pointSystem.show_in_user_profile')) {
-      items.add('pointSystem-profileBadge', pointsBadge(user), 50);
+      items.add('pointSystem-profileBadge', pointsBadge(user, 'PointSystemPostBadge--inProfile'), 50);
     }
     if (setting('pointSystem.title_deco_enabled')) {
       const node = userTitleBadge(user, 'PointSystemUserTitle--inProfile');
@@ -334,11 +385,19 @@ app.initializers.add('ramon/point-system', () => {
   });
 });
 
-function pointsBadge(user: User): Mithril.Children {
+/**
+ * Pílula de saldo. `variantClass` distingue o contexto de render: sem
+ * modificador a pílula vive no cabeçalho do post (escondida no phone, onde
+ * a linha do byline não tem folga); com `--inProfile` ela vive no cartão de
+ * perfil, onde precisa sobreviver ao breakpoint mobile e usar o âmbar da
+ * moeda em vez do tom primário do tema, que some sobre heros coloridos.
+ */
+function pointsBadge(user: User, variantClass: string = ''): Mithril.Children {
   const balance = Number(user.attribute?.('pointBalance') ?? 0);
   const icon = (app.forum.attribute('pointSystem.currency_icon') as string) || 'fas fa-coins';
+  const cls = ['PointSystemPostBadge', variantClass].filter(Boolean).join(' ');
   return (
-    <span className="PointSystemPostBadge" title={balance.toLocaleString() + ' ' + pointsLabel(app)}>
+    <span className={cls} title={balance.toLocaleString() + ' ' + pointsLabel(app)}>
       <i className={icon} aria-hidden="true" /> {balance.toLocaleString()}
     </span>
   );

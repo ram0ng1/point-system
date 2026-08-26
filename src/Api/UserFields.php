@@ -19,6 +19,39 @@ use WeakMap;
 class UserFields
 {
     /**
+     * Relações que precisam vir carregadas para serializar um usuário sem
+     * disparar query por linha. `pointsBalance` alimenta saldo e acumulado;
+     * as cinco decorações resolvem a FK equipada em slug / texto / imagem.
+     *
+     * Manifesto único consumido por extend.php (endpoints de UserResource e,
+     * com prefixo, dos recursos que incluem usuário) — duas listas soltas
+     * divergiriam no primeiro campo novo.
+     */
+    public const EAGER_LOAD = [
+        'pointsBalance',
+        'pointsBalance.avatarDecoration',
+        'pointsBalance.nameDecoration',
+        'pointsBalance.coverDecoration',
+        'pointsBalance.titleDecoration',
+        'pointsBalance.postHighlightDecoration',
+    ];
+
+    /**
+     * O mesmo manifesto com o prefixo da relação pela qual o usuário é
+     * incluído (`user`, `lastPostedUser`, `fromUser`). O EloquentBuffer só
+     * aplica eager-loads registrados como `<relação>.<caminho>`.
+     *
+     * @return string[]
+     */
+    public static function eagerLoadVia(string $relation): array
+    {
+        return array_map(
+            static fn (string $path): string => $relation . '.' . $path,
+            self::EAGER_LOAD,
+        );
+    }
+
+    /**
      * Per-User memoization of the points row. Each user serialized triggers up
      * to 14 field getters and another batch of decoration lookups; without
      * this cache every getter would hit the DB independently. WeakMap drops
@@ -76,7 +109,7 @@ class UserFields
                     if (! $id) {
                         return null;
                     }
-                    $deco = $this->decoration(AvatarDecoration::class, $id);
+                    $deco = $this->decorationFor($user, 'avatarDecoration', AvatarDecoration::class, $id);
                     // Prefer image_url (admin chose URL source) over image_path
                     // (admin uploaded a file). Both are nullable now, so the
                     // null-coalesce keeps the equipped frame visible after the
@@ -95,7 +128,7 @@ class UserFields
                     if (! $id) {
                         return null;
                     }
-                    return $this->decoration(NameDecoration::class, $id)?->slug;
+                    return $this->decorationFor($user, 'nameDecoration', NameDecoration::class, $id)?->slug;
                 }),
 
             Schema\Integer::make('equippedCoverDecorationId')
@@ -109,7 +142,7 @@ class UserFields
                     if (! $id) {
                         return null;
                     }
-                    $deco = $this->decoration(CoverDecoration::class, $id);
+                    $deco = $this->decorationFor($user, 'coverDecoration', CoverDecoration::class, $id);
                     return $deco?->image_url ?: $deco?->image_path;
                 }),
 
@@ -124,7 +157,7 @@ class UserFields
                     if (! $id) {
                         return null;
                     }
-                    return $this->decoration(TitleDecoration::class, $id)?->slug;
+                    return $this->decorationFor($user, 'titleDecoration', TitleDecoration::class, $id)?->slug;
                 }),
 
             Schema\Str::make('equippedTitleDecorationText')
@@ -134,7 +167,7 @@ class UserFields
                     if (! $id) {
                         return null;
                     }
-                    return $this->decoration(TitleDecoration::class, $id)?->title_text;
+                    return $this->decorationFor($user, 'titleDecoration', TitleDecoration::class, $id)?->title_text;
                 }),
 
             Schema\Integer::make('equippedPostHighlightDecorationId')
@@ -148,7 +181,7 @@ class UserFields
                     if (! $id) {
                         return null;
                     }
-                    return $this->decoration(PostHighlightDecoration::class, $id)?->slug;
+                    return $this->decorationFor($user, 'postHighlightDecoration', PostHighlightDecoration::class, $id)?->slug;
                 }),
 
             Schema\Arr::make('ownedDecorationIds')
@@ -193,6 +226,26 @@ class UserFields
             $this->pointsCache[$user] = $user->pointsBalance;
         }
         return $this->pointsCache[$user];
+    }
+
+    /**
+     * Resolve a decoração equipada preferindo a relação JÁ carregada em
+     * `pointsBalance` (ver {@see self::EAGER_LOAD}). Com o eager-load ativo
+     * o custo é zero query; sem ele — jobs, notificações montadas fora do
+     * ciclo de API, qualquer chamador novo — cai no `find()` memoizado
+     * abaixo em vez de quebrar.
+     *
+     * @template T of \Flarum\Database\AbstractModel
+     * @param  class-string<T>  $class
+     * @return T|null
+     */
+    protected function decorationFor(User $user, string $relation, string $class, int $id)
+    {
+        $points = $this->points($user);
+        if ($points !== null && $points->relationLoaded($relation)) {
+            return $points->getRelation($relation);
+        }
+        return $this->decoration($class, $id);
     }
 
     /**

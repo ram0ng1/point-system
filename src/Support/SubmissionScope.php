@@ -39,12 +39,9 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final class SubmissionScope
 {
-    /** @var array<string, bool> Cached per-table column-existence flag. */
-    private static array $columnCache = [];
-
     public static function apply(Builder $query, ?User $actor): void
     {
-        if (! self::columnsReady($query)) {
+        if (! SubmissionColumns::readyFor($query)) {
             return;
         }
 
@@ -59,26 +56,4 @@ final class SubmissionScope
         });
     }
 
-    /**
-     * True when the `status` column exists on the table backing this
-     * query. hasColumn issues a `SHOW COLUMNS`/`information_schema` lookup;
-     * we cache per request to avoid re-issuing it once per resource. The
-     * schema builder is taken from the query's own model connection — no
-     * facade (CLAUDE.md §54).
-     */
-    private static function columnsReady(Builder $query): bool
-    {
-        $model = $query->getModel();
-        $table = $model->getTable();
-        if (! array_key_exists($table, self::$columnCache)) {
-            try {
-                self::$columnCache[$table] = $model->getConnection()
-                    ->getSchemaBuilder()
-                    ->hasColumn($table, 'status');
-            } catch (\Throwable) {
-                self::$columnCache[$table] = false;
-            }
-        }
-        return self::$columnCache[$table];
-    }
 }

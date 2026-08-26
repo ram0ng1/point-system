@@ -51,7 +51,6 @@ class ClaimTierController implements RequestHandlerInterface
     {
         $actor = RequestUtil::getActor($request);
         $actor->assertRegistered();
-
         if (! (bool) $this->settings->get('point-system.auto_group_enabled', true)) {
             return new JsonResponse([
                 'errors' => [['code' => 'feature_disabled', 'detail' => 'Group offers are disabled.']],

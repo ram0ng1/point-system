@@ -5,14 +5,22 @@ declare(strict_types=1);
 namespace Ramon\PointSystem\Listener;
 
 use Flarum\Discussion\Event\Started;
+use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Repository\PointsRepository;
 
 class AwardDiscussionPoints
 {
-    public function __construct(protected PointsRepository $points) {}
+    public function __construct(
+        protected PointsRepository $points,
+        protected FeatureGate $features,
+    ) {}
 
     public function handle(Started $event): void
     {
+        if (! $this->features->areAutoAwardsEnabled()) {
+            return;
+        }
+
         $amount = $this->points->settingInt('point-system.points_per_discussion', 10);
         if ($amount <= 0 || ! $event->discussion->user) {
             return;

@@ -7,6 +7,7 @@ namespace Ramon\PointSystem\Listener;
 use Carbon\Carbon;
 use Flarum\User\Event\LoggedIn;
 use Illuminate\Database\ConnectionInterface;
+use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Model\UserPoints;
 use Ramon\PointSystem\Repository\PointsRepository;
 
@@ -34,10 +35,15 @@ class AwardDailyLoginBonus
     public function __construct(
         protected PointsRepository $points,
         protected ConnectionInterface $db,
+        protected FeatureGate $features,
     ) {}
 
     public function handle(LoggedIn $event): void
     {
+        if (! $this->features->areAutoAwardsEnabled()) {
+            return;
+        }
+
         $amount = $this->points->settingInt('point-system.daily_login_bonus', 0);
         if ($amount <= 0) {
             return;

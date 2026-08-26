@@ -15,7 +15,7 @@ import Button from 'flarum/common/components/Button';
 interface FieldDef {
   key: string;
   transKey: string;
-  type: 'number' | 'text' | 'bool' | 'icon';
+  type: 'number' | 'text' | 'bool' | 'icon' | 'textarea';
   defaultBool?: boolean;
 }
 interface SectionDef {
@@ -67,12 +67,21 @@ const SECTIONS: SectionDef[] = [
   {
     transKey: 'awards',
     fields: [
+      { key: 'point-system.auto_awards_enabled', transKey: 'auto_awards_enabled', type: 'bool', defaultBool: true },
       { key: 'point-system.points_per_discussion', transKey: 'points_per_discussion', type: 'number' },
       { key: 'point-system.points_per_post', transKey: 'points_per_post', type: 'number' },
       { key: 'point-system.points_per_like_received', transKey: 'points_per_like_received', type: 'number' },
       { key: 'point-system.points_per_like_given', transKey: 'points_per_like_given', type: 'number' },
       { key: 'point-system.points_per_registration', transKey: 'points_per_registration', type: 'number' },
       { key: 'point-system.daily_login_bonus', transKey: 'daily_login_bonus', type: 'number' },
+      { key: 'point-system.earn_help_extra', transKey: 'earn_help_extra', type: 'textarea' },
+    ],
+  },
+  {
+    transKey: 'award_notifications',
+    fields: [
+      { key: 'point-system.notify_on_award', transKey: 'notify_on_award', type: 'bool', defaultBool: false },
+      { key: 'point-system.notify_bonus_only', transKey: 'notify_bonus_only', type: 'bool', defaultBool: true },
     ],
   },
 ];
@@ -121,16 +130,39 @@ export default class PointsRulesPanel extends Component {
     const bools = section.fields.filter((f) => f.type === 'bool');
     const others = section.fields.filter((f) => f.type !== 'bool');
 
+    // Com "pontos por ação" desligado os valores continuam editáveis (o admin
+    // pode preparar a tabela antes de religar), mas ficam esmaecidos para não
+    // parecerem em vigor.
+    const dimmed = section.transKey === 'awards' && !this.boolValue('point-system.auto_awards_enabled', true);
+    const gridClass = 'PointSystemAdmin-fieldGrid' + (dimmed ? ' PointSystemAdmin-fieldGrid--dimmed' : '');
+
+    // "Só bônus" só governa alguma coisa com as notificações ligadas.
+    const notifyOff = section.transKey === 'award_notifications' && !this.boolValue('point-system.notify_on_award', false);
+    const toggleClass = 'PointSystemAdmin-toggleList' + (notifyOff ? ' PointSystemAdmin-toggleList--partial' : '');
+
     return (
       <div className="PointSystemAdmin-card">
         <div className="PointSystemAdmin-card-header">
           <h3>{title}</h3>
           {help && <p className="helpText">{help}</p>}
         </div>
-        {bools.length > 0 && <div className="PointSystemAdmin-toggleList">{bools.map((f) => this.renderField(f))}</div>}
-        {others.length > 0 && <div className="PointSystemAdmin-fieldGrid">{others.map((f) => this.renderField(f))}</div>}
+        {bools.length > 0 && <div className={toggleClass}>{bools.map((f) => this.renderField(f))}</div>}
+        {others.length > 0 && <div className={gridClass}>{others.map((f) => this.renderField(f))}</div>}
       </div>
     );
+  }
+
+  /**
+   * Estado atual de um booleano: edição pendente > valor salvo > default.
+   * `renderField` e `renderSection` leem daqui para não divergirem sobre o
+   * que conta como ligado ('1', 1, true e 'true' vêm todos do banco).
+   */
+  boolValue(key: string, fallback: boolean): boolean {
+    const pending = this.dirty[key];
+    if (pending !== undefined) return pending === '1' || pending === true;
+    const stored = app.data.settings[key];
+    if (stored === undefined) return fallback;
+    return stored === true || stored === '1' || stored === 1 || stored === 'true';
   }
 
   renderField(s: FieldDef) {
@@ -140,18 +172,31 @@ export default class PointsRulesPanel extends Component {
     const help = app.translator.trans(`ramon-point-system.admin.rules.${s.transKey}_help`);
 
     if (s.type === 'bool') {
-      const checked =
-        this.dirty[s.key] !== undefined
-          ? this.dirty[s.key] === '1' || this.dirty[s.key] === true
-          : stored === undefined
-            ? s.defaultBool === true
-            : stored === true || stored === '1' || stored === 1 || stored === 'true';
+      const checked = this.boolValue(s.key, s.defaultBool === true);
       return (
         <div className="PointSystemAdmin-toggleRow">
           <Switch state={checked} onchange={(v: boolean) => (this.dirty[s.key] = v ? '1' : '0')}>
             <span className="PointSystemAdmin-toggleRow-label">{label}</span>
             {help && <span className="PointSystemAdmin-toggleRow-help">{help}</span>}
           </Switch>
+        </div>
+      );
+    }
+
+    // Textarea ocupa a grade inteira — a nota do admin costuma ter duas ou
+    // três frases e ficaria espremida numa das duas colunas.
+    if (s.type === 'textarea') {
+      return (
+        <div className="Form-group PointSystemAdmin-field PointSystemAdmin-field--wide">
+          <label>{label}</label>
+          <textarea
+            className="FormControl"
+            rows="3"
+            maxlength="600"
+            value={current}
+            oninput={(e: Event) => (this.dirty[s.key] = (e.target as HTMLTextAreaElement).value)}
+          />
+          {help && <p className="helpText">{help}</p>}
         </div>
       );
     }
