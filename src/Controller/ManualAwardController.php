@@ -12,6 +12,7 @@ use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Event\PointsManuallyChanged;
 use Ramon\PointSystem\Repository\PointsRepository;
 
@@ -28,6 +29,7 @@ class ManualAwardController implements RequestHandlerInterface
     public function __construct(
         protected PointsRepository $points,
         protected Dispatcher $events,
+        protected FeatureGate $features,
     ) {}
 
     #[\Override]
@@ -35,6 +37,7 @@ class ManualAwardController implements RequestHandlerInterface
     {
         $actor = RequestUtil::getActor($request);
         $actor->assertCan('pointSystem.manage');
+        $this->features->assertSystemEnabled();
 
         $body = (array) $request->getParsedBody();
         $userId = (int) ($body['userId'] ?? 0);

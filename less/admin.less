@@ -653,7 +653,8 @@
   }
 
   &--editing {
-    grid-column: 1 / -1;
+    grid-column-start: 1;
+    grid-column-end: -1;
   }
 
   &-preview {
@@ -780,7 +781,8 @@
 
   .PointSystemAdmin-decoCard--editing .PointSystemAdmin-availability,
   .PointSystemAdmin-coverCard--editing .PointSystemAdmin-availability {
-    grid-column: 1 / -1;
+    grid-column-start: 1;
+    grid-column-end: -1;
   }
 }
 
@@ -942,6 +944,42 @@
 
     @media (max-width: 720px) {
       grid-template-columns: 1fr;
+    }
+  }
+
+  // Notificações de concessão desligadas: a chave "só bônus" continua
+  // clicável (o admin pode deixar pré-ajustada), mas perde ênfase a partir
+  // da segunda linha — a primeira É a chave que governa a seção.
+  &-toggleList--partial > *:not(:first-child) {
+    opacity: 0.55;
+  }
+
+  // Regras automáticas desligadas: os valores continuam editáveis, só perdem
+  // ênfase. `opacity` e não `pointer-events: none` — o admin ainda precisa
+  // preparar a tabela antes de religar a chave.
+  &-fieldGrid--dimmed {
+    opacity: 0.55;
+  }
+
+  // Campo que ocupa as duas colunas da grade (textarea da nota de "como
+  // ganhar pontos"). Volta a uma coluna sozinho no breakpoint estreito,
+  // onde a grade já é single-column.
+  //
+  // LONGHAND OBRIGATÓRIO. O compilador do Flarum roda less.php com
+  // `strictMath => false`, então `grid-column: 1 / -1` é lido como DIVISÃO
+  // e sai `grid-column: -1` no CSS publicado — o item vai parar na última
+  // linha da grade, nasce uma coluna implícita e TODOS os campos do card
+  // colapsam uns por cima dos outros (relato 2026-08-25). O par
+  // start/end não passa pelo avaliador aritmético. Mesma armadilha de
+  // `grid-row: 1 / 3`, que viraria `.33333333`.
+  &-field--wide {
+    grid-column-start: 1;
+    grid-column-end: -1;
+
+    textarea.FormControl {
+      min-height: 76px;
+      resize: vertical;
+      line-height: 1.5;
     }
   }
 

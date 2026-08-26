@@ -6,6 +6,7 @@ import LinkButton from 'flarum/common/components/LinkButton';
 import SelectDropdown from 'flarum/common/components/SelectDropdown';
 import type Mithril from 'mithril';
 import ConfirmPurchaseModal from './ConfirmPurchaseModal';
+import HowToEarnModal, { hasEarnHelp } from './HowToEarnModal';
 import contrastClass from '../../common/utils/contrastClass';
 
 declare const m: Mithril.Static;
@@ -178,6 +179,7 @@ export default class ShopPage extends Page {
               </LinkButton>
             </div>
           )}
+          {this.howToEarnButton()}
         </div>
 
         <nav className="PointSystemShop-nav App-titleControl">
@@ -205,6 +207,22 @@ export default class ShopPage extends Page {
           </div>
         )}
       </div>
+    );
+  }
+
+  /**
+   * Atalho para o painel "Como ganhar pontos" — a dúvida que mais chega ao
+   * suporte de quem instala a extensão. Fica fora do bloco `user &&` de
+   * propósito: quem ainda não entrou é justamente quem mais precisa saber
+   * como o saldo se forma antes de criar conta.
+   */
+  howToEarnButton(): Mithril.Children {
+    if (!hasEarnHelp()) return null;
+    const label = app.translator.trans('ramon-point-system.forum.how_to_earn.open') as string;
+    return (
+      <Button className="Button Button--link PointSystemShop-howToEarn" icon="fas fa-circle-question" onclick={() => app.modal.show(HowToEarnModal)}>
+        {label}
+      </Button>
     );
   }
 

@@ -6,6 +6,7 @@ namespace Ramon\PointSystem\Api;
 
 use Flarum\Api\Context;
 use Flarum\Api\Schema;
+use Flarum\Extension\ExtensionManager;
 use Flarum\Settings\SettingsRepositoryInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Ramon\PointSystem\FeatureGate;
@@ -18,6 +19,7 @@ use Ramon\PointSystem\Model\ShopClaim;
 use Ramon\PointSystem\Model\TitleDecoration;
 use Ramon\PointSystem\Support\CssSanitizer;
 use Ramon\PointSystem\Support\ItemAvailability;
+use Ramon\PointSystem\Support\SubmissionColumns;
 use Ramon\PointSystem\Support\SubmissionScope;
 
 /**
@@ -53,6 +55,7 @@ class ForumAttributes
     public function __construct(
         protected SettingsRepositoryInterface $settings,
         protected FeatureGate $features,
+        protected ExtensionManager $extensions,
     ) {}
 
     /**
@@ -70,17 +73,6 @@ class ForumAttributes
      * cortada — truncar em silêncio é o que §40.6 proíbe.
      */
     public const CATALOG_LIMIT = 200;
-
-    /**
-     * Cache estático da presença da coluna `creator_id` por tabela. Estado
-     * de schema NÃO depende do ator e só muda quando o admin roda migrate
-     * (que reinicia o worker em qualquer host minimamente competente), então
-     * cachear cross-request elimina 5 lookups `INFORMATION_SCHEMA` por
-     * page-load. Mesmo padrão de {@see SubmissionScope::$columnCache}.
-     *
-     * @var array<string, bool>
-     */
-    private static array $hasCreatorColumnCache = [];
 
     /**
      * Cache por-ator dos IDs possuídos agrupados por tipo. Carregado em UMA
@@ -125,20 +117,10 @@ class ForumAttributes
 
         $scopeFor = function (Builder $q, Context $context, string $itemType): Builder {
             $actor = $context->getActor();
-            $model = $q->getModel();
-            $table = $model->getTable();
-            // Cache cross-request — schema só muda em migrate, e nesse
-            // momento o worker reinicia (ver docblock de $hasCreatorColumnCache).
-            if (! array_key_exists($table, self::$hasCreatorColumnCache)) {
-                try {
-                    self::$hasCreatorColumnCache[$table] = $model->getConnection()
-                        ->getSchemaBuilder()
-                        ->hasColumn($table, 'creator_id');
-                } catch (\Throwable) {
-                    self::$hasCreatorColumnCache[$table] = false;
-                }
-            }
-            if (self::$hasCreatorColumnCache[$table]) {
+            // `creator_id` e `status` chegam na mesma migration, então a
+            // sondagem de schema é uma só para os dois usos (§38.6) e fica
+            // memoizada em SubmissionColumns.
+            if (SubmissionColumns::ready($q->getModel())) {
                 $q->with('creator');
             }
             // Owned IDs vêm pré-carregados (1 query agrupada por actor) em vez
@@ -312,6 +294,9 @@ class ForumAttributes
 
             // Per-user permissions exposed to the frontend so we can gate the
             // nav entry, the Rewards page itself, and the claim button.
+            //
+            // NÃO dependem da chave geral: com a concessão desligada a loja
+            // segue aberta para gastar o saldo que o usuário já tem.
             Schema\Boolean::make('pointSystemCanViewShop')
                 ->get(fn ($_, Context $context) => $context->getActor()->hasPermission('pointSystem.viewShop')),
 
@@ -334,6 +319,28 @@ class ForumAttributes
                     $this->features->isTradeEnabled()
                     && $context->getActor()->hasPermission('pointSystem.trade')
                 ),
+
+            /*
+             * Diz ao painel "Como ganhar pontos" se as regras de curtida
+             * valem neste fórum. As duas configurações ficam salvas mesmo
+             * sem flarum/likes instalado — anunciá-las assim mesmo faria o
+             * painel prometer pontos que nenhum listener concede.
+             */
+            /*
+             * Regras automáticas ligadas? O painel "Como ganhar pontos" troca
+             * a lista de regras pela mensagem correspondente com base neste
+             * campo, em vez de deduzir pelos valores das configurações — que
+             * continuam salvos e não dizem nada sobre o listener estar ativo.
+             *
+             * Falso também quando a chave geral está desligada; aí o painel
+             * usa a mensagem de sistema desligado, mais específica, decidida
+             * no frontend a partir de `pointSystem.enabled`.
+             */
+            Schema\Boolean::make('pointSystemAutoAwardsEnabled')
+                ->get(fn () => $this->features->areAutoAwardsEnabled()),
+
+            Schema\Boolean::make('pointSystemLikesEnabled')
+                ->get(fn () => $this->extensions->isEnabled('flarum-likes')),
 
             // User-submission feature: master toggle exposure. The "Submit
             // decoration" CTA on the forum reads this; the JSON:API Create

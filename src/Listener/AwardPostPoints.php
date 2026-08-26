@@ -6,14 +6,22 @@ namespace Ramon\PointSystem\Listener;
 
 use Flarum\Post\CommentPost;
 use Flarum\Post\Event\Posted;
+use Ramon\PointSystem\FeatureGate;
 use Ramon\PointSystem\Repository\PointsRepository;
 
 class AwardPostPoints
 {
-    public function __construct(protected PointsRepository $points) {}
+    public function __construct(
+        protected PointsRepository $points,
+        protected FeatureGate $features,
+    ) {}
 
     public function handle(Posted $event): void
     {
+        if (! $this->features->areAutoAwardsEnabled()) {
+            return;
+        }
+
         $post = $event->post;
         if (! $post instanceof CommentPost) {
             return;

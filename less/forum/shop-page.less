@@ -263,7 +263,6 @@
     padding: 8px 16px;
     background: var(--ps-surface-muted);
     border: 1px solid var(--ps-border-subtle);
-    border-radius: 999px;
     font-size: 13.5px;
     color: inherit;
 
@@ -526,5 +525,123 @@
     padding: 12px 14px;
     display: flex;
     justify-content: center;
+  }
+}
+
+
+// ─── Botão "Como ganho pontos?" no cabeçalho da loja ─────────────────────────
+// Fica logo abaixo da linha de saldo. Discreto por padrão (link, sem
+// preenchimento) porque a loja em si é o conteúdo — mas com alvo de toque
+// cheio de 44px no celular, que é onde a pergunta mais aparece.
+.PointSystemShop-howToEarn {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ps-text-muted);
+
+  > i {
+    margin-right: 6px;
+    color: var(--ps-currency);
+  }
+
+  &:hover,
+  &:focus-visible {
+    color: var(--ps-text);
+  }
+
+  @media (max-width: 767px) {
+    min-height: 44px;
+  }
+}
+
+
+// ─── Painel "Como ganhar pontos" ─────────────────────────────────────────────
+// Uma linha por regra: glifo da ação à esquerda, rótulo no meio, valor
+// alinhado à direita em numerais tabulares para as colunas de dígitos
+// baterem entre linhas.
+.PointSystemHowToEarn {
+  &-intro {
+    margin: 0 0 14px;
+    color: var(--ps-text-muted);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  &-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &-rule {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: var(--ps-radius-lg, 12px);
+    background: var(--ps-surface-sunken);
+
+    &-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      flex: 0 0 auto;
+      border-radius: var(--ps-radius-pill, 999px);
+      background: var(--ps-surface);
+      color: var(--ps-text-icon);
+      font-size: 13px;
+    }
+
+    &-label {
+      flex: 1 1 auto;
+      min-width: 0;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    &-amount {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-weight: 700;
+      font-size: 14px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+
+      i { color: var(--ps-currency); font-size: 12px; }
+    }
+  }
+
+  &-empty,
+  &-note {
+    margin: 14px 0 0;
+    padding: 10px 12px;
+    border-radius: var(--ps-radius-lg, 12px);
+    background: var(--ps-surface-sunken);
+    font-size: 13.5px;
+    line-height: 1.5;
+    // A nota do admin é texto livre — pode conter uma URL longa sem espaços.
+    // Sem isto ela alargaria o modal em vez de quebrar.
+    overflow-wrap: anywhere;
+    white-space: pre-line;
+  }
+
+  &-footer {
+    margin: 14px 0 0;
+    font-size: 12.5px;
+    color: var(--ps-text-muted);
+    line-height: 1.5;
+  }
+
+  &-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin: 16px 0 0;
   }
 }

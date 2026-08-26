@@ -12,7 +12,10 @@
 namespace Ramon\PointSystem;
 
 use Flarum\Api\Endpoint;
+use Flarum\Api\Resource\DiscussionResource;
 use Flarum\Api\Resource\ForumResource;
+use Flarum\Api\Resource\NotificationResource;
+use Flarum\Api\Resource\PostResource;
 use Flarum\Api\Resource\UserResource;
 use Flarum\Discussion\Event\Started as DiscussionStarted;
 use Flarum\Extend;
@@ -52,6 +55,10 @@ $extenders = [
         // ── Notification dispatch (mirrors verified's event→listener pattern;
         //    NotificationSyncer fans out to all drivers incl. flarum/realtime) ──
         ->listen(\Ramon\PointSystem\Event\PointsManuallyChanged::class, Listener\SendNotificationWhenPointsChanged::class)
+        // Concessão automática (pontos por ação). O evento é levantado pelo
+        // repositório em TODA mutação de saldo; o listener filtra valor
+        // positivo + motivo automático + as chaves de volume.
+        ->listen(\Ramon\PointSystem\Event\PointsAwarded::class, Listener\SendNotificationWhenPointsEarned::class)
         ->listen(\Ramon\PointSystem\Event\TierClaimed::class, Listener\SendNotificationWhenTierClaimed::class)
         ->listen(\Ramon\PointSystem\Event\ItemGranted::class, Listener\SendNotificationWhenItemGranted::class)
         ->listen(\Ramon\PointSystem\Event\TradeRequested::class, Listener\SendNotificationWhenTradeRequested::class)
@@ -67,7 +74,15 @@ $extenders = [
         ]),
 
     // ── API ──────────────────────────────────────────────────────────────────
+    /*
+     * `alert` = sino + linha na tabela `notifications`. `realtime` = push por
+     * websocket, driver que o flarum/realtime registra; nomes de driver não
+     * instalados são simplesmente ignorados no registro, então listar
+     * `realtime` aqui é seguro em fóruns sem a extensão e documenta a
+     * intenção para quem for ler.
+     */
     (new Extend\Notification())
+        ->type(\Ramon\PointSystem\Notification\PointsEarnedBlueprint::class, ['alert', 'realtime'])
         ->type(\Ramon\PointSystem\Notification\PointsManualBlueprint::class, ['alert'])
         ->type(\Ramon\PointSystem\Notification\TierClaimedBlueprint::class, ['alert'])
         ->type(\Ramon\PointSystem\Notification\ItemGrantedBlueprint::class, ['alert'])
@@ -91,7 +106,45 @@ $extenders = [
         ->fields(Api\UserFields::class)
         ->endpoint(
             [Endpoint\Index::class, Endpoint\Show::class],
-            fn (Endpoint\Index|Endpoint\Show $endpoint) => $endpoint->eagerLoad('pointsBalance')
+            fn (Endpoint\Index|Endpoint\Show $endpoint) => $endpoint->eagerLoad(Api\UserFields::EAGER_LOAD)
+        ),
+
+    /*
+     * O eager-load acima cobre SÓ /api/users. Quando o usuário chega como
+     * include de outro recurso — autor no post stream, `lastPostedUser` na
+     * lista de discussões, `fromUser` na notificação — quem manda é o
+     * endpoint em execução: o EloquentBuffer aplica
+     * `$endpoint->getEagerLoadsFor('user', ...)`, ou seja, só as relações
+     * registradas com o prefixo daquela relação.
+     *
+     * Sem estes três extenders, uma listagem de posts fazia um SELECT em
+     * `point_system_user_points` por autor distinto — e o post stream é a
+     * página mais quente do fórum. Medido com query log em 2026-08-25:
+     * 8 autores distintos = 8 queries antes, 1 depois.
+     */
+    (new Extend\ApiResource(PostResource::class))
+        ->endpoint(
+            [Endpoint\Index::class, Endpoint\Show::class],
+            fn (Endpoint\Index|Endpoint\Show $endpoint) => $endpoint->eagerLoad(
+                Api\UserFields::eagerLoadVia('user')
+            )
+        ),
+
+    (new Extend\ApiResource(DiscussionResource::class))
+        ->endpoint(
+            [Endpoint\Index::class, Endpoint\Show::class],
+            fn (Endpoint\Index|Endpoint\Show $endpoint) => $endpoint->eagerLoad(array_merge(
+                Api\UserFields::eagerLoadVia('user'),
+                Api\UserFields::eagerLoadVia('lastPostedUser'),
+            ))
+        ),
+
+    (new Extend\ApiResource(NotificationResource::class))
+        ->endpoint(
+            [Endpoint\Index::class],
+            fn (Endpoint\Index $endpoint) => $endpoint->eagerLoad(
+                Api\UserFields::eagerLoadVia('fromUser')
+            )
         ),
 
     (new Extend\ApiResource(ForumResource::class))
@@ -135,6 +188,7 @@ $extenders = [
     // ── Settings ─────────────────────────────────────────────────────────────
     (new Extend\Settings())
         ->serializeToForum('pointSystem.enabled', 'point-system.enabled', 'boolval')
+        ->serializeToForum('pointSystem.auto_awards_enabled', 'point-system.auto_awards_enabled', 'boolval')
         ->serializeToForum('pointSystem.points_per_discussion', 'point-system.points_per_discussion', 'intval')
         ->serializeToForum('pointSystem.points_per_post', 'point-system.points_per_post', 'intval')
         ->serializeToForum('pointSystem.points_per_like_received', 'point-system.points_per_like_received', 'intval')
@@ -160,7 +214,29 @@ $extenders = [
         ->serializeToForum('pointSystem.hide_badges_with_avatar_deco', 'point-system.hide_badges_with_avatar_deco', 'boolval')
         ->serializeToForum('pointSystem.trade_enabled', 'point-system.trade_enabled', 'boolval')
         ->serializeToForum('pointSystem.user_submissions_enabled', 'point-system.user_submissions_enabled', 'boolval')
+        /*
+         * Nota livre do admin exibida no painel "Como ganhar pontos". Vai
+         * como TEXTO — o frontend renderiza em nó de texto do Mithril, nunca
+         * com `m.trust`, então HTML colado aqui aparece escapado em vez de
+         * virar markup executável (CLAUDE.md §21).
+         */
+        ->serializeToForum('pointSystem.earn_help_extra', 'point-system.earn_help_extra')
         ->default('point-system.enabled', true)
+        ->default('point-system.auto_awards_enabled', true)
+        /*
+         * Notificações de concessão: DESLIGADAS por padrão. Ligar isto num
+         * fórum existente começaria a alertar todo mundo sem aviso, e sem a
+         * chave `notify_bonus_only` (ligada por padrão) seria um alerta por
+         * post e por curtida.
+         *
+         * Nenhuma das duas vai para `serializeToForum`: quem as lê é o
+         * listener no servidor e o painel admin (via `app.data.settings`).
+         * O fórum não consulta nenhuma delas, então mandá-las no payload de
+         * toda página, para todo visitante inclusive guest, seria peso sem
+         * função (§21/§38.4).
+         */
+        ->default('point-system.notify_on_award', false)
+        ->default('point-system.notify_bonus_only', true)
         ->default('point-system.points_per_discussion', 10)
         ->default('point-system.points_per_post', 5)
         ->default('point-system.points_per_like_received', 2)
@@ -185,7 +261,8 @@ $extenders = [
         ->default('point-system.avatar_deco_in_lists', true)
         ->default('point-system.hide_badges_with_avatar_deco', false)
         ->default('point-system.trade_enabled', true)
-        ->default('point-system.user_submissions_enabled', false),
+        ->default('point-system.user_submissions_enabled', false)
+        ->default('point-system.earn_help_extra', ''),
 ];
 
 // ── GDPR (opcional) ──────────────────────────────────────────────────────────
