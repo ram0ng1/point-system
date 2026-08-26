@@ -393,7 +393,21 @@ app.initializers.add('ramon/point-system', () => {
  * moeda em vez do tom primário do tema, que some sobre heros coloridos.
  */
 function pointsBadge(user: User, variantClass: string = ''): Mithril.Children {
-  const balance = Number(user.attribute?.('pointBalance') ?? 0);
+  /*
+   * `pointBalance` só é serializado para quem pode ver o saldo daquele
+   * usuário — dono, gestor, ou grupo com `pointSystem.viewOthers`
+   * (ver UserFields::canSeePoints). Para os demais o atributo vem AUSENTE.
+   *
+   * O `?? 0` de antes transformava essa ausência em "0 pontos" e a pílula
+   * anunciava zero para todo mundo, inclusive em perfis de usuários com
+   * saldo alto — informação errada, não apenas faltante. Sem permissão a
+   * pílula não é desenhada.
+   */
+  const raw = user.attribute?.('pointBalance');
+  if (raw === undefined || raw === null) return null;
+
+  const balance = Number(raw);
+  if (!Number.isFinite(balance)) return null;
   const icon = (app.forum.attribute('pointSystem.currency_icon') as string) || 'fas fa-coins';
   const cls = ['PointSystemPostBadge', variantClass].filter(Boolean).join(' ');
   return (
@@ -865,19 +879,34 @@ function registerAvocadoProfileHooks(): void {
     const user = resolveUser();
     if (!user) return;
 
+    // Mesmo contrato de `pointsBadge`: atributo ausente = sem permissão de
+    // ver o saldo, e aí não se desenha pílula nenhuma. Note que o marcador
+    // `psPoints` só é gravado DEPOIS desta checagem — se a permissão ainda
+    // não chegou (payload do usuário carregando), uma passada posterior do
+    // observador ainda pode injetar.
+    const rawBalance = user.attribute?.('pointBalance');
+    if (rawBalance === undefined || rawBalance === null) return;
+
     statsEl.dataset.psPoints = '1';
-    const balance = Number(user.attribute?.('pointBalance') ?? 0);
+    // `AvocadoUserPage-metaItem` faz a pílula herdar a tipografia e o
+    // espaçamento dos outros itens da linha ("Membro desde…", "visto há…").
+    // Sem ela o saldo aparecia com peso e cor próprios no meio de uma fila
+    // que o tema desenha uniforme.
+    const balance = Number(rawBalance);
     const rawIcon = (app.forum.attribute('pointSystem.currency_icon') as string) || 'fas fa-coins';
     // Strict allowlist on the icon class — only Font Awesome-style tokens.
     const safeIcon = /^[a-zA-Z0-9 _-]{1,80}$/.test(rawIcon) ? rawIcon : 'fas fa-coins';
 
     const pill = document.createElement('span');
-    pill.className = 'AvocadoUserPage-hero-statPill PointSystemProfilePill';
+    pill.className = 'AvocadoUserPage-metaItem PointSystemProfilePill';
     const iconEl = document.createElement('i');
     iconEl.className = safeIcon;
     iconEl.setAttribute('aria-hidden', 'true');
     pill.appendChild(iconEl);
-    pill.appendChild(document.createTextNode(' ' + balance.toLocaleString() + ' ' + pointsLabel(app)));
+    const strong = document.createElement('strong');
+    strong.textContent = balance.toLocaleString();
+    pill.appendChild(strong);
+    pill.appendChild(document.createTextNode(' ' + pointsLabel(app)));
     statsEl.appendChild(pill);
   };
 
@@ -954,11 +983,41 @@ function registerAvocadoProfileHooks(): void {
     nameEl.appendChild(chip);
   };
 
-  if (showPoints) onAdded('.AvocadoUserPage-hero-stats', injectPoints);
+  /*
+   * O hero do Avocado foi reescrito (layout estilo Facebook) e a faixa
+   * `.AvocadoUserPage-hero-stats`, onde a pílula de saldo morava, deixou de
+   * existir — o saldo simplesmente sumia do perfil, sem erro nenhum no
+   * console. O lugar equivalente agora é `.AvocadoUserPage-hero-meta`, a
+   * linha de "Membro desde…" / "visto há…".
+   *
+   * O seletor antigo fica junto de propósito: `onAdded` é um observador de
+   * DOM, casar com nada não custa nada, e quem ainda estiver numa versão
+   * anterior do tema continua vendo o saldo.
+   */
+  if (showPoints) onAdded('.AvocadoUserPage-hero-meta, .AvocadoUserPage-hero-stats', injectPoints);
   if (showName) onAdded('.AvocadoUserPage-hero-name', tagName);
   if (showTitle) onAdded('.AvocadoUserPage-hero-name', injectTitle);
   if (showCover) {
+    /*
+     * O hero é montado DUAS vezes: primeiro o esqueleto
+     * (`AvocadoUserPage-hero--skeleton`), depois o real quando o usuário
+     * chega na store. Na segunda vez o Mithril faz patch da MESMA <div> —
+     * mesma tag, mesmo lugar — então o observador de `addedNodes` não vê
+     * nada e o injetor não roda de novo. Na primeira o usuário ainda não
+     * existe, o injetor desiste, e a capa equipada nunca aparecia.
+     *
+     * Nem todo filho serve de gatilho: o esqueleto já traz `-hero-inner`,
+     * `-hero-bar` e `-hero-identity`, que portanto também são patcheados.
+     * Os nós abaixo só existem no render real (o esqueleto põe `-shimmer--*`
+     * no lugar deles), então são nós NOVOS de verdade — o observador vê, e
+     * `closest()` devolve o hero já com o usuário na store. O seletor do
+     * próprio hero fica junto para o caso de ele nascer pronto.
+     */
     onAdded('.AvocadoUserPage-hero', injectCover);
+    onAdded('.AvocadoUserPage-hero-nameRow, .AvocadoUserPage-hero-avatarWrap, .AvocadoUserPage-hero-meta', (el) => {
+      const hero = el.closest('.AvocadoUserPage-hero');
+      if (hero) injectCover(hero);
+    });
     // Also cover Flarum core's UserPage hero (used on default theme + many
     // other themes). UserCard is handled by our `extend(UserCard, 'view')`.
     onAdded('.UserPage .Hero, .UserHero', injectCover);

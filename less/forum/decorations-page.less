@@ -121,7 +121,34 @@
 // background that the theme's existing rules can build on top of.
 .UserHero.ps-has-cover,
 .UserCard.ps-has-cover,
-.AvocadoUserPage-hero.ps-has-cover {
+.AvocadoUserPage-hero.ps-has-cover:not(:has(> .AvocadoUserPage-cover)) {
+  background-image: var(--ps-cover-url);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+/*
+ * O hero do Avocado passou a desenhar a capa num FILHO próprio
+ * (`.AvocadoUserPage-cover`, 200px, com gradiente): pintar só o fundo do
+ * pai deixava a capa equipada atrás desse elemento, invisível — o usuário
+ * comprava a decoração e não via nada (relato 2026-08-26).
+ *
+ * Pintar no elemento do tema é o que faz a decoração ocupar a faixa que o
+ * tema reserva para capa, com o mesmo enquadramento. `::after` do tema (o
+ * brilho radial) continua por cima, então a capa não fica chapada.
+ *
+ * E o hero em si deixa de ser pintado quando esse filho existe (o
+ * `:not(:has(...))` na regra acima): pintar a raiz cobria também a faixa de
+ * identidade — nome, @handle e "Membro desde" iam parar EM CIMA da imagem,
+ * ilegíveis. Quem não tem o elemento do tema (Flarum padrão, Avocado
+ * anterior, outros temas) continua caindo na regra da raiz.
+ *
+ * PRECEDÊNCIA: isto ganha de `--user-cover`, a capa que o
+ * forumaker/profile-cover publica. É deliberado — a decoração é um item
+ * que o usuário escolheu equipar, e desequipar devolve a capa anterior.
+ */
+.AvocadoUserPage-hero.ps-has-cover .AvocadoUserPage-cover {
   background-image: var(--ps-cover-url);
   background-position: center;
   background-size: cover;
