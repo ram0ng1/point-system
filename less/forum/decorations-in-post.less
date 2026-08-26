@@ -303,6 +303,19 @@
 // All variants anchor to the AVATAR'S TOP-RIGHT CORNER (matching Flarum
 // core's canonical position — see vendor/flarum/core/less/forum/Post.less
 // L83 + L436).
+// ESCOPO (2026-08-26): tudo abaixo vale SÓ quando o tema não está
+// desenhando os badges por conta própria — `html.avocado-badges--custom`
+// ausente. O Avocado ganhou posições de badge configuráveis (`inline`,
+// `below`, `side`, `side_icons`): nelas cada badge vira uma cápsula com o
+// nome do grupo, e em `side`/`side_icons` a lista é uma COLUNA centrada
+// abaixo do avatar, dentro de `.Post-side-inner`.
+//
+// Reancorar aquilo no canto superior direito, em linha e sem quebra, é o
+// que fazia as cápsulas saírem pela lateral da página (relato 2026-08-25).
+// O `:not()` devolve o layout ao tema nessas posições e mantém esta
+// correção onde ela nasceu: no badge-disco do core, a posição `default`
+// do Avocado e qualquer outro tema.
+//
 // Specificity-bumped to beat BOTH competing Avocado rules regardless of
 // load order:
 //  - forum/Post.less:90 `.Post-side .PostUser-badges--inSide` (0,2,0)
@@ -321,12 +334,12 @@
   position: relative;
 }
 
-.Page.DiscussionPage .CommentPost .Post-side .PostUser-badges,
-.Page.DiscussionPage .CommentPost .Post-side .PostUser-badges--inSide,
-.Page.DiscussionPage .CommentPost .Post-side > .badges,
-.Page.DiscussionPage .CommentPost .Post-side-inner .PostUser-badges,
-.Page.DiscussionPage .CommentPost .Post-side-inner .PostUser-badges--inSide,
-.Page.DiscussionPage .CommentPost .Post-side-inner > .badges {
+html:not(.avocado-badges--custom) .Page.DiscussionPage .CommentPost .Post-side .PostUser-badges,
+html:not(.avocado-badges--custom) .Page.DiscussionPage .CommentPost .Post-side .PostUser-badges--inSide,
+html:not(.avocado-badges--custom) .Page.DiscussionPage .CommentPost .Post-side > .badges,
+html:not(.avocado-badges--custom) .Page.DiscussionPage .CommentPost .Post-side-inner .PostUser-badges,
+html:not(.avocado-badges--custom) .Page.DiscussionPage .CommentPost .Post-side-inner .PostUser-badges--inSide,
+html:not(.avocado-badges--custom) .Page.DiscussionPage .CommentPost .Post-side-inner > .badges {
   position: absolute !important;
   top: -4px !important;
   right: 0 !important;
