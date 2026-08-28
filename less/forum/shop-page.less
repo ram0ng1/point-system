@@ -7,42 +7,63 @@
 
 
 // ─── Section nav (Shop + Decorations) ────────────────────────────────────────
-// Uses Flarum core's `.sideNav` infrastructure so we inherit the bottom-sheet
-// dropdown behaviour on `@phone` (defined in core/less/common/Dropdown.less)
-// and the .Dropdown--expanded() expansion on tablet+. We then layer Avocado-
-// inspired styling on top: pill-shaped tabs with a circular icon chip on
-// tablet+, centred trigger button + rounded bottom-sheet on phone.
+// Inherits Flarum core's bottom-sheet dropdown behaviour on `@phone` (defined in
+// core/less/common/Dropdown.less) and layers Avocado-inspired styling on top:
+// pill-shaped tabs with a circular icon chip on tablet+, native header trigger
+// + rounded bottom-sheet on phone.
 //
-// Wrapper carries `App-titleControl` so Flarum core's phone media query
-// (common/App.less L86) absolute-positions the trigger into the page header
-// — same trick avocado uses for its IndexPage SelectDropdown. We then
-// neutralize the absolute positioning on tablet+ so the inline pill row
-// can render in normal flow.
+// A MARCAÇÃO segue o core no rc.8 (`UserPage.sidebar()` + `IndexSidebar.items()`):
+// `<nav><ul><li><SelectDropdown class="App-titleControl">`. Quem carrega
+// `App-titleControl` é o SelectDropdown, não o <nav>, e isso não é detalhe: o
+// core arranca esse elemento para a barra do topo no telefone (common/App.less
+// L29-125: `position: absolute`, `fixed` sob `.App.affix`, `top: 0`,
+// `left: 50%`, `margin-left: -100px`, `width: 200px`) e pinta a pílula do
+// cabeçalho via `App-titleControl > .Button` — filho DIRETO. O SelectDropdown
+// renderiza o botão como filho direto de si mesmo, então tudo encaixa sem uma
+// linha de CSS nossa.
+//
+// O que NÃO copiamos do core é a classe `.sideNav`: ela descreve uma nav de
+// COLUNA lateral e traz `width: var(--sidebar-width, 190px)` no desktop
+// (common/sideNav.less L58), o que empilha nossa linha de abas numa coluna de
+// 190px (relato 2026-08). A expansão em pílulas que o `.sideNav` daria de graça
+// via `.Dropdown--expanded()` já é feita pelas regras de `@tablet-up` abaixo.
+//
+// Até 2026-08 a extensão punha `App-titleControl` no <nav> e remendava o visual
+// do gatilho à mão — e duas regras da própria extensão desmontavam o arranjo:
+// um `margin: 20px auto` sem media query aqui (zera o `margin-left: -100px` do
+// core e tira o controle do centro) e um `position: static !important` em
+// `design-system.less`, que fecha a cascata, devolvendo o wrapper ao fluxo
+// abaixo de 768px. O gatilho nunca chegava à barra do topo e, no corpo da
+// página, continuava pintado com as cores DO CABEÇALHO: claro sobre claro,
+// invisível. Resultado: /rewards sem navegação nenhuma no telefone (relato
+// 2026-08, "o avocado não tem link móvel"). As duas regras foram removidas.
+//
+// INVARIANTE: a caixa do `-select` (o elemento com `App-titleControl`) só pode
+// ser tocada dentro de um `@media`. Uma regra sem media query também vale no
+// telefone e, com a mesma especificidade do core mas carregada depois, refaz
+// exatamente aquele estrago.
 .PointSystemShop-nav,
 .PointSystemDecorations-nav {
-  // Breathing room above the nav so the live-preview hero (rendered just
-  // above) doesn't sit flush against the dropdown / pill row.
-  margin: 20px auto;
+  // Reset da lista em TODAS as larguras: sem a classe `.sideNav` o core não
+  // zera mais o <ul>, e a margem/recuo padrão do navegador abriria um vão —
+  // inclusive no telefone, onde o <ul> fica vazio porque o dropdown foi para o
+  // cabeçalho.
+  > ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
 
   // ─── Tablet+ : tabs expanded inline (horizontal pill row) ────────────────
-  // App-titleControl is `position: absolute !important; top: 0` on phone
-  // (Flarum core) — neutralize on tablet+ so our nav lands in normal flow.
-  // We dropped the `.container` class to avoid fighting App-titleControl on
-  // phone, so re-apply the container's max-width here so the pill row stays
-  // centered with the rest of the page.
+  // Aqui o core não posiciona nada, então a caixa é nossa: respiro acima (para
+  // o hero de pré-visualização não encostar na linha de pílulas) e o
+  // `max-width` do `.container` que o wrapper não usa, para a linha ficar no
+  // mesmo eixo do resto da página.
   @media @tablet-up {
-    &.App-titleControl {
-      position: static !important;
-      width: auto !important;
-      max-width: 1080px;
-      left: auto !important;
-      right: auto !important;
-      top: auto !important;
-      margin: 20px auto !important;
-      padding-left: 16px;
-      padding-right: 16px;
-      text-align: center;
-    }
+    margin: 20px auto;
+    max-width: 1080px;
+    padding: 0 16px;
+    text-align: center;
 
     .Dropdown-toggle { display: none; }
 
@@ -121,60 +142,21 @@
     }
   }
 
-  // ─── Phone : centered trigger button + rounded bottom-sheet menu ─────────
-  // The wrapper carries `App-titleControl`, so Flarum core's
-  // common/App.less rules (position: absolute; top: 0; left: 50%;
-  // margin-left: -100px; width: 200px) float the toggle into the page
-  // header bar — same look as UserPage's native tab-selector. We must NOT
-  // add a competing `margin` here on phone: any shorthand `margin: 0 auto`
-  // overrides Flarum's `margin-left: -100px` and breaks the centring math.
+  // ─── Telefone : gatilho na barra do topo + bottom-sheet arredondado ──────
+  // O gatilho não é estilizado aqui, de propósito. Com `App-titleControl` no
+  // SelectDropdown, `App-titleControl > .Button` (common/App.less L39-125)
+  // alcança o botão e o core entrega tudo pronto: transparente, na altura da
+  // barra, 16px, fonte do fórum, `--header-color`. É o mesmo controle que todas
+  // as outras páginas mostram no telefone, e é assim que tem de ler.
   //
-  // Flarum core's "header pill" styling lives in `App-titleControl > .Button`
-  // (direct child) in common/App.less L39-51. SelectDropdown wraps the
-  // button in `.ButtonGroup.Dropdown`, so the `>` combinator misses it and
-  // the Button keeps its default opaque-pill background. Re-apply the
-  // same transparent/no-shadow header-bar look manually for our nested
-  // structure — visually identical to UserPage's tab selector pill.
+  // Uma regra de estilo nossa por aqui é sinal de que algo está sobrescrevendo
+  // o core — foi o caso da linguagem de botão da página (pílula, peso 600,
+  // tracking), que alcançava este botão e o fazia destoar. Isso se resolve na
+  // origem: ver o reset de `.Dropdown-toggle.Button` em design-system.less.
+  //
+  // O menu é o bottom-sheet nativo (`position: fixed`, slide-up com backdrop);
+  // só repintamos os itens para bater com o resto da extensão.
   @media @phone {
-    .Dropdown-toggle.Button {
-      float: none;
-      background: transparent !important;
-      box-shadow: none !important;
-      border: none !important;
-      height: var(--header-height-phone);
-      width: 100%;
-      padding: 13px !important;
-      margin: 0 !important;
-      color: var(--header-color) !important;
-      font-size: 16px;
-      // Match Flarum core's header nav weight (normal, not the .Button
-      // base weight of 500/bold that themes often inherit). The default
-      // `.Button` class on most Flarum themes lands at ~500-700; we want
-      // the lighter look of the native UserPage tab selector.
-      font-weight: normal !important;
-      overflow: hidden;
-      text-overflow: ellipsis;
-
-      &:hover, &:focus {
-        background: transparent !important;
-        box-shadow: none !important;
-      }
-      &:active { opacity: 0.5; }
-
-      > .Button-label {
-        display: block;
-        text-align: center;
-        font-weight: normal !important;
-      }
-      .Button-label .Button-labelText {
-        font-weight: normal !important;
-      }
-      .Button-caret {
-        margin-left: 6px;
-        opacity: 0.7;
-      }
-    }
-
     .Dropdown-menu {
       border-radius: 18px 18px 0 0;
       padding-bottom: 18px;
@@ -533,8 +515,18 @@
 // Fica logo abaixo da linha de saldo. Discreto por padrão (link, sem
 // preenchimento) porque a loja em si é o conteúdo — mas com alvo de toque
 // cheio de 44px no celular, que é onde a pergunta mais aparece.
+//
+// `display: flex` não é decorativo: o botão é renderizado logo depois da
+// pílula de saldo, que é `inline-flex`. Como o `<button>` do core também é
+// inline, os dois caíam na MESMA linha do cabeçalho e o atalho disputava
+// atenção com o painel de saldo (relato 2026-08). Em caixa flex o botão
+// quebra para a linha de baixo, e as margens automáticas devolvem o centro
+// que o `text-align` do cabeçalho deixa de aplicar a um bloco.
 .PointSystemShop-howToEarn {
-  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  margin: 12px auto 0;
   font-size: 13px;
   font-weight: 600;
   color: var(--ps-text-muted);
@@ -639,9 +631,18 @@
     line-height: 1.5;
   }
 
+  // O painel tem uma ação só, então o botão ocupa a linha inteira: fecha a
+  // leitura no mesmo eixo do conteúdo e vira alvo confortável no telefone,
+  // em vez de um botão estreito encostado na borda direita (relato 2026-08).
   &-actions {
     display: flex;
-    justify-content: flex-end;
     margin: 16px 0 0;
+
+    > .Button {
+      flex: 1 1 auto;
+      width: 100%;
+      justify-content: center;
+      text-align: center;
+    }
   }
 }

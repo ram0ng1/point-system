@@ -12,6 +12,8 @@
 // "square button in one corner, round in another" inconsistency reported.
 // Radius is `--ps-radius` (14px) so our buttons match Avocado's `.Button`
 // radius everywhere on the forum.
+//
+// EXCEÇÃO, logo abaixo: o gatilho da nav (`.Dropdown-toggle`). Ver o porquê lá.
 .PointSystemShop,
 .PointSystemDecorations,
 .PointSystemTradesPage,
@@ -52,6 +54,31 @@
     &:focus-visible {
       outline: none;
       box-shadow: var(--ps-ring);
+    }
+  }
+
+  // O gatilho da nav fica FORA da linguagem de botão da página. No telefone o
+  // core arranca esse botão daqui e o prende na barra do topo
+  // (`App-titleControl`, common/App.less L29-125): ele deixa de ser um botão DA
+  // loja e passa a ser o controle de navegação do fórum, que tem de ler igual
+  // ao "Todas as Discussões" de qualquer outra página — fonte e tamanho padrão.
+  // Pílula, peso 600 e tracking apertado são a linguagem dos botões DENTRO da
+  // página; ali eles engordavam e apertavam o rótulo, que destoava do resto do
+  // fórum e ainda truncava na caixa de 200px (relato 2026-08). O `transform` do
+  // hover era pior ainda: mexia um elemento fixo no cabeçalho.
+  //
+  // O SelectDropdown da nav é o ÚNICO `.Dropdown-toggle` destas superfícies, e
+  // acima de 768px ele nem é renderizado — a regra não alcança mais nada. Um
+  // dropdown novo por aqui precisa da própria regra; não relaxe este seletor.
+  .Dropdown-toggle.Button {
+    border-radius: 0;
+    font-weight: inherit;
+    letter-spacing: normal;
+    transition: none;
+
+    &:hover:not(:disabled),
+    &:active:not(:disabled) {
+      transform: none;
     }
   }
 }
@@ -804,12 +831,11 @@ body:has(.PointSystemTradeModal) .ModalManager-invisibleBackdrop {
     margin-right: 0;
   }
 
-  .PointSystemDecorations .PointSystemDecorations-nav.App-titleControl {
-    position: static !important;
-    top: auto !important;
-    right: auto !important;
-    margin-bottom: 8px;
-  }
+  // NÃO devolva aqui um `position: static` ao wrapper da nav. Era o que estas
+  // regras faziam até 2026-08, e como esta fatia fecha a cascata elas venciam:
+  // o seletor de abas nunca chegava à barra do topo no telefone. O
+  // posicionamento é do core e a estrutura que o alimenta está documentada no
+  // cabeçalho da nav em shop-page.less.
 
   .PointSystemDecorations-pageHeader {
     flex-direction: column;
@@ -820,13 +846,6 @@ body:has(.PointSystemTradeModal) .ModalManager-invisibleBackdrop {
     }
   }
 
-  .PointSystemShop .PointSystemShop-nav.App-titleControl {
-    position: static !important;
-    top: auto !important;
-    right: auto !important;
-    padding: 0 12px;
-    margin-bottom: 8px;
-  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

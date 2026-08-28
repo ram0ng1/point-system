@@ -182,14 +182,28 @@ export default class ShopPage extends Page {
           {this.howToEarnButton()}
         </div>
 
-        <nav className="PointSystemShop-nav App-titleControl">
-          <SelectDropdown
-            className="PointSystemShop-nav-select"
-            buttonClassName="Button"
-            accessibleToggleLabel={app.translator.trans('ramon-point-system.forum.shop.toggle_nav_label')}
-          >
-            {this.navItems(avatarEnabled, nameEnabled, coverEnabled, titleEnabled, postHlEnabled, tiers.length > 0)}
-          </SelectDropdown>
+        {/* `App-titleControl` vai no PRÓPRIO SelectDropdown, dentro de `<ul><li>`,
+            como o core faz no rc.8 (UserPage.sidebar / IndexSidebar.items). É
+            esse elemento que o core arranca para a barra do topo no telefone, e
+            a pílula de cabeçalho dele é `App-titleControl > .Button` — filho
+            DIRETO. Com a classe no <nav> o combinador `>` não alcançava o botão
+            e a extensão remendava o visual à mão.
+            Sem a classe `.sideNav` do core, de propósito: ela é para nav de
+            COLUNA lateral e fixa `width: 190px` no desktop (sideNav.less L58),
+            o que empilharia nossa linha de abas. A expansão em pílulas é feita
+            pelo nosso próprio CSS. */}
+        <nav className="PointSystemShop-nav">
+          <ul>
+            <li>
+              <SelectDropdown
+                className="PointSystemShop-nav-select App-titleControl"
+                buttonClassName="Button"
+                accessibleToggleLabel={app.translator.trans('ramon-point-system.forum.shop.toggle_nav_label')}
+              >
+                {this.navItems(avatarEnabled, nameEnabled, coverEnabled, titleEnabled, postHlEnabled, tiers.length > 0)}
+              </SelectDropdown>
+            </li>
+          </ul>
         </nav>
 
         {this.tab === 'tiers' ? (
