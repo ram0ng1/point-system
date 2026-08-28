@@ -140,14 +140,19 @@ export default class DecorationsPage extends Page {
             chip uses the same component the post header renders. */}
         {this.renderLivePreview(user, equippedNameSlug)}
 
-        <nav className="PointSystemDecorations-nav App-titleControl">
-          <SelectDropdown
-            className="PointSystemDecorations-nav-select"
-            buttonClassName="Button"
-            accessibleToggleLabel={app.translator.trans('ramon-point-system.forum.my_decorations.toggle_nav_label')}
-          >
-            {this.navItems(avatarEnabled, nameEnabled, coverEnabled, titleEnabled, postHlEnabled)}
-          </SelectDropdown>
+        {/* Mesma estrutura de registro da loja — ver o comentário em ShopPage. */}
+        <nav className="PointSystemDecorations-nav">
+          <ul>
+            <li>
+              <SelectDropdown
+                className="PointSystemDecorations-nav-select App-titleControl"
+                buttonClassName="Button"
+                accessibleToggleLabel={app.translator.trans('ramon-point-system.forum.my_decorations.toggle_nav_label')}
+              >
+                {this.navItems(avatarEnabled, nameEnabled, coverEnabled, titleEnabled, postHlEnabled)}
+              </SelectDropdown>
+            </li>
+          </ul>
         </nav>
 
         {this.tab === 'all' && (
