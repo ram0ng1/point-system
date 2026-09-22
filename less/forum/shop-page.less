@@ -616,7 +616,7 @@
     padding: 10px 12px;
     border-radius: var(--ps-radius-lg, 12px);
     background: var(--ps-surface-sunken);
-    font-size: 13.5px;
+    font-size: 14px;
     line-height: 1.5;
     // A nota do admin é texto livre — pode conter uma URL longa sem espaços.
     // Sem isto ela alargaria o modal em vez de quebrar.
@@ -624,9 +624,12 @@
     white-space: pre-line;
   }
 
+  // Mesmo corpo do `-intro`: as duas linhas de prose emolduram a lista de
+  // regras e liam em tamanhos diferentes, o que fazia a de baixo parecer
+  // rodapé legal em vez da continuação da explicação.
   &-footer {
     margin: 14px 0 0;
-    font-size: 12.5px;
+    font-size: 14px;
     color: var(--ps-text-muted);
     line-height: 1.5;
   }

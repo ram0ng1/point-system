@@ -9,7 +9,7 @@
 // ─── Confirm-purchase modal ───────────────────────────────────────────────────
 // Minimal layout — preview chip on top, item name, then a small ledger of
 // (price / current / after) so the user sees exactly what they're committing
-// to. Pill-shaped buttons aligned right to match Flarum's other modals.
+// to. Pill-shaped buttons on a single centred row at the foot.
 .ConfirmPurchaseModal {
   &-body {
     padding: 16px 20px 20px;
@@ -68,16 +68,29 @@
       border-top: 1px solid var(--control-bg-darker, var(--ps-tint-2));
     }
   }
+}
 
-  &-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin: 0;
+// Par de ações do confirm-purchase: uma linha só, centrada no modal, cancelar
+// à esquerda e confirmar à direita. O seletor é escrito por extenso porque
+// precisa vencer duas regras alheias sobre o MESMO elemento: o `.Form-group`
+// do core (common/Form.less L56) empilha em coluna com `align-items:
+// flex-start`, e `refinements.less` devolve `margin-bottom` com 0,3,0.
+.ConfirmPurchaseModal .Modal-body .Form-group.ConfirmPurchaseModal-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 4px 0 0;
 
-    .Button {
-      min-width: 96px;
-    }
+  > .Button {
+    // Larguras iguais até o teto, para o par ler como um bloco centrado em
+    // vez de dois botões de tamanhos diferentes encostados um no outro.
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 180px;
+    justify-content: center;
+    text-align: center;
   }
 }
 
